@@ -82,7 +82,13 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
 }
 
 - (void)beginTrackingWithInitialWindowInfo:(NSDictionary *)windowInfo {
-    if (!windowInfo || ![self matchesCurrentFirefoxWindow:windowInfo]) return;
+    // The active-window observer gives us a generic "window" record on application
+    // activation. Re-read it here so every Firefox capture starts from the canonical
+    // browser-shaped record (browser: firefox, type: browser), rather than allowing
+    // a generic Firefox application event to override a page-specific OCR result.
+    NSDictionary *currentFirefoxWindow = [self frontmostFirefoxWindowInfo];
+    if (!currentFirefoxWindow) return;
+    windowInfo = currentFirefoxWindow;
     if (_isFirefoxActive) {
         BOOL changed = ![_lastKnownWindowInfo[@"id"] isEqual:windowInfo[@"id"]] ||
           ![_lastKnownWindowInfo[@"title"] isEqualToString:windowInfo[@"title"]];
