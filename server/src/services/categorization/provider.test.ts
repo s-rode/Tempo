@@ -12,8 +12,8 @@ afterEach(() => {
 
 const goals = { dailyGoal: 'Study Gaussian Processes', weeklyGoal: '', lifeGoal: '' };
 const categories = [
-  { name: 'Work', description: 'Goal-related study' },
-  { name: 'Distraction', description: 'Unrelated entertainment' },
+  { name: 'Work', description: 'Goal-related study', isProductive: true },
+  { name: 'Distraction', description: 'Unrelated entertainment', isProductive: false },
 ];
 const activity = {
   ownerName: 'Firefox',
@@ -25,19 +25,32 @@ const activity = {
 };
 
 describe('OllamaClassificationProvider', () => {
-  test('uses local structured output and trims reasoning to twenty words', async () => {
+  test('uses local structured output and trims reasoning to twenty-five words', async () => {
     process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
     globalThis.fetch = (async (_url: unknown, init: RequestInit | undefined) => {
       const request = JSON.parse(String(init?.body));
       expect(request.stream).toBe(false);
       expect(request.options.temperature).toBe(0);
-      expect(request.format.required).toEqual(['chosenCategoryName', 'reasoning']);
+      expect(request.format.required).toEqual([
+        'chosenCategoryName',
+        'confidence',
+        'activityLabel',
+        'activitySummary',
+        'reasoning',
+        'nudgeTitle',
+        'nudgeBody'
+      ]);
       return new Response(
         JSON.stringify({
           message: {
             content: JSON.stringify({
               chosenCategoryName: 'Work',
-              reasoning: 'one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one',
+              confidence: 0.9,
+              activityLabel: 'Gaussian Process tutorial',
+              activitySummary: 'Studying Gaussian Process regression.',
+              reasoning: 'a a a a a a a a a a a a a a a a a a a a a a a a a a',
+              nudgeTitle: null,
+              nudgeBody: null
             }),
           },
         }),
@@ -48,7 +61,7 @@ describe('OllamaClassificationProvider', () => {
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result.status).toBe('ollama');
     expect(result.choice?.chosenCategoryName).toBe('Work');
-    expect(result.choice?.reasoning.split(/\s+/)).toHaveLength(20);
+    expect(result.choice?.reasoning.split(/\s+/)).toHaveLength(25);
   });
 
   test('rejects non-loopback Ollama URLs', async () => {

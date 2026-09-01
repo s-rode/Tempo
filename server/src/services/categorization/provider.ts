@@ -9,6 +9,8 @@ import {
 export type ClassificationStatus =
   | 'history'
   | 'ollama'
+  | 'manual'
+  | 'manual_rule'
   | 'ollama_unavailable'
   | 'invalid_response'
   | 'ocr_unavailable'
@@ -17,7 +19,7 @@ export type ClassificationStatus =
 export interface ClassificationProvider {
   classify(
     userGoals: UserGoals,
-    userCategories: Pick<CategoryType, 'name' | 'description'>[],
+    userCategories: Pick<CategoryType, 'name' | 'description' | 'isProductive'>[],
     activityDetails: Pick<
       ActiveWindowDetails,
       'ownerName' | 'title' | 'url' | 'content' | 'type' | 'browser'
@@ -45,15 +47,28 @@ const responseSchema = {
   additionalProperties: false,
   properties: {
     chosenCategoryName: { type: 'string' },
+    confidence: { type: 'number', minimum: 0, maximum: 1 },
+    activityLabel: { type: 'string', maxLength: 60 },
+    activitySummary: { type: 'string', maxLength: 120 },
     reasoning: { type: 'string' },
+    nudgeTitle: { type: ['string', 'null'], maxLength: 80 },
+    nudgeBody: { type: ['string', 'null'], maxLength: 180 },
   },
-  required: ['chosenCategoryName', 'reasoning'],
+  required: [
+    'chosenCategoryName',
+    'confidence',
+    'activityLabel',
+    'activitySummary',
+    'reasoning',
+    'nudgeTitle',
+    'nudgeBody',
+  ],
 };
 
 export class OllamaClassificationProvider implements ClassificationProvider {
   async classify(
     userGoals: UserGoals,
-    userCategories: Pick<CategoryType, 'name' | 'description'>[],
+    userCategories: Pick<CategoryType, 'name' | 'description' | 'isProductive'>[],
     activityDetails: Pick<
       ActiveWindowDetails,
       'ownerName' | 'title' | 'url' | 'content' | 'type' | 'browser'
@@ -103,8 +118,19 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         console.error('Ollama classification response failed schema validation:', parsed.error);
         return { choice: null, status: 'invalid_response' };
       }
-      const reasoning = parsed.data.reasoning.trim().split(/\s+/).slice(0, 20).join(' ');
-      return { choice: { ...parsed.data, reasoning }, status: 'ollama' };
+      const clip = (value: string, limit: number): string => value.trim().slice(0, limit).trim();
+      const reasoning = clip(parsed.data.reasoning.split(/\s+/).slice(0, 25).join(' '), 180);
+      return {
+        choice: {
+          ...parsed.data,
+          activityLabel: clip(parsed.data.activityLabel, 60),
+          activitySummary: clip(parsed.data.activitySummary, 120),
+          reasoning,
+          nudgeTitle: parsed.data.nudgeTitle ? clip(parsed.data.nudgeTitle, 80) : null,
+          nudgeBody: parsed.data.nudgeBody ? clip(parsed.data.nudgeBody, 180) : null,
+        },
+        status: 'ollama',
+      };
     } catch (error) {
       console.error('Ollama classification is unavailable or invalid:', error);
       return { choice: null, status: 'ollama_unavailable' };
