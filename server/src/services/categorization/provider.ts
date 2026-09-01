@@ -10,7 +10,9 @@ export type ClassificationStatus =
   | 'history'
   | 'ollama'
   | 'ollama_unavailable'
-  | 'invalid_response';
+  | 'invalid_response'
+  | 'ocr_unavailable'
+  | 'insufficient_context';
 
 export interface ClassificationProvider {
   classify(
