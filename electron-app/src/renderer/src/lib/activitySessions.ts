@@ -162,6 +162,7 @@ const foldBriefProductiveSessions = (sessions: ActivitySessionBlock[]): Activity
         !folded.has(sessions.indexOf(candidate)) &&
         candidate.isProductive === true &&
         candidate.categoryId === session.categoryId &&
+        candidate.ownerName === session.ownerName &&
         !statusIsManual(candidate.classificationStatus)
     )
     if (!candidates.length) continue

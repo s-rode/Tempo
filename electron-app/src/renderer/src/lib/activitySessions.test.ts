@@ -107,16 +107,24 @@ describe('activity sessions', () => {
   })
 
   test('folds a brief productive transition without changing totals', () => {
-    const first = block({ durationMs: 120_000, endTime: new Date(base + 120_000) })
+    const first = block({
+      ownerName: 'Google Chrome',
+      title: 'Study notes',
+      url: 'https://local.test/study',
+      durationMs: 120_000,
+      endTime: new Date(base + 120_000),
+      originalEvent: { ...block().originalEvent, ownerName: 'Google Chrome', title: 'Study notes', browser: 'chrome' }
+    })
     const brief = block({
-      ownerName: 'Notes',
-      title: 'Notes',
-      activityKey: 'app:notes',
-      activityLabel: 'Notes',
+      ownerName: 'Google Chrome',
+      title: 'Quick reference',
+      url: 'https://local.test/reference',
+      activityKey: 'chrome:reference',
+      activityLabel: 'Quick reference',
       durationMs: 20_000,
       startTime: new Date(base + 120_000),
       endTime: new Date(base + 140_000),
-      originalEvent: { ...first.originalEvent, ownerName: 'Notes', title: 'Notes', type: 'window', browser: null }
+      originalEvent: { ...first.originalEvent, title: 'Quick reference', browser: 'chrome' }
     })
     const sessions = buildActivitySessions([first, brief])
     expect(sessions).toHaveLength(1)
