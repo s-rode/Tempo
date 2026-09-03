@@ -40,10 +40,14 @@ async function rememberTab(tabId, reason, documentId, forceInvalidate = false) {
   const tab = await browser.tabs.get(tabId)
   if (tab.incognito) return
   const previous = states.get(key(tabId))
-  const navigationGeneration = !forceInvalidate && previous && previous.url === tab.url && previous.documentId === documentId
+  // tabs.onActivated does not supply documentId. Resolve the stable identity
+  // before comparing it, otherwise every app/tab activation looks like a new
+  // document and prevents an exact navigation-cache hit.
+  const effectiveDocumentId = documentId || previous?.documentId || `${tab.id}:initial`
+  const navigationGeneration = !forceInvalidate && previous && previous.url === tab.url && previous.documentId === effectiveDocumentId
     ? previous.navigationGeneration
     : (previous?.navigationGeneration || 0) + 1
-  const state = { ...tab, documentId: documentId || previous?.documentId || `${tab.id}:${navigationGeneration}`, navigationGeneration }
+  const state = { ...tab, documentId: effectiveDocumentId, navigationGeneration }
   states.set(key(tabId), state)
   send(state, reason)
 }
