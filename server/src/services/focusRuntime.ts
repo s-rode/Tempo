@@ -89,6 +89,7 @@ const advancePhase = (runtime: RuntimeDocument, now: number) => {
 export const advanceRuntime = (runtime: RuntimeDocument, now = Date.now()) => {
   if (runtime.manualPauseUntilMs && now >= runtime.manualPauseUntilMs && !hasSystemSuspension(runtime)) {
     runtime.manualPauseUntilMs = null;
+    runtime.manualPausedAtMs = null;
     resumePhase(runtime, now);
   }
   const current = currentPhase(runtime);
@@ -144,6 +145,7 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
     suspension: {
       reasons,
       pausedUntilMs: runtime.manualPauseUntilMs || null,
+      manualPausedAtMs: runtime.manualPausedAtMs || null,
       suspendedAtMs: runtime.systemSuspendedAtMs || null,
     },
     run: runtime.run?.state === 'active' ? runValue : null,
@@ -173,7 +175,10 @@ export async function setSystemSuspension(userId: string, kind: 'lock' | 'unlock
     runtime.awaitingSystemResumeCapture = true;
   }
   if (!hasSystemSuspension(runtime) && !runtime.awaitingSystemResumeCapture && (!runtime.manualPauseUntilMs || now >= runtime.manualPauseUntilMs)) {
-    if (runtime.manualPauseUntilMs && now >= runtime.manualPauseUntilMs) runtime.manualPauseUntilMs = null;
+    if (runtime.manualPauseUntilMs && now >= runtime.manualPauseUntilMs) {
+      runtime.manualPauseUntilMs = null;
+      runtime.manualPausedAtMs = null;
+    }
     resumePhase(runtime, now);
   }
   await saveRuntime(runtime);
@@ -187,7 +192,10 @@ export async function resumeAfterSystemCapture(userId: string) {
   const now = Date.now();
   runtime.awaitingSystemResumeCapture = false;
   if (!runtime.manualPauseUntilMs || now >= runtime.manualPauseUntilMs) {
-    if (runtime.manualPauseUntilMs && now >= runtime.manualPauseUntilMs) runtime.manualPauseUntilMs = null;
+    if (runtime.manualPauseUntilMs && now >= runtime.manualPauseUntilMs) {
+      runtime.manualPauseUntilMs = null;
+      runtime.manualPausedAtMs = null;
+    }
     resumePhase(runtime, now);
   }
   await saveRuntime(runtime);

@@ -50,6 +50,7 @@ struct StatusPayload: Codable {
   let trackingState: String?
   let suspensionReasons: [String]?
   let suspendedAtMs: Double?
+  let pausedUntilMs: Double?
   let phaseRemainingMs: Double?
   let phaseDurationMs: Double?
   let phaseGoal: String?
@@ -151,7 +152,7 @@ final class NotchController: NSObject, ObservableObject {
     categoryDetails: nil, availableCategories: [], activityName: nil,
     activitySummary: nil, activityUrl: nil, categoryReasoning: nil,
     classificationStatus: nil, nudgeTitle: nil, nudgeBody: nil, eventIds: [],
-    runtimeMode: "normal", trackingState: "normal", suspensionReasons: [], suspendedAtMs: nil,
+    runtimeMode: "normal", trackingState: "normal", suspensionReasons: [], suspendedAtMs: nil, pausedUntilMs: nil,
     phaseRemainingMs: nil, phaseDurationMs: nil, phaseGoal: nil, phaseKind: nil, phaseIndex: nil
   )
   @Published var expanded = false
@@ -391,34 +392,35 @@ struct TimerPill: View {
   let label: String
   let value: String
   let active: Bool
+  let paused: Bool
   let color: Color
 
   var body: some View {
     HStack(spacing: 6) {
       Circle()
-        .fill(active ? color : Color.white.opacity(0.25))
+        .fill(paused ? Color.white.opacity(0.22) : active ? color : Color.white.opacity(0.25))
         .frame(width: 8, height: 8)
-        .shadow(color: active ? color.opacity(0.78) : .clear, radius: active ? 4 : 0)
+        .shadow(color: !paused && active ? color.opacity(0.78) : .clear, radius: !paused && active ? 4 : 0)
       Text(value)
         .font(.system(size: 16, weight: .medium, design: .rounded).monospacedDigit())
         .contentTransition(.numericText())
     }
-    .foregroundStyle(active ? .white : Color.white.opacity(0.68))
+    .foregroundStyle(paused ? Color.white.opacity(0.48) : active ? .white : Color.white.opacity(0.68))
     .frame(width: pillWidth, height: pillHeight)
     .background {
       let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
       ZStack {
-        shape.fill(Color.black.opacity(active ? 0.78 : 0.70))
+        shape.fill(Color.black.opacity(paused ? 0.58 : active ? 0.78 : 0.70))
         shape.fill(
           LinearGradient(colors: [Color.white.opacity(0.12), Color.clear], startPoint: .top, endPoint: .bottom)
         )
-        shape.stroke(Color.white.opacity(active ? 0.22 : 0.14), lineWidth: 0.75)
-        shape.stroke(active ? color.opacity(0.58) : Color.clear, lineWidth: 1.0)
+        shape.stroke(Color.white.opacity(paused ? 0.10 : active ? 0.22 : 0.14), lineWidth: 0.75)
+        shape.stroke(!paused && active ? color.opacity(0.58) : Color.clear, lineWidth: 1.0)
       }
     }
-    .shadow(color: active ? color.opacity(0.20) : Color.black.opacity(0.20), radius: active ? 7 : 4, y: 2)
-    .scaleEffect(active ? 1 : 0.985)
-    .animation(.easeOut(duration: 0.22), value: active)
+    .shadow(color: !paused && active ? color.opacity(0.20) : Color.black.opacity(0.20), radius: !paused && active ? 7 : 4, y: 2)
+    .scaleEffect(!paused && active ? 1 : 0.985)
+    .animation(.easeOut(duration: 0.22), value: active || paused)
     .accessibilityLabel("\(label) \(value)")
   }
 }
@@ -471,6 +473,13 @@ struct NotchRootView: View {
           total > 0 else { return 0 }
     return min(1, max(0, CGFloat((total - remaining) / total)))
   }
+  private var isManualPause: Bool {
+    (controller.status.suspensionReasons ?? []).contains("manual_pause")
+  }
+  private var pauseRemaining: String? {
+    guard isManualPause, let until = controller.status.pausedUntilMs else { return nil }
+    return format(max(0, until - controller.now.timeIntervalSince1970 * 1000))
+  }
 
   var body: some View {
     GeometryReader { proxy in
@@ -491,9 +500,9 @@ struct NotchRootView: View {
             .offset(y: controller.geometry.menuBarHeight + 5)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
-        TimerPill(label: "Focused", value: format(productiveTime), active: controller.status.latestStatus == "productive", color: .green)
+        TimerPill(label: "Focused", value: format(productiveTime), active: controller.status.latestStatus == "productive", paused: isManualPause, color: .green)
           .position(x: notchLeft - notchGap - pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
-        TimerPill(label: controller.status.latestStatus == "maybe" ? "Uncertain" : "Distracted", value: format(distractedTime), active: controller.status.latestStatus == "unproductive", color: statusColor(controller.status.latestStatus))
+        TimerPill(label: controller.status.latestStatus == "maybe" ? "Uncertain" : "Distracted", value: format(distractedTime), active: controller.status.latestStatus == "unproductive", paused: isManualPause, color: statusColor(controller.status.latestStatus))
           .position(x: notchLeft + controller.geometry.notchWidth + notchGap + pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
         if controller.status.runtimeMode != "normal" {
           Capsule()
@@ -526,23 +535,32 @@ struct NotchRootView: View {
             Text(goal).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
           }
           Spacer()
-          if let phaseRemaining = controller.status.phaseRemainingMs { Text("\(formatRemaining(phaseRemaining)) left").font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.75)) }
+          if let pauseRemaining {
+            Text("\(pauseRemaining) paused").font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.72))
+          } else if let phaseRemaining = controller.status.phaseRemainingMs {
+            Text("\(formatRemaining(phaseRemaining)) left").font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.75))
+          }
         }
       }
-      HStack(spacing: 7) {
-        Text(controller.status.activityName ?? "Waiting for activity")
-          .font(.system(size: 14, weight: .semibold, design: .rounded)).foregroundStyle(.white).lineLimit(1)
-        if let category = controller.status.categoryDetails {
-          Text(category.name).font(.caption.weight(.semibold)).foregroundStyle(statusColor(controller.status.latestStatus)).lineLimit(1)
+      if isManualPause {
+        Text("Activity monitoring, local AI, sounds, and nudges are paused.")
+          .font(.caption).foregroundStyle(.white.opacity(0.72)).lineLimit(1)
+      } else {
+        HStack(spacing: 7) {
+          Text(controller.status.activityName ?? "Waiting for activity")
+            .font(.system(size: 14, weight: .semibold, design: .rounded)).foregroundStyle(.white).lineLimit(1)
+          if let category = controller.status.categoryDetails {
+            Text(category.name).font(.caption.weight(.semibold)).foregroundStyle(statusColor(controller.status.latestStatus)).lineLimit(1)
+          }
         }
-      }
-      if let summary = controller.status.activitySummary {
-        Text(summary).font(.caption).foregroundStyle(.white.opacity(0.78)).lineLimit(1)
-      }
-      if controller.status.latestStatus == "unproductive", let nudge = controller.status.nudgeBody {
-        Text(nudge).font(.caption2).foregroundStyle(.red.opacity(0.95)).lineLimit(1)
-      } else if let reasoning = controller.status.categoryReasoning {
-        Text("Why: \(reasoning)").font(.caption2).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
+        if let summary = controller.status.activitySummary {
+          Text(summary).font(.caption).foregroundStyle(.white.opacity(0.78)).lineLimit(1)
+        }
+        if controller.status.latestStatus == "unproductive", let nudge = controller.status.nudgeBody {
+          Text(nudge).font(.caption2).foregroundStyle(.red.opacity(0.95)).lineLimit(1)
+        } else if let reasoning = controller.status.categoryReasoning {
+          Text("Why: \(reasoning)").font(.caption2).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
+        }
       }
       HStack(spacing: 7) {
         Button(controller.chooserOpen ? "Cancel" : "Reclassify") {

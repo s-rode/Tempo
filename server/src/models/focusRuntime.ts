@@ -38,6 +38,7 @@ const focusRuntimeSchema = new Schema(
     userId: { type: String, required: true, unique: true, index: true },
     run: { type: focusRunSchema, default: null },
     manualPauseUntilMs: { type: Number, default: null },
+    manualPausedAtMs: { type: Number, default: null },
     systemLocked: { type: Boolean, default: false },
     systemSleeping: { type: Boolean, default: false },
     systemSuspendedAtMs: { type: Number, default: null },

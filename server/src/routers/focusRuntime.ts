@@ -46,6 +46,7 @@ export const focusRuntimeRouter = router({
       if (runtime.run?.state === 'active') throw new TRPCError({ code: 'CONFLICT', message: 'Finish the current focus session first.' });
       runtime.run = createCustomRun(input.goal, input.durationMinutes);
       runtime.manualPauseUntilMs = null;
+      runtime.manualPausedAtMs = null;
       await saveRuntime(runtime);
       return runtimeSnapshot(runtime);
     }),
@@ -57,6 +58,7 @@ export const focusRuntimeRouter = router({
       if (runtime.run?.state === 'active') throw new TRPCError({ code: 'CONFLICT', message: 'Finish the current focus session first.' });
       runtime.run = createPomodoroRun(input.firstGoal);
       runtime.manualPauseUntilMs = null;
+      runtime.manualPausedAtMs = null;
       await saveRuntime(runtime);
       return runtimeSnapshot(runtime);
     }),
@@ -84,6 +86,7 @@ export const focusRuntimeRouter = router({
       const now = Date.now();
       freezePhase(runtime, now);
       runtime.manualPauseUntilMs = now + input.durationMinutes * 60_000;
+      runtime.manualPausedAtMs = now;
       await saveRuntime(runtime);
       return runtimeSnapshot(runtime, now);
     }),
@@ -91,6 +94,7 @@ export const focusRuntimeRouter = router({
   resume: publicProcedure.input(tokenInput).mutation(async ({ input }) => {
     const runtime = await runtimeFor(input.token);
     runtime.manualPauseUntilMs = null;
+    runtime.manualPausedAtMs = null;
     resumePhase(runtime, Date.now());
     await saveRuntime(runtime);
     return runtimeSnapshot(runtime);
@@ -121,6 +125,7 @@ export const focusRuntimeRouter = router({
     const runtime = await runtimeFor(input.token);
     if (runtime.run?.state === 'active') completeRun(runtime, Date.now(), 'cancelled');
     runtime.manualPauseUntilMs = null;
+    runtime.manualPausedAtMs = null;
     await saveRuntime(runtime);
     return runtimeSnapshot(runtime);
   }),

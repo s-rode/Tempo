@@ -27,6 +27,7 @@ export interface FloatingStatusUpdate {
   trackingState?: 'normal' | 'active' | 'paused' | 'break'
   suspensionReasons?: string[]
   suspendedAtMs?: number | null
+  pausedUntilMs?: number | null
   phaseRemainingMs?: number | null
   phaseDurationMs?: number | null
   phaseGoal?: string | null
