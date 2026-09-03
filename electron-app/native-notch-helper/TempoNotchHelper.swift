@@ -361,33 +361,29 @@ private struct NotchMorphShape: Shape {
   }
 }
 
-/**
- * A restrained native-material surface. The dark tint keeps the companion
- * legible against any wallpaper while the material and highlight retain the
- * surrounding desktop's depth rather than reading as a flat black window.
- */
+/** A deterministic, shape-clipped dark glass surface for both macOS appearances. */
 private struct LiquidGlassSurface<S: Shape>: View {
   let shape: S
   let expanded: Bool
 
   var body: some View {
     ZStack {
-      shape.fill(.ultraThinMaterial)
-      shape.fill(Color.black.opacity(expanded ? 0.34 : 0.26))
+      // Do not use Material here: AppKit can composite it over the full
+      // hosting view, which appears as a milky rectangle on light desktops.
+      shape.fill(Color.black.opacity(expanded ? 0.84 : 0.78))
       shape.fill(
         LinearGradient(
-          colors: [Color.white.opacity(expanded ? 0.15 : 0.12), Color.white.opacity(0.035), Color.clear],
+          colors: [Color.white.opacity(expanded ? 0.13 : 0.10), Color.white.opacity(0.025), Color.clear],
           startPoint: .top,
           endPoint: .bottom
         )
       )
-      shape.stroke(Color.white.opacity(expanded ? 0.22 : 0.18), lineWidth: 0.8)
-      shape.stroke(Color.black.opacity(0.28), lineWidth: 2.0)
-        .blur(radius: 1.2)
-        .offset(y: 1)
-        .mask(shape)
+      shape.stroke(Color.white.opacity(expanded ? 0.20 : 0.16), lineWidth: 0.8)
+      shape.stroke(Color.black.opacity(0.52), lineWidth: 1.25)
     }
-    .shadow(color: Color.black.opacity(expanded ? 0.38 : 0.24), radius: expanded ? 18 : 8, y: expanded ? 8 : 3)
+    .compositingGroup()
+    .clipShape(shape)
+    .shadow(color: Color.black.opacity(expanded ? 0.32 : 0.20), radius: expanded ? 14 : 5, y: expanded ? 6 : 2)
   }
 }
 
@@ -412,10 +408,9 @@ struct TimerPill: View {
     .background {
       let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
       ZStack {
-        shape.fill(.ultraThinMaterial)
-        shape.fill(Color.black.opacity(active ? 0.24 : 0.18))
+        shape.fill(Color.black.opacity(active ? 0.78 : 0.70))
         shape.fill(
-          LinearGradient(colors: [Color.white.opacity(0.14), Color.clear], startPoint: .top, endPoint: .bottom)
+          LinearGradient(colors: [Color.white.opacity(0.12), Color.clear], startPoint: .top, endPoint: .bottom)
         )
         shape.stroke(Color.white.opacity(active ? 0.22 : 0.14), lineWidth: 0.75)
         shape.stroke(active ? color.opacity(0.58) : Color.clear, lineWidth: 1.0)
@@ -440,9 +435,9 @@ private struct NotchActionStyle: ButtonStyle {
       .background {
         let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
         ZStack {
-          shape.fill(.thinMaterial)
-          shape.fill(tint.opacity(configuration.isPressed ? 0.42 : 0.20))
-          shape.fill(LinearGradient(colors: [Color.white.opacity(0.13), Color.clear], startPoint: .top, endPoint: .bottom))
+          shape.fill(Color.black.opacity(configuration.isPressed ? 0.72 : 0.62))
+          shape.fill(tint.opacity(configuration.isPressed ? 0.35 : 0.17))
+          shape.fill(LinearGradient(colors: [Color.white.opacity(0.10), Color.clear], startPoint: .top, endPoint: .bottom))
           shape.stroke(Color.white.opacity(0.16), lineWidth: 0.75)
           shape.stroke(tint.opacity(configuration.isPressed ? 0.78 : 0.46), lineWidth: 0.9)
         }
@@ -566,14 +561,21 @@ struct NotchRootView: View {
           Button("Resume") { controller.requestFocusAction("resume") }
             .buttonStyle(NotchActionStyle(tint: .green))
         } else if controller.status.trackingState == "active" || controller.status.trackingState == "normal" {
-          Menu("Pause") {
+          Menu {
             ForEach([1, 5, 20, 30, 60, 120], id: \.self) { minutes in
               Button(minutes < 60 ? "\(minutes) min" : "\(minutes / 60) hour\(minutes == 60 ? "" : "s")") {
                 controller.requestFocusAction("pause", durationMinutes: minutes)
               }
             }
+          } label: {
+            HStack(spacing: 4) {
+              Text("Pause")
+              Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+            }
+            .foregroundStyle(.white)
           }
           .menuStyle(.borderlessButton)
+          .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
           .frame(width: 54)
         }
         if controller.status.trackingState == "break" {
