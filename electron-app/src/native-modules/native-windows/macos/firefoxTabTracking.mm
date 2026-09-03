@@ -13,6 +13,7 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
 @property (nonatomic, assign) BOOL isCaptureInFlight;
 @property (nonatomic, assign) NSUInteger captureGeneration;
 @property (nonatomic, retain) NSMutableDictionary *navigationByWindowId;
+@property (nonatomic, retain) NSMutableDictionary *navigationByTitle;
 @end
 
 @implementation FirefoxTabTracking
@@ -24,12 +25,31 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
     [_pendingReason release];
     [_capturingWindowInfo release];
     [_navigationByWindowId release];
+    [_navigationByTitle release];
     [super dealloc];
 }
 
 - (NSMutableDictionary *)navigationByWindowId {
     if (!_navigationByWindowId) _navigationByWindowId = [[NSMutableDictionary alloc] init];
     return _navigationByWindowId;
+}
+
+- (NSMutableDictionary *)navigationByTitle {
+    if (!_navigationByTitle) _navigationByTitle = [[NSMutableDictionary alloc] init];
+    return _navigationByTitle;
+}
+
+// Firefox's WebExtension windowId is not the CGWindowID exposed by macOS.
+// Bind extension metadata to the frontmost matching native window, and retain
+// a title fallback for messages that arrive while Firefox is backgrounded.
+- (NSDictionary *)navigationForWindowInfo:(NSDictionary *)windowInfo {
+    NSString *nativeWindowKey = [windowInfo[@"id"] stringValue];
+    NSDictionary *navigation = self.navigationByWindowId[nativeWindowKey];
+    if (navigation) return navigation;
+    NSString *title = windowInfo[@"title"] ?: @"";
+    navigation = self.navigationByTitle[title];
+    if (navigation) self.navigationByWindowId[nativeWindowKey] = navigation;
+    return navigation;
 }
 
 - (NSDictionary *)frontmostFirefoxWindowInfo {
@@ -129,7 +149,7 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
 }
 
 - (void)scheduleCaptureForWindowInfo:(NSDictionary *)windowInfo reason:(NSString *)reason {
-    NSDictionary *navigation = self.navigationByWindowId[[windowInfo[@"id"] stringValue]];
+    NSDictionary *navigation = [self navigationForWindowInfo:windowInfo];
     NSString *fingerprint = navigation[@"fingerprint"];
     NSString *windowTitle = windowInfo[@"title"] ?: @"";
     if (fingerprint && [navigation[@"title"] isEqualToString:windowTitle]) {
@@ -158,13 +178,14 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
 }
 
 - (void)setNavigationState:(NSDictionary *)navigationState {
-    NSNumber *windowId = navigationState[@"windowId"];
     NSString *title = navigationState[@"title"];
     NSString *fingerprint = navigationState[@"navigationFingerprint"];
-    if (!windowId || !title || !fingerprint) return;
-    self.navigationByWindowId[[windowId stringValue]] = @{ @"title": title, @"fingerprint": fingerprint };
+    if (!title || !fingerprint) return;
+    NSDictionary *navigation = @{ @"title": title, @"fingerprint": fingerprint };
+    self.navigationByTitle[title] = navigation;
     NSDictionary *current = [self frontmostFirefoxWindowInfo];
-    if (self.isFirefoxActive && current && [current[@"id"] isEqual:windowId] && [current[@"title"] isEqualToString:title]) {
+    if (self.isFirefoxActive && current && [current[@"title"] isEqualToString:title]) {
+        self.navigationByWindowId[[current[@"id"] stringValue]] = navigation;
         [self scheduleCaptureForWindowInfo:current reason:@"firefox_activation"];
     }
 }
@@ -212,7 +233,7 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
             NSMutableDictionary *event = [windowInfo mutableCopy];
             event[@"contentSource"] = @"ocr";
             event[@"contentCaptureStatus"] = status;
-            NSDictionary *navigation = self.navigationByWindowId[[windowInfo[@"id"] stringValue]];
+            NSDictionary *navigation = [self navigationForWindowInfo:windowInfo];
             if (navigation[@"fingerprint"]) event[@"navigationFingerprint"] = navigation[@"fingerprint"];
             if (text.length > 0) event[@"content"] = text;
             [self.delegate firefoxTabDidCapture:event reason:reason];
