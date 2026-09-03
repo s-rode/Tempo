@@ -1,0 +1,11 @@
+{
+  "manifest_version": 2,
+  "name": "Kronus Local Navigation Companion",
+  "version": "1.0.0",
+  "description": "Supplies local tab navigation identity to the locally installed Kronus app. It never reads page content.",
+  "permissions": ["tabs", "webNavigation", "nativeMessaging"],
+  "background": { "scripts": ["background.js"], "persistent": true },
+  "browser_specific_settings": {
+    "gecko": { "id": "kronus-firefox@local.invalid", "strict_min_version": "109.0" }
+  }
+}

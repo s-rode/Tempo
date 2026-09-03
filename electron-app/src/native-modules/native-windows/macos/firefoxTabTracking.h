@@ -13,5 +13,7 @@
 
 - (void)beginTrackingWithInitialWindowInfo:(NSDictionary *)windowInfo;
 - (void)stopFirefoxTabTimer;
+- (void)setNavigationState:(NSDictionary *)navigationState;
+- (void)captureNavigationForWindowId:(NSNumber *)windowId title:(NSString *)title fingerprint:(NSString *)fingerprint;
 
 @end

@@ -12,6 +12,7 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
 @property (nonatomic, retain) NSDictionary *capturingWindowInfo;
 @property (nonatomic, assign) BOOL isCaptureInFlight;
 @property (nonatomic, assign) NSUInteger captureGeneration;
+@property (nonatomic, retain) NSMutableDictionary *navigationByWindowId;
 @end
 
 @implementation FirefoxTabTracking
@@ -22,7 +23,13 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
     [_pendingWindowInfo release];
     [_pendingReason release];
     [_capturingWindowInfo release];
+    [_navigationByWindowId release];
     [super dealloc];
+}
+
+- (NSMutableDictionary *)navigationByWindowId {
+    if (!_navigationByWindowId) _navigationByWindowId = [[NSMutableDictionary alloc] init];
+    return _navigationByWindowId;
 }
 
 - (NSDictionary *)frontmostFirefoxWindowInfo {
@@ -122,12 +129,57 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
 }
 
 - (void)scheduleCaptureForWindowInfo:(NSDictionary *)windowInfo reason:(NSString *)reason {
+    NSDictionary *navigation = self.navigationByWindowId[[windowInfo[@"id"] stringValue]];
+    NSString *fingerprint = navigation[@"fingerprint"];
+    NSString *windowTitle = windowInfo[@"title"] ?: @"";
+    if (fingerprint && [navigation[@"title"] isEqualToString:windowTitle]) {
+        NSUInteger generation = ++_captureGeneration;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (!self.isFirefoxActive || generation != self.captureGeneration || ![self matchesCurrentFirefoxWindow:windowInfo]) return;
+            NSMutableDictionary *event = [windowInfo mutableCopy];
+            event[@"navigationFingerprint"] = fingerprint;
+            event[@"contentCaptureStatus"] = @"navigation_pending";
+            if (self.delegate && [self.delegate respondsToSelector:@selector(firefoxTabDidCapture:reason:)]) {
+                [self.delegate firefoxTabDidCapture:event reason:reason];
+            }
+            [event release];
+        });
+        return;
+    }
     [_pendingWindowInfo release];
     _pendingWindowInfo = [windowInfo copy];
     [_pendingReason release];
     _pendingReason = [reason copy];
     NSUInteger generation = ++_captureGeneration;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (!self.isFirefoxActive || generation != self.captureGeneration) return;
+        [self startPendingCaptureIfPossible];
+    });
+}
+
+- (void)setNavigationState:(NSDictionary *)navigationState {
+    NSNumber *windowId = navigationState[@"windowId"];
+    NSString *title = navigationState[@"title"];
+    NSString *fingerprint = navigationState[@"navigationFingerprint"];
+    if (!windowId || !title || !fingerprint) return;
+    self.navigationByWindowId[[windowId stringValue]] = @{ @"title": title, @"fingerprint": fingerprint };
+    NSDictionary *current = [self frontmostFirefoxWindowInfo];
+    if (self.isFirefoxActive && current && [current[@"id"] isEqual:windowId] && [current[@"title"] isEqualToString:title]) {
+        [self scheduleCaptureForWindowInfo:current reason:@"firefox_activation"];
+    }
+}
+
+- (void)captureNavigationForWindowId:(NSNumber *)windowId title:(NSString *)title fingerprint:(NSString *)fingerprint {
+    NSDictionary *current = [self frontmostFirefoxWindowInfo];
+    if (!self.isFirefoxActive || !current || ![current[@"id"] isEqual:windowId] || ![current[@"title"] isEqualToString:title]) return;
+    NSDictionary *navigation = self.navigationByWindowId[[windowId stringValue]];
+    if (!navigation || ![navigation[@"fingerprint"] isEqualToString:fingerprint]) return;
+    [_pendingWindowInfo release];
+    _pendingWindowInfo = [current copy];
+    [_pendingReason release];
+    _pendingReason = [@"firefox_tab_switch" copy];
+    NSUInteger generation = ++_captureGeneration;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (!self.isFirefoxActive || generation != self.captureGeneration) return;
         [self startPendingCaptureIfPossible];
     });
@@ -160,6 +212,8 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
             NSMutableDictionary *event = [windowInfo mutableCopy];
             event[@"contentSource"] = @"ocr";
             event[@"contentCaptureStatus"] = status;
+            NSDictionary *navigation = self.navigationByWindowId[[windowInfo[@"id"] stringValue]];
+            if (navigation[@"fingerprint"]) event[@"navigationFingerprint"] = navigation[@"fingerprint"];
             if (text.length > 0) event[@"content"] = text;
             [self.delegate firefoxTabDidCapture:event reason:reason];
             [event release];
