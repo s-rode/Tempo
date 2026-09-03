@@ -4,7 +4,7 @@ import CoreGraphics
 import Foundation
 import SwiftUI
 
-private let protocolVersion = 2
+private let protocolVersion = 3
 private let panelWidth: CGFloat = 520
 private let panelHeight: CGFloat = 180
 private let expandedPanelHeight: CGFloat = 170
@@ -46,6 +46,14 @@ struct StatusPayload: Codable {
   let nudgeTitle: String?
   let nudgeBody: String?
   let eventIds: [String]?
+  let runtimeMode: String?
+  let trackingState: String?
+  let suspensionReasons: [String]?
+  let phaseRemainingMs: Double?
+  let phaseDurationMs: Double?
+  let phaseGoal: String?
+  let phaseKind: String?
+  let phaseIndex: Int?
 }
 
 struct CommandEnvelope: Codable {
@@ -55,6 +63,8 @@ struct CommandEnvelope: Codable {
   let requestId: String?
   let ok: Bool?
   let message: String?
+  let action: String?
+  let durationMinutes: Int?
 }
 
 final class KronusNotchPanel: NSPanel {
@@ -139,7 +149,9 @@ final class NotchController: NSObject, ObservableObject {
     productiveStreakMs: 0, distractedStreakMs: 0, statusStartedAtMs: nil,
     categoryDetails: nil, availableCategories: [], activityName: nil,
     activitySummary: nil, activityUrl: nil, categoryReasoning: nil,
-    classificationStatus: nil, nudgeTitle: nil, nudgeBody: nil, eventIds: []
+    classificationStatus: nil, nudgeTitle: nil, nudgeBody: nil, eventIds: [],
+    runtimeMode: "normal", trackingState: "normal", suspensionReasons: [],
+    phaseRemainingMs: nil, phaseDurationMs: nil, phaseGoal: nil, phaseKind: nil, phaseIndex: nil
   )
   @Published var expanded = false
   @Published var now = Date()
@@ -255,6 +267,12 @@ final class NotchController: NSObject, ObservableObject {
     emit(type: "recategorize", extra: ["requestId": requestId, "categoryId": category.id, "eventIds": ids])
   }
 
+  func requestFocusAction(_ action: String, durationMinutes: Int? = nil) {
+    var payload: [String: Any] = ["action": action]
+    if let durationMinutes { payload["durationMinutes"] = durationMinutes }
+    emit(type: "focusCommand", extra: payload)
+  }
+
   func receiveRecategorizationResult(_ command: CommandEnvelope) {
     recategorizeMessage = command.ok == true ? "Recategorized" : (command.message ?? "Could not recategorize")
     if command.ok == true {
@@ -314,6 +332,11 @@ private func statusColor(_ value: String?) -> Color {
   case "unproductive": return .red
   default: return .orange
   }
+}
+
+private func formatRemaining(_ milliseconds: Double?) -> String {
+  guard let milliseconds else { return "" }
+  return format(milliseconds)
 }
 
 private struct NotchMorphShape: Shape {
@@ -387,6 +410,12 @@ struct NotchRootView: View {
   private var distractedTime: Double {
     elapsed(controller.status.distractedClock, fallback: controller.status.distractedStreakMs)
   }
+  private var phaseProgress: CGFloat {
+    guard let total = controller.status.phaseDurationMs,
+          let remaining = controller.status.phaseRemainingMs,
+          total > 0 else { return 0 }
+    return min(1, max(0, CGFloat((total - remaining) / total)))
+  }
 
   var body: some View {
     GeometryReader { proxy in
@@ -409,6 +438,13 @@ struct NotchRootView: View {
           .position(x: notchLeft - notchGap - pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
         TimerPill(label: controller.status.latestStatus == "maybe" ? "Uncertain" : "Distracted", value: format(distractedTime), active: controller.status.latestStatus == "unproductive", color: statusColor(controller.status.latestStatus))
           .position(x: notchLeft + controller.geometry.notchWidth + notchGap + pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
+        if controller.status.runtimeMode != "normal" {
+          Capsule()
+            .fill(statusColor(controller.status.latestStatus))
+            .frame(width: max(2, (controller.geometry.notchWidth - 14) * phaseProgress), height: 2)
+            .position(x: proxy.size.width / 2 - (controller.geometry.notchWidth - 14) * (1 - phaseProgress) / 2, y: controller.geometry.menuBarHeight - 3)
+            .accessibilityLabel("Focus phase progress")
+        }
       }
       .onReceive(clock) { controller.now = $0 }
       .onExitCommand { controller.setExpanded(false) }
@@ -419,11 +455,21 @@ struct NotchRootView: View {
   private var details: some View {
     VStack(alignment: .leading, spacing: 4) {
       HStack {
-        Text(controller.status.latestStatus == "productive" ? "FOCUSED" : controller.status.latestStatus == "unproductive" ? "DISTRACTED" : "UNCERTAIN")
+        Text(statusHeading)
           .font(.caption.weight(.bold)).foregroundStyle(statusColor(controller.status.latestStatus))
         Spacer()
         Text("Today  \(format(controller.status.dailyProductiveMs)) focused · \(format(controller.status.dailyUnproductiveMs)) distracted")
           .font(.caption2).foregroundStyle(.white.opacity(0.62))
+      }
+      if controller.status.runtimeMode != "normal" || controller.status.trackingState == "paused" {
+        HStack(spacing: 6) {
+          Text(sessionHeading).font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.9))
+          if let goal = controller.status.phaseGoal, !goal.isEmpty {
+            Text(goal).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
+          }
+          Spacer()
+          if let phaseRemaining = controller.status.phaseRemainingMs { Text("\(formatRemaining(phaseRemaining)) left").font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.75)) }
+        }
       }
       HStack(spacing: 7) {
         Text(controller.status.activityName ?? "Waiting for activity")
@@ -453,6 +499,28 @@ struct NotchRootView: View {
           .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
         Button("Hide") { controller.hide() }
           .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
+        if controller.status.trackingState == "paused", (controller.status.suspensionReasons ?? []).contains("manual_pause") {
+          Button("Resume") { controller.requestFocusAction("resume") }
+            .buttonStyle(NotchActionStyle(tint: .green))
+        } else if controller.status.trackingState == "active" || controller.status.trackingState == "normal" {
+          Menu("Pause") {
+            ForEach([1, 5, 20, 30, 60, 120], id: \.self) { minutes in
+              Button(minutes < 60 ? "\(minutes) min" : "\(minutes / 60) hour\(minutes == 60 ? "" : "s")") {
+                controller.requestFocusAction("pause", durationMinutes: minutes)
+              }
+            }
+          }
+          .menuStyle(.borderlessButton)
+          .frame(width: 54)
+        }
+        if controller.status.trackingState == "break" {
+          Button("Skip break") { controller.requestFocusAction("skipBreak") }
+            .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
+        }
+        if controller.status.runtimeMode != "normal" {
+          Button("End") { controller.requestFocusAction("endRun") }
+            .buttonStyle(NotchActionStyle(tint: .red))
+        }
         Spacer()
         if let message = controller.recategorizeMessage { Text(message).font(.caption2).foregroundStyle(.white.opacity(0.75)) }
       }
@@ -474,6 +542,19 @@ struct NotchRootView: View {
     .padding(.horizontal, 18)
     .padding(.top, 2)
     .frame(width: panelWidth, alignment: .leading)
+  }
+
+  private var statusHeading: String {
+    if controller.status.trackingState == "paused" { return "PAUSED" }
+    if controller.status.trackingState == "break" { return "BREAK" }
+    return controller.status.latestStatus == "productive" ? "FOCUSED" : controller.status.latestStatus == "unproductive" ? "DISTRACTED" : "UNCERTAIN"
+  }
+
+  private var sessionHeading: String {
+    if controller.status.trackingState == "break" { return controller.status.phaseKind == "long_break" ? "Long break" : "Short break" }
+    if controller.status.trackingState == "paused" { return "Kronus paused" }
+    if controller.status.runtimeMode == "pomodoro" { return "Pomodoro \((controller.status.phaseIndex ?? 0) / 2 + 1)" }
+    return controller.status.runtimeMode == "custom" ? "Focus session" : ""
   }
 }
 

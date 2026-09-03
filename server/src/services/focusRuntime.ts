@@ -1,0 +1,199 @@
+import crypto from 'crypto';
+import { FocusRuntimeModel } from '../models/focusRuntime';
+
+export type SuspensionReason =
+  | 'manual_pause'
+  | 'pomodoro_break'
+  | 'long_break'
+  | 'awaiting_goal'
+  | 'screen_locked'
+  | 'system_sleep';
+
+type RuntimeDocument = any;
+
+const minute = 60_000;
+const phase = (kind: 'work' | 'short_break' | 'long_break', durationMinutes: number, state: string, goal: string | null = null) => ({
+  id: crypto.randomUUID(),
+  kind,
+  goal,
+  startedAtMs: state === 'running' ? Date.now() : null,
+  plannedDurationMs: durationMinutes * minute,
+  activeElapsedMs: 0,
+  runningSinceMs: state === 'running' ? Date.now() : null,
+  state,
+  productiveMs: 0,
+  distractedMs: 0,
+});
+
+const hasSystemSuspension = (runtime: RuntimeDocument) => runtime.systemLocked || runtime.systemSleeping;
+
+const currentPhase = (runtime: RuntimeDocument) => runtime.run?.phases?.[runtime.run.currentPhaseIndex] || null;
+
+const freezePhase = (runtime: RuntimeDocument, now: number) => {
+  const current = currentPhase(runtime);
+  if (!current || current.state !== 'running' || !current.runningSinceMs) return;
+  current.activeElapsedMs = Math.min(
+    current.plannedDurationMs,
+    current.activeElapsedMs + Math.max(0, now - current.runningSinceMs)
+  );
+  current.runningSinceMs = null;
+  current.state = 'suspended';
+};
+
+const resumePhase = (runtime: RuntimeDocument, now: number) => {
+  const current = currentPhase(runtime);
+  if (!current || current.state === 'awaiting_goal' || current.state === 'completed') return;
+  if (runtime.manualPauseUntilMs || hasSystemSuspension(runtime)) return;
+  current.state = 'running';
+  current.runningSinceMs = now;
+};
+
+const completeRun = (runtime: RuntimeDocument, now: number, state: 'completed' | 'cancelled') => {
+  if (!runtime.run) return;
+  runtime.run.state = state;
+  runtime.run.completedAtMs = now;
+};
+
+const advancePhase = (runtime: RuntimeDocument, now: number) => {
+  const run = runtime.run;
+  const current = currentPhase(runtime);
+  if (!run || !current) return;
+  current.activeElapsedMs = current.plannedDurationMs;
+  current.runningSinceMs = null;
+  current.state = 'completed';
+
+  if (run.kind === 'custom' || current.kind === 'long_break') {
+    completeRun(runtime, now, 'completed');
+    return;
+  }
+
+  run.currentPhaseIndex += 1;
+  const next = currentPhase(runtime);
+  if (!next) {
+    completeRun(runtime, now, 'completed');
+    return;
+  }
+  if (next.kind === 'work') {
+    next.state = 'awaiting_goal';
+    next.runningSinceMs = null;
+    next.startedAtMs = null;
+  } else {
+    next.state = 'running';
+    next.runningSinceMs = now;
+    next.startedAtMs = now;
+  }
+};
+
+/** Applies timer expiry using server time. It never charges time while suspended. */
+export const advanceRuntime = (runtime: RuntimeDocument, now = Date.now()) => {
+  if (runtime.manualPauseUntilMs && now >= runtime.manualPauseUntilMs && !hasSystemSuspension(runtime)) {
+    runtime.manualPauseUntilMs = null;
+    resumePhase(runtime, now);
+  }
+  const current = currentPhase(runtime);
+  if (!current || current.state !== 'running' || !current.runningSinceMs) return;
+  const elapsed = current.activeElapsedMs + Math.max(0, now - current.runningSinceMs);
+  if (elapsed < current.plannedDurationMs) return;
+  advancePhase(runtime, now);
+};
+
+export async function getOrCreateRuntime(userId: string): Promise<RuntimeDocument> {
+  return FocusRuntimeModel.findOneAndUpdate(
+    { userId },
+    { $setOnInsert: { userId } },
+    { upsert: true, new: true }
+  );
+}
+
+export const suspensionReasonsFor = (runtime: RuntimeDocument): SuspensionReason[] => {
+  const reasons: SuspensionReason[] = [];
+  if (runtime.manualPauseUntilMs) reasons.push('manual_pause');
+  if (runtime.systemLocked) reasons.push('screen_locked');
+  if (runtime.systemSleeping) reasons.push('system_sleep');
+  const current = currentPhase(runtime);
+  if (current?.state === 'awaiting_goal') reasons.push('awaiting_goal');
+  if (current?.kind === 'short_break' && current.state === 'running') reasons.push('pomodoro_break');
+  if (current?.kind === 'long_break' && current.state === 'running') reasons.push('long_break');
+  return reasons;
+};
+
+export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
+  advanceRuntime(runtime, now);
+  const current = currentPhase(runtime);
+  const reasons = suspensionReasonsFor(runtime);
+  const phaseElapsedMs = current
+    ? Math.min(
+        current.plannedDurationMs,
+        current.activeElapsedMs + (current.state === 'running' && current.runningSinceMs ? Math.max(0, now - current.runningSinceMs) : 0)
+      )
+    : 0;
+  const trackingState = reasons.length
+    ? current?.kind === 'short_break' || current?.kind === 'long_break'
+      ? 'break'
+      : 'paused'
+    : runtime.run?.state === 'active'
+      ? 'active'
+      : 'normal';
+  const runValue = runtime.run?.toObject ? runtime.run.toObject() : runtime.run;
+  const phaseValue = current?.toObject ? current.toObject() : current;
+  return {
+    mode: runtime.run?.state === 'active' ? runtime.run.kind : 'normal',
+    trackingState,
+    suspension: { reasons, pausedUntilMs: runtime.manualPauseUntilMs || null },
+    run: runtime.run?.state === 'active' ? runValue : null,
+    currentPhase: current ? { ...phaseValue, activeElapsedMs: phaseElapsedMs } : null,
+    phaseRemainingMs: current ? Math.max(0, current.plannedDurationMs - phaseElapsedMs) : null,
+  };
+};
+
+export async function saveRuntime(runtime: RuntimeDocument) {
+  await runtime.save();
+  return runtime;
+}
+
+export async function setSystemSuspension(userId: string, kind: 'lock' | 'unlock' | 'sleep' | 'wake') {
+  const runtime = await getOrCreateRuntime(userId);
+  const now = Date.now();
+  if (kind === 'lock' || kind === 'sleep') freezePhase(runtime, now);
+  if (kind === 'lock') runtime.systemLocked = true;
+  if (kind === 'sleep') runtime.systemSleeping = true;
+  if (kind === 'unlock') runtime.systemLocked = false;
+  if (kind === 'wake') runtime.systemSleeping = false;
+  if (!hasSystemSuspension(runtime) && (!runtime.manualPauseUntilMs || now >= runtime.manualPauseUntilMs)) {
+    if (runtime.manualPauseUntilMs && now >= runtime.manualPauseUntilMs) runtime.manualPauseUntilMs = null;
+    resumePhase(runtime, now);
+  }
+  await saveRuntime(runtime);
+  return runtimeSnapshot(runtime, now);
+}
+
+export const createCustomRun = (goal: string, durationMinutes: number, now = Date.now()) => ({
+  id: crypto.randomUUID(),
+  kind: 'custom',
+  state: 'active',
+  currentPhaseIndex: 0,
+  phases: [{ ...phase('work', durationMinutes, 'running', goal), runningSinceMs: now, startedAtMs: now }],
+  startedAtMs: now,
+  completedAtMs: null,
+});
+
+export const createPomodoroRun = (firstGoal: string, now = Date.now()) => ({
+  id: crypto.randomUUID(),
+  kind: 'pomodoro',
+  state: 'active',
+  currentPhaseIndex: 0,
+  phases: [
+    { ...phase('work', 30, 'running', firstGoal), runningSinceMs: now, startedAtMs: now },
+    phase('short_break', 5, 'suspended'),
+    phase('work', 30, 'awaiting_goal'),
+    phase('short_break', 5, 'suspended'),
+    phase('work', 30, 'awaiting_goal'),
+    phase('short_break', 5, 'suspended'),
+    phase('work', 30, 'awaiting_goal'),
+    phase('long_break', 30, 'suspended'),
+  ],
+  startedAtMs: now,
+  completedAtMs: null,
+});
+
+export { currentPhase, freezePhase, resumePhase, completeRun };

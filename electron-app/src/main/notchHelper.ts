@@ -23,18 +23,27 @@ export interface FloatingStatusUpdate {
   nudgeTitle?: string | null
   nudgeBody?: string | null
   eventIds?: string[]
+  runtimeMode?: 'normal' | 'custom' | 'pomodoro'
+  trackingState?: 'normal' | 'active' | 'paused' | 'break'
+  suspensionReasons?: string[]
+  phaseRemainingMs?: number | null
+  phaseDurationMs?: number | null
+  phaseGoal?: string | null
+  phaseKind?: 'work' | 'short_break' | 'long_break' | null
+  phaseIndex?: number | null
 }
 
 type NotchEvent =
-  | { version: 2; type: 'ready' }
-  | { version: 2; type: 'visibilityChanged'; visible: boolean }
-  | { version: 2; type: 'openMain' }
-  | { version: 2; type: 'recategorize'; requestId: string; categoryId: string; eventIds: string[] }
-  | { version: 2; type: 'error'; code: string }
+  | { version: 3; type: 'ready' }
+  | { version: 3; type: 'visibilityChanged'; visible: boolean }
+  | { version: 3; type: 'openMain' }
+  | { version: 3; type: 'recategorize'; requestId: string; categoryId: string; eventIds: string[] }
+  | { version: 3; type: 'focusCommand'; action: 'pause' | 'resume' | 'skipBreak' | 'endRun'; durationMinutes?: number }
+  | { version: 3; type: 'error'; code: string }
 
 type HelperAvailability = 'starting' | 'ready' | 'unavailable'
 
-const protocolVersion = 2
+const protocolVersion = 3
 
 export class NotchHelper {
   private child: ChildProcessWithoutNullStreams | null = null
@@ -172,6 +181,10 @@ export class NotchHelper {
         eventIds: event.eventIds,
         newCategoryId: event.categoryId
       })
+      return
+    }
+    if (event.type === 'focusCommand') {
+      this.mainWindow()?.webContents.send('floating-focus-command', event)
       return
     }
     if (event.type === 'error') this.setAvailability('unavailable')

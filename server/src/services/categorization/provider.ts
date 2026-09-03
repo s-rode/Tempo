@@ -8,6 +8,7 @@ import {
 
 export type ClassificationStatus =
   | 'history'
+  | 'navigation_cache'
   | 'ollama'
   | 'manual'
   | 'manual_rule'
@@ -50,7 +51,7 @@ const responseSchema = {
     chosenCategoryName: { type: 'string' },
     confidence: { type: 'number', minimum: 0, maximum: 1 },
     goalAlignment: { type: 'string', enum: ['explicit', 'none', 'insufficient'] },
-    matchedGoalType: { type: ['string', 'null'], enum: ['daily', 'weekly', 'life', null] },
+    matchedGoalType: { type: ['string', 'null'], enum: ['daily', 'weekly', 'life', 'session', null] },
     goalEvidence: { type: ['string', 'null'], maxLength: 100 },
     activityLabel: { type: 'string', maxLength: 48 },
     activitySummary: { type: 'string', maxLength: 80 },
