@@ -361,6 +361,36 @@ private struct NotchMorphShape: Shape {
   }
 }
 
+/**
+ * A restrained native-material surface. The dark tint keeps the companion
+ * legible against any wallpaper while the material and highlight retain the
+ * surrounding desktop's depth rather than reading as a flat black window.
+ */
+private struct LiquidGlassSurface<S: Shape>: View {
+  let shape: S
+  let expanded: Bool
+
+  var body: some View {
+    ZStack {
+      shape.fill(.ultraThinMaterial)
+      shape.fill(Color.black.opacity(expanded ? 0.34 : 0.26))
+      shape.fill(
+        LinearGradient(
+          colors: [Color.white.opacity(expanded ? 0.15 : 0.12), Color.white.opacity(0.035), Color.clear],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
+      shape.stroke(Color.white.opacity(expanded ? 0.22 : 0.18), lineWidth: 0.8)
+      shape.stroke(Color.black.opacity(0.28), lineWidth: 2.0)
+        .blur(radius: 1.2)
+        .offset(y: 1)
+        .mask(shape)
+    }
+    .shadow(color: Color.black.opacity(expanded ? 0.38 : 0.24), radius: expanded ? 18 : 8, y: expanded ? 8 : 3)
+  }
+}
+
 struct TimerPill: View {
   let label: String
   let value: String
@@ -369,14 +399,31 @@ struct TimerPill: View {
 
   var body: some View {
     HStack(spacing: 6) {
-      Circle().fill(active ? color : Color.white.opacity(0.25)).frame(width: 9, height: 9)
-      Text(value).font(.system(size: 17, weight: .semibold, design: .monospaced))
+      Circle()
+        .fill(active ? color : Color.white.opacity(0.25))
+        .frame(width: 8, height: 8)
+        .shadow(color: active ? color.opacity(0.78) : .clear, radius: active ? 4 : 0)
+      Text(value)
+        .font(.system(size: 16, weight: .medium, design: .rounded).monospacedDigit())
+        .contentTransition(.numericText())
     }
-    .foregroundStyle(active ? color : Color.white.opacity(0.65))
+    .foregroundStyle(active ? .white : Color.white.opacity(0.68))
     .frame(width: pillWidth, height: pillHeight)
-    .background(Color.black.opacity(active ? 0.8 : 0.58))
-    .overlay(RoundedRectangle(cornerRadius: 6).stroke(active ? color.opacity(0.9) : Color.white.opacity(0.12), lineWidth: active ? 1.5 : 1))
-    .clipShape(RoundedRectangle(cornerRadius: 6))
+    .background {
+      let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+      ZStack {
+        shape.fill(.ultraThinMaterial)
+        shape.fill(Color.black.opacity(active ? 0.24 : 0.18))
+        shape.fill(
+          LinearGradient(colors: [Color.white.opacity(0.14), Color.clear], startPoint: .top, endPoint: .bottom)
+        )
+        shape.stroke(Color.white.opacity(active ? 0.22 : 0.14), lineWidth: 0.75)
+        shape.stroke(active ? color.opacity(0.58) : Color.clear, lineWidth: 1.0)
+      }
+    }
+    .shadow(color: active ? color.opacity(0.20) : Color.black.opacity(0.20), radius: active ? 7 : 4, y: 2)
+    .scaleEffect(active ? 1 : 0.985)
+    .animation(.easeOut(duration: 0.22), value: active)
     .accessibilityLabel("\(label) \(value)")
   }
 }
@@ -390,9 +437,18 @@ private struct NotchActionStyle: ButtonStyle {
       .foregroundStyle(.white)
       .padding(.horizontal, 10)
       .padding(.vertical, 6)
-      .background(tint.opacity(configuration.isPressed ? 0.62 : 0.32))
-      .overlay(RoundedRectangle(cornerRadius: 7).stroke(tint.opacity(0.9), lineWidth: 1))
-      .clipShape(RoundedRectangle(cornerRadius: 7))
+      .background {
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        ZStack {
+          shape.fill(.thinMaterial)
+          shape.fill(tint.opacity(configuration.isPressed ? 0.42 : 0.20))
+          shape.fill(LinearGradient(colors: [Color.white.opacity(0.13), Color.clear], startPoint: .top, endPoint: .bottom))
+          shape.stroke(Color.white.opacity(0.16), lineWidth: 0.75)
+          shape.stroke(tint.opacity(configuration.isPressed ? 0.78 : 0.46), lineWidth: 0.9)
+        }
+      }
+      .scaleEffect(configuration.isPressed ? 0.97 : 1)
+      .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
   }
 }
 
@@ -425,12 +481,14 @@ struct NotchRootView: View {
     GeometryReader { proxy in
       let notchLeft = proxy.size.width / 2 - controller.geometry.notchWidth / 2
       ZStack(alignment: .topLeading) {
-        NotchMorphShape(
+        LiquidGlassSurface(
+          shape: NotchMorphShape(
           progress: controller.expanded ? 1 : 0,
           notchWidth: controller.geometry.notchWidth,
           menuBarHeight: controller.geometry.menuBarHeight
+          ),
+          expanded: controller.expanded
         )
-        .fill(Color.black.opacity(controller.expanded ? 0.96 : 0.82))
         .frame(width: panelWidth, height: expandedPanelHeight, alignment: .top)
         .accessibilityHidden(true)
         if controller.expanded {
@@ -457,17 +515,18 @@ struct NotchRootView: View {
   }
 
   private var details: some View {
-    VStack(alignment: .leading, spacing: 4) {
+    VStack(alignment: .leading, spacing: 5) {
       HStack {
         Text(statusHeading)
-          .font(.caption.weight(.bold)).foregroundStyle(statusColor(controller.status.latestStatus))
+          .font(.caption.weight(.bold)).tracking(0.7).foregroundStyle(statusColor(controller.status.latestStatus))
         Spacer()
         Text("Today  \(format(controller.status.dailyProductiveMs)) focused · \(format(controller.status.dailyUnproductiveMs)) distracted")
-          .font(.caption2).foregroundStyle(.white.opacity(0.62))
+          .font(.caption2).foregroundStyle(.white.opacity(0.66))
       }
+      Rectangle().fill(.white.opacity(0.10)).frame(height: 0.5)
       if controller.status.runtimeMode != "normal" || controller.status.trackingState == "paused" {
         HStack(spacing: 6) {
-          Text(sessionHeading).font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.9))
+          Text(sessionHeading).font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.92))
           if let goal = controller.status.phaseGoal, !goal.isEmpty {
             Text(goal).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
           }
@@ -477,7 +536,7 @@ struct NotchRootView: View {
       }
       HStack(spacing: 7) {
         Text(controller.status.activityName ?? "Waiting for activity")
-          .font(.system(size: 14, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+          .font(.system(size: 14, weight: .semibold, design: .rounded)).foregroundStyle(.white).lineLimit(1)
         if let category = controller.status.categoryDetails {
           Text(category.name).font(.caption.weight(.semibold)).foregroundStyle(statusColor(controller.status.latestStatus)).lineLimit(1)
         }
@@ -544,7 +603,7 @@ struct NotchRootView: View {
       }
     }
     .padding(.horizontal, 18)
-    .padding(.top, 2)
+    .padding(.top, 4)
     .frame(width: panelWidth, alignment: .leading)
   }
 
