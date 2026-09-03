@@ -17,6 +17,13 @@ export interface MonitoringHealth {
   lastDeliveredAtMs?: number
   pendingCaptureId?: string
   lastErrorCode?: string
+  systemSuspension?: SystemSuspensionState
+}
+
+export interface SystemSuspensionState {
+  locked: boolean
+  sleeping: boolean
+  suspendedAtMs: number | null
 }
 
 /**
@@ -31,8 +38,12 @@ export class ActivityMonitoringCoordinator {
   private paused = false
   private started = false
   private health: MonitoringHealth = { state: 'starting' }
+  private systemSuspension: SystemSuspensionState = { locked: false, sleeping: false, suspendedAtMs: null }
 
-  constructor(private readonly getMainWindow: () => BrowserWindow | null) {}
+  constructor(
+    private readonly getMainWindow: () => BrowserWindow | null,
+    private readonly onSystemSuspensionChange?: (state: SystemSuspensionState) => void
+  ) {}
 
   start(): void {
     if (this.started) return
@@ -67,7 +78,7 @@ export class ActivityMonitoringCoordinator {
   }
 
   getHealth(): MonitoringHealth {
-    return { ...this.health }
+    return { ...this.health, systemSuspension: { ...this.systemSuspension } }
   }
 
   restart(): boolean {
@@ -90,6 +101,7 @@ export class ActivityMonitoringCoordinator {
   private onNativeActivity(details: ActiveWindowDetails | null): void {
     if (!details) return
     const now = Date.now()
+    this.updateSystemSuspension(details, now)
     const envelope: ActivityCaptureEnvelope = {
       captureId: randomUUID(),
       sequence: ++this.sequence,
@@ -99,11 +111,25 @@ export class ActivityMonitoringCoordinator {
     }
     this.latestCapture = envelope
     this.health = {
-      state: this.paused ? 'paused' : 'active',
+      state: this.paused || this.systemSuspension.locked || this.systemSuspension.sleeping ? 'paused' : 'active',
       lastNativeDetectionAtMs: now,
       pendingCaptureId: envelope.captureId
     }
     this.deliverLatest()
+  }
+
+  private updateSystemSuspension(details: ActiveWindowDetails, now: number): void {
+    if (details.type !== 'system') return
+    const text = `${details.ownerName || ''} ${details.title || ''}`.toLowerCase()
+    const next = { ...this.systemSuspension }
+    if (text.includes('unlock')) next.locked = false
+    else if (text.includes('wake')) next.sleeping = false
+    else if (text.includes('sleep')) next.sleeping = true
+    else if (text.includes('lock')) next.locked = true
+    else return
+    next.suspendedAtMs = next.locked || next.sleeping ? this.systemSuspension.suspendedAtMs ?? now : null
+    this.systemSuspension = next
+    this.onSystemSuspensionChange?.(next)
   }
 
   private deliverLatest(): void {

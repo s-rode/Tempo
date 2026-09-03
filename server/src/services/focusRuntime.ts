@@ -6,6 +6,7 @@ export type SuspensionReason =
   | 'pomodoro_break'
   | 'long_break'
   | 'awaiting_goal'
+  | 'awaiting_system_resume'
   | 'screen_locked'
   | 'system_sleep';
 
@@ -43,7 +44,7 @@ const freezePhase = (runtime: RuntimeDocument, now: number) => {
 const resumePhase = (runtime: RuntimeDocument, now: number) => {
   const current = currentPhase(runtime);
   if (!current || current.state === 'awaiting_goal' || current.state === 'completed') return;
-  if (runtime.manualPauseUntilMs || hasSystemSuspension(runtime)) return;
+  if (runtime.manualPauseUntilMs || hasSystemSuspension(runtime) || runtime.awaitingSystemResumeCapture) return;
   current.state = 'running';
   current.runningSinceMs = now;
 };
@@ -110,6 +111,7 @@ export const suspensionReasonsFor = (runtime: RuntimeDocument): SuspensionReason
   if (runtime.manualPauseUntilMs) reasons.push('manual_pause');
   if (runtime.systemLocked) reasons.push('screen_locked');
   if (runtime.systemSleeping) reasons.push('system_sleep');
+  if (runtime.awaitingSystemResumeCapture) reasons.push('awaiting_system_resume');
   const current = currentPhase(runtime);
   if (current?.state === 'awaiting_goal') reasons.push('awaiting_goal');
   if (current?.kind === 'short_break' && current.state === 'running') reasons.push('pomodoro_break');
@@ -139,7 +141,11 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
   return {
     mode: runtime.run?.state === 'active' ? runtime.run.kind : 'normal',
     trackingState,
-    suspension: { reasons, pausedUntilMs: runtime.manualPauseUntilMs || null },
+    suspension: {
+      reasons,
+      pausedUntilMs: runtime.manualPauseUntilMs || null,
+      suspendedAtMs: runtime.systemSuspendedAtMs || null,
+    },
     run: runtime.run?.state === 'active' ? runValue : null,
     currentPhase: current ? { ...phaseValue, activeElapsedMs: phaseElapsedMs } : null,
     phaseRemainingMs: current ? Math.max(0, current.plannedDurationMs - phaseElapsedMs) : null,
@@ -154,12 +160,33 @@ export async function saveRuntime(runtime: RuntimeDocument) {
 export async function setSystemSuspension(userId: string, kind: 'lock' | 'unlock' | 'sleep' | 'wake') {
   const runtime = await getOrCreateRuntime(userId);
   const now = Date.now();
-  if (kind === 'lock' || kind === 'sleep') freezePhase(runtime, now);
+  if (kind === 'lock' || kind === 'sleep') {
+    freezePhase(runtime, now);
+    if (!runtime.systemSuspendedAtMs) runtime.systemSuspendedAtMs = now;
+  }
   if (kind === 'lock') runtime.systemLocked = true;
   if (kind === 'sleep') runtime.systemSleeping = true;
   if (kind === 'unlock') runtime.systemLocked = false;
   if (kind === 'wake') runtime.systemSleeping = false;
-  if (!hasSystemSuspension(runtime) && (!runtime.manualPauseUntilMs || now >= runtime.manualPauseUntilMs)) {
+  if (!hasSystemSuspension(runtime)) {
+    runtime.systemSuspendedAtMs = null;
+    runtime.awaitingSystemResumeCapture = true;
+  }
+  if (!hasSystemSuspension(runtime) && !runtime.awaitingSystemResumeCapture && (!runtime.manualPauseUntilMs || now >= runtime.manualPauseUntilMs)) {
+    if (runtime.manualPauseUntilMs && now >= runtime.manualPauseUntilMs) runtime.manualPauseUntilMs = null;
+    resumePhase(runtime, now);
+  }
+  await saveRuntime(runtime);
+  return runtimeSnapshot(runtime, now);
+}
+
+/** Starts phase timing only after native monitoring has committed a fresh activity. */
+export async function resumeAfterSystemCapture(userId: string) {
+  const runtime = await getOrCreateRuntime(userId);
+  if (!runtime.awaitingSystemResumeCapture || hasSystemSuspension(runtime)) return runtimeSnapshot(runtime);
+  const now = Date.now();
+  runtime.awaitingSystemResumeCapture = false;
+  if (!runtime.manualPauseUntilMs || now >= runtime.manualPauseUntilMs) {
     if (runtime.manualPauseUntilMs && now >= runtime.manualPauseUntilMs) runtime.manualPauseUntilMs = null;
     resumePhase(runtime, now);
   }

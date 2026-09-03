@@ -26,6 +26,7 @@ export interface FloatingStatusUpdate {
   runtimeMode?: 'normal' | 'custom' | 'pomodoro'
   trackingState?: 'normal' | 'active' | 'paused' | 'break'
   suspensionReasons?: string[]
+  suspendedAtMs?: number | null
   phaseRemainingMs?: number | null
   phaseDurationMs?: number | null
   phaseGoal?: string | null
@@ -113,6 +114,21 @@ export class NotchHelper {
   updateStatus(status: FloatingStatusUpdate): void {
     this.lastStatus = status
     this.send({ version: protocolVersion, type: 'status', payload: status })
+  }
+
+  /** Freeze immediately from main-process system events; renderer/server state can lag. */
+  setSystemSuspension(state: { locked: boolean; sleeping: boolean; suspendedAtMs: number | null }): void {
+    if (!this.lastStatus) return
+    const suspensionReasons = [
+      ...(state.locked ? ['screen_locked'] : []),
+      ...(state.sleeping ? ['system_sleep'] : [])
+    ]
+    this.updateStatus({
+      ...this.lastStatus,
+      trackingState: suspensionReasons.length ? 'paused' : this.lastStatus.trackingState,
+      suspensionReasons,
+      suspendedAtMs: state.suspendedAtMs
+    })
   }
 
   sendRecategorizeResult(result: { requestId: string; ok: boolean; message?: string }): void {

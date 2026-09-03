@@ -40,6 +40,8 @@ const focusRuntimeSchema = new Schema(
     manualPauseUntilMs: { type: Number, default: null },
     systemLocked: { type: Boolean, default: false },
     systemSleeping: { type: Boolean, default: false },
+    systemSuspendedAtMs: { type: Number, default: null },
+    awaitingSystemResumeCapture: { type: Boolean, default: false },
     // A renderer heartbeat prevents an unexpected app shutdown from being
     // interpreted as uninterrupted focus time at the next launch.
     lastHeartbeatAtMs: { type: Number, default: null },

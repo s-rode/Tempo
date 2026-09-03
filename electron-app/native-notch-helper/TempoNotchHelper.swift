@@ -49,6 +49,7 @@ struct StatusPayload: Codable {
   let runtimeMode: String?
   let trackingState: String?
   let suspensionReasons: [String]?
+  let suspendedAtMs: Double?
   let phaseRemainingMs: Double?
   let phaseDurationMs: Double?
   let phaseGoal: String?
@@ -150,7 +151,7 @@ final class NotchController: NSObject, ObservableObject {
     categoryDetails: nil, availableCategories: [], activityName: nil,
     activitySummary: nil, activityUrl: nil, categoryReasoning: nil,
     classificationStatus: nil, nudgeTitle: nil, nudgeBody: nil, eventIds: [],
-    runtimeMode: "normal", trackingState: "normal", suspensionReasons: [],
+    runtimeMode: "normal", trackingState: "normal", suspensionReasons: [], suspendedAtMs: nil,
     phaseRemainingMs: nil, phaseDurationMs: nil, phaseGoal: nil, phaseKind: nil, phaseIndex: nil
   )
   @Published var expanded = false
@@ -401,7 +402,10 @@ struct NotchRootView: View {
 
   private func elapsed(_ clock: StreakClockPayload?, fallback: Double?) -> Double {
     guard let clock else { return fallback ?? 0 }
-    let running = clock.runningSinceMs.map { max(0, controller.now.timeIntervalSince1970 * 1000 - $0) } ?? 0
+    // The parent sends the exact lock/sleep boundary. Do not advance from wall
+    // time while macOS is suspended, even though this display timer still redraws.
+    let clockNow = controller.status.suspendedAtMs ?? controller.now.timeIntervalSince1970 * 1000
+    let running = clock.runningSinceMs.map { max(0, clockNow - $0) } ?? 0
     return max(0, clock.accumulatedMs + running)
   }
   private var productiveTime: Double {
@@ -545,12 +549,18 @@ struct NotchRootView: View {
   }
 
   private var statusHeading: String {
+    let reasons = controller.status.suspensionReasons ?? []
+    if reasons.contains("screen_locked") { return "LOCKED" }
+    if reasons.contains("system_sleep") { return "SLEEPING" }
     if controller.status.trackingState == "paused" { return "PAUSED" }
     if controller.status.trackingState == "break" { return "BREAK" }
     return controller.status.latestStatus == "productive" ? "FOCUSED" : controller.status.latestStatus == "unproductive" ? "DISTRACTED" : "UNCERTAIN"
   }
 
   private var sessionHeading: String {
+    let reasons = controller.status.suspensionReasons ?? []
+    if reasons.contains("screen_locked") { return "Screen locked — Kronus is frozen" }
+    if reasons.contains("system_sleep") { return "Mac sleeping — Kronus is frozen" }
     if controller.status.trackingState == "break" { return controller.status.phaseKind == "long_break" ? "Long break" : "Short break" }
     if controller.status.trackingState == "paused" { return "Kronus paused" }
     if controller.status.runtimeMode == "pomodoro" { return "Pomodoro \((controller.status.phaseIndex ?? 0) / 2 + 1)" }
