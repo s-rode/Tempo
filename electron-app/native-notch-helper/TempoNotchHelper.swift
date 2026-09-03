@@ -8,9 +8,10 @@ private let protocolVersion = 3
 private let panelWidth: CGFloat = 520
 private let panelHeight: CGFloat = 180
 private let expandedPanelHeight: CGFloat = 170
-private let pillWidth: CGFloat = 96
-private let pillHeight: CGFloat = 26
-private let notchGap: CGFloat = 8
+// Keep the compact companion visually quieter than ordinary menu-bar items.
+private let pillWidth: CGFloat = 84
+private let pillHeight: CGFloat = 23
+private let notchGap: CGFloat = 7
 
 struct HelperCategory: Codable, Identifiable {
   let id: String
@@ -396,19 +397,19 @@ struct TimerPill: View {
   let color: Color
 
   var body: some View {
-    HStack(spacing: 6) {
+    HStack(spacing: 5) {
       Circle()
         .fill(paused ? Color.white.opacity(0.22) : active ? color : Color.white.opacity(0.25))
-        .frame(width: 8, height: 8)
+        .frame(width: 7, height: 7)
         .shadow(color: !paused && active ? color.opacity(0.78) : .clear, radius: !paused && active ? 4 : 0)
       Text(value)
-        .font(.system(size: 16, weight: .medium, design: .rounded).monospacedDigit())
+        .font(.system(size: 14, weight: .medium, design: .rounded).monospacedDigit())
         .contentTransition(.numericText())
     }
     .foregroundStyle(paused ? Color.white.opacity(0.48) : active ? .white : Color.white.opacity(0.68))
     .frame(width: pillWidth, height: pillHeight)
     .background {
-      let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+      let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
       ZStack {
         shape.fill(Color.black.opacity(paused ? 0.58 : active ? 0.78 : 0.70))
         shape.fill(
