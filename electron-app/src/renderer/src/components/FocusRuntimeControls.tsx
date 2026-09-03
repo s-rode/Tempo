@@ -13,15 +13,11 @@ const clock = (milliseconds: number | null | undefined) => {
 }
 
 /** Compact local-session controls; the runtime remains authoritative in MongoDB. */
-export function FocusRuntimeControls() {
+export function FocusRuntimeControls({ runtime }: { runtime: any }) {
   const { token } = useAuth()
   const [goal, setGoal] = useState('')
   const [duration, setDuration] = useState<(typeof customDurations)[number]>(30)
   const utils = trpc.useContext()
-  const { data: runtime } = trpc.focusRuntime.getState.useQuery(
-    { token: token || '' },
-    { enabled: !!token, refetchInterval: 1000 }
-  )
   const invalidate = () => utils.focusRuntime.getState.invalidate()
   const startCustom = trpc.focusRuntime.startCustom.useMutation({ onSuccess: invalidate })
   const startPomodoro = trpc.focusRuntime.startPomodoro.useMutation({ onSuccess: invalidate })

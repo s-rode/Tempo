@@ -80,9 +80,11 @@ const boundedNumber = (value: string | undefined, fallback: number, minimum: num
 
 const ollamaConfig = () => ({
   model: process.env.OLLAMA_MODEL || 'qwen3:4b-instruct',
-  keepAlive: process.env.OLLAMA_KEEP_ALIVE || '30m',
+  // Ten minutes avoids holding several GB of unified memory throughout an
+  // inactive afternoon while keeping ordinary tab switches warm.
+  keepAlive: process.env.OLLAMA_KEEP_ALIVE || '10m',
   numCtx: boundedNumber(process.env.OLLAMA_NUM_CTX, 4096, 512, 16384),
-  numPredict: boundedNumber(process.env.OLLAMA_NUM_PREDICT, 192, 32, 512),
+  numPredict: boundedNumber(process.env.OLLAMA_NUM_PREDICT, 128, 32, 512),
 });
 
 /** Preloads only the configured local model. Failure is intentionally non-fatal. */

@@ -24,8 +24,8 @@ const runtimeFor = async (token: string, heartbeat = true) => {
   const decoded = verifyToken(token);
   const runtime = await getOrCreateRuntime(decoded.userId);
   const now = Date.now();
-  // On a fresh renderer after downtime, charge at most one heartbeat window.
-  // Regular one-second heartbeats still advance phases at normal resolution.
+  // On a fresh renderer after downtime, charge at most one sync window.
+  // Active sessions sync every ten seconds; normal tracking does not poll.
   const lastHeartbeat = runtime.lastHeartbeatAtMs || now;
   advanceRuntime(runtime, Math.min(now, lastHeartbeat + 6_000));
   if (heartbeat) runtime.lastHeartbeatAtMs = now;
@@ -35,11 +35,6 @@ const runtimeFor = async (token: string, heartbeat = true) => {
 
 export const focusRuntimeRouter = router({
   getState: publicProcedure.input(tokenInput).query(async ({ input }) => {
-    const runtime = await runtimeFor(input.token);
-    return runtimeSnapshot(runtime);
-  }),
-
-  heartbeat: publicProcedure.input(tokenInput).mutation(async ({ input }) => {
     const runtime = await runtimeFor(input.token);
     return runtimeSnapshot(runtime);
   }),

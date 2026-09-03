@@ -31,10 +31,10 @@ describe('OllamaClassificationProvider', () => {
       const request = JSON.parse(String(init?.body));
       expect(request.stream).toBe(false);
       expect(request.think).toBe(false);
-      expect(request.keep_alive).toBe('30m');
+      expect(request.keep_alive).toBe('10m');
       expect(request.options.temperature).toBe(0);
       expect(request.options.num_ctx).toBe(4096);
-      expect(request.options.num_predict).toBe(192);
+      expect(request.options.num_predict).toBe(128);
       expect(request.format.required).toEqual([
         'chosenCategoryName',
         'confidence',
