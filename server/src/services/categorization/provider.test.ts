@@ -25,15 +25,22 @@ const activity = {
 };
 
 describe('OllamaClassificationProvider', () => {
-  test('uses local structured output and trims reasoning to twenty-five words', async () => {
+  test('uses bounded local structured output without thinking', async () => {
     process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
     globalThis.fetch = (async (_url: unknown, init: RequestInit | undefined) => {
       const request = JSON.parse(String(init?.body));
       expect(request.stream).toBe(false);
+      expect(request.think).toBe(false);
+      expect(request.keep_alive).toBe('30m');
       expect(request.options.temperature).toBe(0);
+      expect(request.options.num_ctx).toBe(4096);
+      expect(request.options.num_predict).toBe(192);
       expect(request.format.required).toEqual([
         'chosenCategoryName',
         'confidence',
+        'goalAlignment',
+        'matchedGoalType',
+        'goalEvidence',
         'activityLabel',
         'activitySummary',
         'reasoning',
@@ -46,6 +53,9 @@ describe('OllamaClassificationProvider', () => {
             content: JSON.stringify({
               chosenCategoryName: 'Work',
               confidence: 0.9,
+              goalAlignment: 'explicit',
+              matchedGoalType: 'daily',
+              goalEvidence: 'The tutorial directly supports the daily Gaussian Processes goal.',
               activityLabel: 'Gaussian Process tutorial',
               activitySummary: 'Studying Gaussian Process regression.',
               reasoning: 'a a a a a a a a a a a a a a a a a a a a a a a a a a',
@@ -61,7 +71,7 @@ describe('OllamaClassificationProvider', () => {
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result.status).toBe('ollama');
     expect(result.choice?.chosenCategoryName).toBe('Work');
-    expect(result.choice?.reasoning.split(/\s+/)).toHaveLength(25);
+    expect(result.choice?.reasoning.split(/\s+/)).toHaveLength(12);
   });
 
   test('rejects non-loopback Ollama URLs', async () => {
