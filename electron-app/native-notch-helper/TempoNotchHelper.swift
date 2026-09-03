@@ -562,64 +562,71 @@ struct NotchRootView: View {
           Text("Why: \(reasoning)").font(.caption2).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
         }
       }
-      HStack(spacing: 7) {
-        Button(controller.chooserOpen ? "Cancel" : "Reclassify") {
-          controller.toggleCategoryChooser()
-        }
-        .accessibilityIdentifier("kronus-reclassify")
-        .accessibilityLabel("Reclassify current activity")
-        .disabled((controller.status.eventIds ?? []).isEmpty)
-        .opacity((controller.status.eventIds ?? []).isEmpty ? 0.45 : 1)
-        .buttonStyle(NotchActionStyle(tint: statusColor(controller.status.latestStatus)))
-        Button("Open Kronus") { controller.emit(type: "openMain") }
-          .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
-        Button("Hide") { controller.hide() }
-          .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
-        if controller.status.trackingState == "paused", (controller.status.suspensionReasons ?? []).contains("manual_pause") {
-          Button("Resume") { controller.requestFocusAction("resume") }
-            .buttonStyle(NotchActionStyle(tint: .green))
-        } else if controller.status.trackingState == "active" || controller.status.trackingState == "normal" {
-          Menu {
-            ForEach([1, 5, 20, 30, 60, 120], id: \.self) { minutes in
-              Button(minutes < 60 ? "\(minutes) min" : "\(minutes / 60) hour\(minutes == 60 ? "" : "s")") {
-                controller.requestFocusAction("pause", durationMinutes: minutes)
+      if controller.chooserOpen {
+        // This replaces the footer rather than appending a clipped row below
+        // the fixed-height native notch panel.
+        HStack(spacing: 7) {
+          Button("Cancel") { controller.toggleCategoryChooser() }
+            .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
+          Text("Set category")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.72))
+          ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+              ForEach(controller.status.availableCategories ?? []) { category in
+                Button(category.name) { controller.requestRecategorization(category) }
+                  .buttonStyle(NotchActionStyle(tint: category.isProductive ? .green : .red))
+                  .accessibilityLabel("Set category to \(category.name), \(category.isProductive ? "productive" : "distracting")")
               }
             }
-          } label: {
-            HStack(spacing: 4) {
-              Text("Pause")
-              Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
-            }
-            .foregroundStyle(.white)
           }
-          .menuStyle(.borderlessButton)
-          .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
-          .frame(width: 54)
+          .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        if controller.status.trackingState == "break" {
-          Button("Skip break") { controller.requestFocusAction("skipBreak") }
+        .frame(height: 32)
+      } else {
+        HStack(spacing: 7) {
+          Button("Open Kronus") { controller.emit(type: "openMain") }
             .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
-        }
-        if controller.status.runtimeMode != "normal" {
-          Button("End") { controller.requestFocusAction("endRun") }
-            .buttonStyle(NotchActionStyle(tint: .red))
-        }
-        Spacer()
-        if let message = controller.recategorizeMessage { Text(message).font(.caption2).foregroundStyle(.white.opacity(0.75)) }
-      }
-      if controller.chooserOpen {
-        Text("Apply only to this current activity")
-          .font(.caption2).foregroundStyle(.white.opacity(0.55))
-        ScrollView(.vertical, showsIndicators: true) {
-          FlowLayout(spacing: 6) {
-            ForEach(controller.status.availableCategories ?? []) { category in
-              Button(category.name) { controller.requestRecategorization(category) }
-                .buttonStyle(NotchActionStyle(tint: category.isProductive ? .green : .red))
-                .accessibilityLabel("Set category to \(category.name), \(category.isProductive ? "productive" : "distracting")")
+          Button("Hide") { controller.hide() }
+            .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
+          if controller.status.trackingState == "paused", (controller.status.suspensionReasons ?? []).contains("manual_pause") {
+            Button("Resume") { controller.requestFocusAction("resume") }
+              .buttonStyle(NotchActionStyle(tint: .green))
+          } else if controller.status.trackingState == "active" || controller.status.trackingState == "normal" {
+            Menu {
+              ForEach([1, 5, 20, 30, 60, 120], id: \.self) { minutes in
+                Button(minutes < 60 ? "\(minutes) min" : "\(minutes / 60) hour\(minutes == 60 ? "" : "s")") {
+                  controller.requestFocusAction("pause", durationMinutes: minutes)
+                }
+              }
+            } label: {
+              HStack(spacing: 4) {
+                Text("Pause")
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+              }
+              .foregroundStyle(.white)
             }
+            .menuStyle(.borderlessButton)
+            .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
+            .frame(width: 54)
           }
+          if controller.status.trackingState == "break" {
+            Button("Skip break") { controller.requestFocusAction("skipBreak") }
+              .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
+          }
+          if controller.status.runtimeMode != "normal" {
+            Button("End") { controller.requestFocusAction("endRun") }
+              .buttonStyle(NotchActionStyle(tint: .red))
+          }
+          Spacer()
+          Button("Reclassify") { controller.toggleCategoryChooser() }
+            .accessibilityIdentifier("kronus-reclassify")
+            .accessibilityLabel("Reclassify current activity")
+            .disabled((controller.status.eventIds ?? []).isEmpty)
+            .opacity((controller.status.eventIds ?? []).isEmpty ? 0.45 : 1)
+            .buttonStyle(NotchActionStyle(tint: statusColor(controller.status.latestStatus)))
+          if let message = controller.recategorizeMessage { Text(message).font(.caption2).foregroundStyle(.white.opacity(0.75)) }
         }
-        .frame(height: 45)
       }
     }
     .padding(.horizontal, 18)
