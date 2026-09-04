@@ -9,9 +9,11 @@ private let panelWidth: CGFloat = 520
 private let panelHeight: CGFloat = 180
 private let expandedPanelHeight: CGFloat = 170
 // Keep the compact companion visually quieter than ordinary menu-bar items.
-private let pillWidth: CGFloat = 84
-private let pillHeight: CGFloat = 23
-private let notchGap: CGFloat = 7
+// These deliberately follow Tempo's light, compact dashboard controls rather
+// than looking like two miniature floating windows.
+private let pillWidth: CGFloat = 78
+private let pillHeight: CGFloat = 21
+private let notchGap: CGFloat = 8
 
 struct HelperCategory: Codable, Identifiable {
   let id: String
@@ -374,7 +376,7 @@ private struct NotchMorphShape: Shape {
   }
 }
 
-/** A deterministic, shape-clipped dark glass surface for both macOS appearances. */
+/** A deterministic, shape-clipped dark surface for both macOS appearances. */
 private struct LiquidGlassSurface<S: Shape>: View {
   let shape: S
   let expanded: Bool
@@ -383,20 +385,23 @@ private struct LiquidGlassSurface<S: Shape>: View {
     ZStack {
       // Do not use Material here: AppKit can composite it over the full
       // hosting view, which appears as a milky rectangle on light desktops.
-      shape.fill(Color.black.opacity(expanded ? 0.84 : 0.78))
+      // The expanded companion is intentionally opaque. Apart from being more
+      // legible, this avoids the visual noise of whatever application happens
+      // to sit beneath the detailed activity controls.
+      shape.fill(Color.black.opacity(expanded ? 1 : 0.82))
       shape.fill(
         LinearGradient(
-          colors: [Color.white.opacity(expanded ? 0.13 : 0.10), Color.white.opacity(0.025), Color.clear],
+          colors: [Color.white.opacity(expanded ? 0.09 : 0.08), Color.white.opacity(0.018), Color.clear],
           startPoint: .top,
           endPoint: .bottom
         )
       )
-      shape.stroke(Color.white.opacity(expanded ? 0.20 : 0.16), lineWidth: 0.8)
-      shape.stroke(Color.black.opacity(0.52), lineWidth: 1.25)
+      shape.stroke(Color.white.opacity(expanded ? 0.16 : 0.14), lineWidth: 0.75)
+      shape.stroke(Color.black.opacity(0.68), lineWidth: 1)
     }
     .compositingGroup()
     .clipShape(shape)
-    .shadow(color: Color.black.opacity(expanded ? 0.32 : 0.20), radius: expanded ? 14 : 5, y: expanded ? 6 : 2)
+    .shadow(color: Color.black.opacity(expanded ? 0.38 : 0.18), radius: expanded ? 12 : 4, y: expanded ? 5 : 1)
   }
 }
 
@@ -408,30 +413,30 @@ struct TimerPill: View {
   let color: Color
 
   var body: some View {
-    HStack(spacing: 5) {
+    HStack(spacing: 4) {
       Circle()
         .fill(paused ? Color.white.opacity(0.22) : active ? color : Color.white.opacity(0.25))
-        .frame(width: 7, height: 7)
-        .shadow(color: !paused && active ? color.opacity(0.78) : .clear, radius: !paused && active ? 4 : 0)
+        .frame(width: 6, height: 6)
+        .shadow(color: !paused && active ? color.opacity(0.65) : .clear, radius: !paused && active ? 3 : 0)
       Text(value)
-        .font(.system(size: 14, weight: .medium, design: .rounded).monospacedDigit())
+        .font(.system(size: 13, weight: .semibold, design: .rounded).monospacedDigit())
         .contentTransition(.numericText())
     }
     .foregroundStyle(paused ? Color.white.opacity(0.48) : active ? .white : Color.white.opacity(0.68))
     .frame(width: pillWidth, height: pillHeight)
     .background {
-      let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
+      let shape = Capsule(style: .continuous)
       ZStack {
-        shape.fill(Color.black.opacity(paused ? 0.58 : active ? 0.78 : 0.70))
+        shape.fill(Color.black.opacity(paused ? 0.68 : active ? 0.91 : 0.80))
         shape.fill(
-          LinearGradient(colors: [Color.white.opacity(0.12), Color.clear], startPoint: .top, endPoint: .bottom)
+          LinearGradient(colors: [Color.white.opacity(0.10), Color.clear], startPoint: .top, endPoint: .bottom)
         )
-        shape.stroke(Color.white.opacity(paused ? 0.10 : active ? 0.22 : 0.14), lineWidth: 0.75)
-        shape.stroke(!paused && active ? color.opacity(0.58) : Color.clear, lineWidth: 1.0)
+        shape.stroke(Color.white.opacity(paused ? 0.10 : active ? 0.18 : 0.12), lineWidth: 0.7)
+        shape.stroke(!paused && active ? color.opacity(0.72) : Color.clear, lineWidth: 0.8)
       }
     }
-    .shadow(color: !paused && active ? color.opacity(0.20) : Color.black.opacity(0.20), radius: !paused && active ? 7 : 4, y: 2)
-    .scaleEffect(!paused && active ? 1 : 0.985)
+    .shadow(color: !paused && active ? color.opacity(0.16) : Color.black.opacity(0.16), radius: !paused && active ? 5 : 3, y: 1)
+    .scaleEffect(!paused && active ? 1 : 0.99)
     .animation(.easeOut(duration: 0.22), value: active || paused)
     .accessibilityLabel("\(label) \(value)")
   }
