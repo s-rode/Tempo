@@ -442,6 +442,87 @@ struct TimerPill: View {
   }
 }
 
+/** A compact, always-visible acknowledgement that Tempo is running a deliberate session. */
+private struct FocusSessionBadge: View {
+  let title: String
+  let progress: CGFloat
+  let tint: Color
+
+  var body: some View {
+    VStack(spacing: 2) {
+      HStack(spacing: 4) {
+        Image(systemName: "target")
+          .font(.system(size: 8, weight: .bold))
+        Text(title)
+          .font(.system(size: 9, weight: .bold, design: .rounded))
+          .tracking(0.45)
+      }
+      .foregroundStyle(tint.opacity(0.96))
+      Capsule()
+        .fill(.white.opacity(0.16))
+        .frame(width: 58, height: 2)
+        .overlay(alignment: .leading) {
+          Capsule().fill(tint).frame(width: max(2, 58 * progress), height: 2)
+        }
+    }
+    .frame(width: 72, height: 18)
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("\(title) session in progress")
+  }
+}
+
+/** The expanded companion's concise, high-contrast session progress card. */
+private struct FocusSessionCard: View {
+  let title: String
+  let goal: String?
+  let remaining: String?
+  let progress: CGFloat
+  let tint: Color
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack(spacing: 6) {
+        Image(systemName: "target")
+          .font(.system(size: 10, weight: .bold))
+          .foregroundStyle(tint)
+        Text(title.uppercased())
+          .font(.system(size: 10, weight: .bold, design: .rounded))
+          .tracking(0.8)
+          .foregroundStyle(tint)
+        Spacer(minLength: 8)
+        if let remaining {
+          Text(remaining)
+            .font(.system(size: 12, weight: .semibold, design: .rounded).monospacedDigit())
+            .foregroundStyle(.white.opacity(0.92))
+        }
+      }
+      if let goal, !goal.isEmpty {
+        Text(goal)
+          .font(.caption.weight(.medium))
+          .foregroundStyle(.white.opacity(0.80))
+          .lineLimit(1)
+      }
+      Capsule()
+        .fill(.white.opacity(0.12))
+        .frame(height: 3)
+        .overlay(alignment: .leading) {
+          Capsule().fill(tint).frame(maxWidth: .infinity, alignment: .leading)
+            .mask(alignment: .leading) { Rectangle().frame(width: max(2, 484 * progress)) }
+        }
+    }
+    .padding(.horizontal, 10)
+    .padding(.vertical, 7)
+    .background {
+      let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+      ZStack {
+        shape.fill(Color.white.opacity(0.065))
+        shape.fill(tint.opacity(0.08))
+        shape.stroke(Color.white.opacity(0.12), lineWidth: 0.7)
+      }
+    }
+  }
+}
+
 private struct NotchActionStyle: ButtonStyle {
   let tint: Color
 
@@ -500,6 +581,24 @@ struct NotchRootView: View {
     guard isManualPause, let until = controller.status.pausedUntilMs else { return nil }
     return format(max(0, until - controller.now.timeIntervalSince1970 * 1000))
   }
+  private var sessionTint: Color {
+    if controller.status.trackingState == "paused" { return .white.opacity(0.6) }
+    if controller.status.trackingState == "break" { return .orange }
+    return controller.status.runtimeMode == "pomodoro" ? .purple : .green
+  }
+  private var compactSessionTitle: String {
+    if controller.status.trackingState == "paused" { return "PAUSED" }
+    if controller.status.trackingState == "break" { return "BREAK" }
+    if controller.status.runtimeMode == "pomodoro" {
+      return "POMO \((controller.status.phaseIndex ?? 0) / 2 + 1)/4"
+    }
+    return "FOCUS"
+  }
+  private var sessionRemaining: String? {
+    if let pauseRemaining { return "\(pauseRemaining) paused" }
+    guard let phaseRemaining = controller.status.phaseRemainingMs else { return nil }
+    return "\(formatRemaining(phaseRemaining)) left"
+  }
 
   var body: some View {
     GeometryReader { proxy in
@@ -525,11 +624,8 @@ struct NotchRootView: View {
         TimerPill(label: controller.status.latestStatus == "maybe" ? "Uncertain" : "Distracted", value: formatPill(distractedTime, minutePrecision: useMinutePrecision), active: controller.status.latestStatus == "unproductive", paused: isManualPause, color: statusColor(controller.status.latestStatus))
           .position(x: notchLeft + controller.geometry.notchWidth + notchGap + pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
         if controller.status.runtimeMode != "normal" {
-          Capsule()
-            .fill(statusColor(controller.status.latestStatus))
-            .frame(width: max(2, (controller.geometry.notchWidth - 14) * phaseProgress), height: 2)
-            .position(x: proxy.size.width / 2 - (controller.geometry.notchWidth - 14) * (1 - phaseProgress) / 2, y: controller.geometry.menuBarHeight - 3)
-            .accessibilityLabel("Focus phase progress")
+          FocusSessionBadge(title: compactSessionTitle, progress: phaseProgress, tint: sessionTint)
+            .position(x: proxy.size.width / 2, y: controller.geometry.menuBarHeight / 2)
         }
       }
       .onReceive(clock) { controller.now = $0 }
@@ -549,18 +645,13 @@ struct NotchRootView: View {
       }
       Rectangle().fill(.white.opacity(0.10)).frame(height: 0.5)
       if controller.status.runtimeMode != "normal" || controller.status.trackingState == "paused" {
-        HStack(spacing: 6) {
-          Text(sessionHeading).font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.92))
-          if let goal = controller.status.phaseGoal, !goal.isEmpty {
-            Text(goal).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
-          }
-          Spacer()
-          if let pauseRemaining {
-            Text("\(pauseRemaining) paused").font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.72))
-          } else if let phaseRemaining = controller.status.phaseRemainingMs {
-            Text("\(formatRemaining(phaseRemaining)) left").font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.75))
-          }
-        }
+        FocusSessionCard(
+          title: sessionHeading,
+          goal: controller.status.phaseGoal,
+          remaining: sessionRemaining,
+          progress: phaseProgress,
+          tint: sessionTint
+        )
       }
       if isManualPause {
         Text("Activity monitoring, local AI, sounds, and nudges are paused.")
