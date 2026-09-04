@@ -15,6 +15,8 @@ export interface FloatingStatusUpdate {
   statusStartedAtMs?: number | null
   categoryDetails?: Category
   availableCategories?: Category[]
+  /** Foreground app/site identity. Kept separate from the AI-derived label. */
+  activitySource?: string
   activityName?: string
   activitySummary?: string | null
   activityUrl?: string

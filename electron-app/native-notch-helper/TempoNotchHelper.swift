@@ -41,6 +41,7 @@ struct StatusPayload: Codable {
   let statusStartedAtMs: Double?
   let categoryDetails: HelperCategory?
   let availableCategories: [HelperCategory]?
+  let activitySource: String?
   let activityName: String?
   let activitySummary: String?
   let activityUrl: String?
@@ -152,7 +153,7 @@ final class NotchController: NSObject, ObservableObject {
     distractedClock: StreakClockPayload(accumulatedMs: 0, runningSinceMs: nil),
     provisionalDistractionStartedAtMs: nil,
     productiveStreakMs: 0, distractedStreakMs: 0, statusStartedAtMs: nil,
-    categoryDetails: nil, availableCategories: [], activityName: nil,
+    categoryDetails: nil, availableCategories: [], activitySource: nil, activityName: nil,
     activitySummary: nil, activityUrl: nil, categoryReasoning: nil,
     classificationStatus: nil, nudgeTitle: nil, nudgeBody: nil, eventIds: [],
     runtimeMode: "normal", trackingState: "normal", suspensionReasons: [], suspendedAtMs: nil, pausedUntilMs: nil,
@@ -609,6 +610,17 @@ struct NotchRootView: View {
   private var hasActiveSessionPresentation: Bool {
     controller.status.runtimeMode != "normal" || controller.status.trackingState == "paused"
   }
+  private var currentActivitySource: String? {
+    guard let source = controller.status.activitySource?.trimmingCharacters(in: .whitespacesAndNewlines), !source.isEmpty else { return nil }
+    return source
+  }
+  private var currentActivityLabel: String? {
+    guard let label = controller.status.activityName?.trimmingCharacters(in: .whitespacesAndNewlines), !label.isEmpty else { return nil }
+    guard let source = currentActivitySource else { return label }
+    // Avoid “PDFgear · PDFgear” when the safe local fallback is already the
+    // app name rather than an AI-derived activity label.
+    return label.caseInsensitiveCompare(source) == .orderedSame ? nil : label
+  }
 
   var body: some View {
     GeometryReader { proxy in
@@ -671,9 +683,15 @@ struct NotchRootView: View {
         Text("Activity monitoring, local AI, sounds, and nudges are paused.")
           .font(.caption).foregroundStyle(.white.opacity(0.72)).lineLimit(1)
       } else {
-        HStack(spacing: 7) {
-          Text(controller.status.activityName ?? "Waiting for activity")
+        HStack(spacing: 6) {
+          Text(currentActivitySource ?? currentActivityLabel ?? "Waiting for activity")
             .font(.system(size: 14, weight: .semibold, design: .rounded)).foregroundStyle(.white).lineLimit(1)
+          if let label = currentActivityLabel {
+            Text("·")
+              .font(.caption.weight(.medium)).foregroundStyle(.white.opacity(0.42))
+            Text(label)
+              .font(.system(size: 13, weight: .medium, design: .rounded)).foregroundStyle(.white.opacity(0.72)).lineLimit(1)
+          }
           if let category = controller.status.categoryDetails {
             Text(category.name).font(.caption.weight(.semibold)).foregroundStyle(statusColor(controller.status.latestStatus)).lineLimit(1)
           }
