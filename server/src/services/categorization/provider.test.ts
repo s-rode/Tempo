@@ -38,14 +38,7 @@ describe('OllamaClassificationProvider', () => {
       expect(request.format.required).toEqual([
         'chosenCategoryName',
         'confidence',
-        'goalAlignment',
-        'matchedGoalType',
-        'goalEvidence',
-        'activityLabel',
-        'activitySummary',
-        'reasoning',
-        'nudgeTitle',
-        'nudgeBody'
+        'goalAlignment'
       ]);
       return new Response(
         JSON.stringify({
@@ -78,5 +71,46 @@ describe('OllamaClassificationProvider', () => {
     process.env.OLLAMA_BASE_URL = 'https://example.com';
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result).toEqual({ choice: null, status: 'ollama_unavailable' });
+  });
+
+  test('accepts a minimal valid decision and fills optional display prose locally', async () => {
+    process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
+    globalThis.fetch = (async () => new Response(
+      JSON.stringify({
+        message: {
+          content: JSON.stringify({
+            chosenCategoryName: 'Distraction',
+            confidence: '0.82',
+            goalAlignment: 'none',
+          }),
+        },
+      }),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+
+    const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
+    expect(result.status).toBe('ollama');
+    expect(result.choice).toMatchObject({
+      chosenCategoryName: 'Distraction',
+      confidence: 0.82,
+      matchedGoalType: null,
+      activityLabel: '',
+      reasoning: 'Local classification completed.',
+    });
+  });
+
+  test('accepts a JSON response wrapped in a markdown fence', async () => {
+    process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
+    globalThis.fetch = (async () => new Response(
+      JSON.stringify({
+        message: {
+          content: '```json\n{"chosenCategoryName":"Work","confidence":0.9,"goalAlignment":"explicit"}\n```',
+        },
+      }),
+      { status: 200 }
+    )) as unknown as typeof fetch;
+
+    const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
+    expect(result.choice?.chosenCategoryName).toBe('Work');
   });
 });

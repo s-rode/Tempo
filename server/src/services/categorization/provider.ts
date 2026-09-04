@@ -48,7 +48,7 @@ const responseSchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    chosenCategoryName: { type: 'string' },
+    chosenCategoryName: { type: 'string', maxLength: 64 },
     confidence: { type: 'number', minimum: 0, maximum: 1 },
     goalAlignment: { type: 'string', enum: ['explicit', 'none', 'insufficient'] },
     matchedGoalType: { type: ['string', 'null'], enum: ['daily', 'weekly', 'life', 'session', null] },
@@ -63,15 +63,31 @@ const responseSchema = {
     'chosenCategoryName',
     'confidence',
     'goalAlignment',
-    'matchedGoalType',
-    'goalEvidence',
-    'activityLabel',
-    'activitySummary',
-    'reasoning',
-    'nudgeTitle',
-    'nudgeBody',
   ],
 };
+
+/**
+ * Ollama normally returns JSON directly when `format` is a schema.  Keeping
+ * this tiny normalizer nevertheless lets us recover from a harmless markdown
+ * fence emitted by some smaller/older local model variants. It never retries
+ * remotely and it never logs the response content.
+ */
+function parseStructuredResponse(rawContent: string): unknown | null {
+  const trimmed = rawContent.trim();
+  const candidates = [
+    trimmed,
+    trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim(),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // Try the next non-sensitive representation.
+    }
+  }
+  return null;
+}
 
 const boundedNumber = (value: string | undefined, fallback: number, minimum: number, maximum: number): number => {
   const parsed = Number(value);
@@ -164,11 +180,9 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         return { choice: null, status: 'invalid_response' };
       }
 
-      let json: unknown;
-      try {
-        json = JSON.parse(rawContent);
-      } catch (error) {
-        console.error('Ollama classification returned invalid JSON:', error);
+      const json = parseStructuredResponse(rawContent);
+      if (json === null) {
+        console.error('Ollama classification returned invalid JSON.');
         return { choice: null, status: 'invalid_response' };
       }
       const parsed = CategoryChoiceSchema.safeParse(json);
