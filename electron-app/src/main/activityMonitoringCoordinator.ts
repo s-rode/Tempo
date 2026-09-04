@@ -29,7 +29,7 @@ export interface SystemSuspensionState {
 /**
  * Keeps native monitoring alive independently of the dashboard's visible
  * state. The renderer receives only the newest committed capture after it has
- * authenticated, so an old hidden/destroyed dashboard cannot freeze Kronus.
+ * authenticated, so an old hidden/destroyed dashboard cannot freeze Tempo.
  */
 export class ActivityMonitoringCoordinator {
   private sequence = 0

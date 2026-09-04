@@ -37,7 +37,7 @@ export interface ClassificationProvider {
 
 function getLoopbackOllamaUrl(): URL {
   const url = new URL(process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434');
-  if (!new Set(['127.0.0.1', 'localhost', '::1']).has(url.hostname)) throw new Error('Ollama must use a loopback URL in Cronus Local mode.');
+  if (!new Set(['127.0.0.1', 'localhost', '::1']).has(url.hostname)) throw new Error('Ollama must use a loopback URL in Tempo Local mode.');
   return url;
 }
 

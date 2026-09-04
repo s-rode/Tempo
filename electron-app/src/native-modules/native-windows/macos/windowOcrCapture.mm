@@ -4,8 +4,8 @@
 #import <Vision/Vision.h>
 #import "permissionManager.h"
 
-static const NSUInteger kKronusOcrMaximumCharacters = 7000;
-static const NSInteger kKronusOcrMaximumLongEdge = 1600;
+static const NSUInteger kTempoOcrMaximumCharacters = 7000;
+static const NSInteger kTempoOcrMaximumLongEdge = 1600;
 
 @implementation WindowOcrCapture
 
@@ -63,7 +63,7 @@ static const NSInteger kKronusOcrMaximumLongEdge = 1600;
         NSString *line = candidate ? [self normalizedLine:candidate.string] : @"";
         if (line.length == 0) continue;
         if (text.length > 0) [text appendString:@"\n"];
-        NSUInteger remaining = kKronusOcrMaximumCharacters - text.length;
+        NSUInteger remaining = kTempoOcrMaximumCharacters - text.length;
         if (remaining == 0) break;
         if (line.length > remaining) {
             [text appendString:[line substringToIndex:remaining]];
@@ -111,7 +111,7 @@ static const NSInteger kKronusOcrMaximumLongEdge = 1600;
         SCStreamConfiguration *configuration = [[SCStreamConfiguration alloc] init];
         CGFloat width = MAX(targetWindow.frame.size.width, 1);
         CGFloat height = MAX(targetWindow.frame.size.height, 1);
-        CGFloat scale = MIN(1.0, (CGFloat)kKronusOcrMaximumLongEdge / MAX(width, height));
+        CGFloat scale = MIN(1.0, (CGFloat)kTempoOcrMaximumLongEdge / MAX(width, height));
         configuration.width = MAX(1, (NSInteger)round(width * scale));
         configuration.height = MAX(1, (NSInteger)round(height * scale));
 

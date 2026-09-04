@@ -14,7 +14,7 @@ export interface FirefoxNavigationState {
   reason: 'activation' | 'navigation' | 'reload' | 'title_change'
 }
 
-const localAppSupport = join(app.getPath('home'), 'Library', 'Application Support', 'Kronus')
+const localAppSupport = join(app.getPath('home'), 'Library', 'Application Support', 'Tempo')
 const socketPath = join(localAppSupport, 'firefox-native.sock')
 const nativeManifestPath = join(
   app.getPath('home'),
@@ -22,7 +22,7 @@ const nativeManifestPath = join(
   'Application Support',
   'Mozilla',
   'NativeMessagingHosts',
-  'com.kronus.local.firefox.json'
+  'com.tempo.local.firefox.json'
 )
 
 function navigationSecret(): string {
@@ -36,20 +36,20 @@ function navigationSecret(): string {
 
 function hostExecutablePath(): string {
   if (app.isPackaged) {
-    return join(process.resourcesPath, 'firefox-host', 'kronus-firefox-native-host')
+    return join(process.resourcesPath, 'firefox-host', 'tempo-firefox-native-host')
   }
-  return join(app.getAppPath(), 'build-resources', 'firefox-host', 'kronus-firefox-native-host')
+  return join(app.getAppPath(), 'build-resources', 'firefox-host', 'tempo-firefox-native-host')
 }
 
 function installNativeManifest(): void {
   const parent = join(app.getPath('home'), 'Library', 'Application Support', 'Mozilla', 'NativeMessagingHosts')
   mkdirSync(parent, { recursive: true, mode: 0o700 })
   const manifest = {
-    name: 'com.kronus.local.firefox',
-    description: 'Kronus local Firefox navigation companion',
+    name: 'com.tempo.local.firefox',
+    description: 'Tempo local Firefox navigation companion',
     path: hostExecutablePath(),
     type: 'stdio',
-    allowed_extensions: ['kronus-firefox@local.invalid']
+    allowed_extensions: ['tempo-firefox@local.invalid']
   }
   writeFileSync(nativeManifestPath, `${JSON.stringify(manifest)}\n`, { mode: 0o600 })
   chmodSync(nativeManifestPath, 0o600)

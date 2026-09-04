@@ -79,7 +79,7 @@ export class NotchHelper {
     try {
       this.child = spawn(executable, [], { stdio: 'pipe', windowsHide: true })
     } catch (error) {
-      console.error('Could not start Kronus Notch Helper:', error)
+      console.error('Could not start Tempo Notch Helper:', error)
       this.handleExit()
       return
     }
@@ -142,13 +142,13 @@ export class NotchHelper {
         process.resourcesPath,
         '..',
         'Helpers',
-        'Kronus Notch Helper.app',
+        'Tempo Notch Helper.app',
         'Contents',
         'MacOS',
-        'Kronus Notch Helper'
+        'Tempo Notch Helper'
       )
     }
-    return join(app.getAppPath(), 'build-resources', 'Kronus Notch Helper.app', 'Contents', 'MacOS', 'Kronus Notch Helper')
+    return join(app.getAppPath(), 'build-resources', 'Tempo Notch Helper.app', 'Contents', 'MacOS', 'Tempo Notch Helper')
   }
 
   private send(message: Record<string, unknown>): void {

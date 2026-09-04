@@ -2,7 +2,7 @@
  * Local-only companion. It sees tab metadata solely to identify navigation;
  * it has no content scripts and never inspects page DOM/text.
  */
-const hostName = 'com.kronus.local.firefox'
+const hostName = 'com.tempo.local.firefox'
 let port = null
 const states = new Map()
 

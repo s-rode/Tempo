@@ -73,7 +73,7 @@ export const focusRuntimeRouter = router({
       cancelPendingEnrichment(verifyToken(input.token).userId);
       const phase = currentPhase(runtime);
       if (runtime.run?.kind !== 'pomodoro' || !phase || phase.kind !== 'work' || phase.state !== 'awaiting_goal') {
-        throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Kronus is not waiting for a Pomodoro work goal.' });
+        throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Tempo is not waiting for a Pomodoro work goal.' });
       }
       phase.goal = input.goal;
       phase.state = 'running';
@@ -111,7 +111,7 @@ export const focusRuntimeRouter = router({
     cancelPendingEnrichment(verifyToken(input.token).userId);
     const phase = currentPhase(runtime);
     if (!runtime.run || !phase || (phase.kind !== 'short_break' && phase.kind !== 'long_break')) {
-      throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Kronus is not currently on a scheduled break.' });
+      throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Tempo is not currently on a scheduled break.' });
     }
     phase.state = 'completed';
     phase.runningSinceMs = null;

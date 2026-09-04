@@ -70,7 +70,7 @@ struct CommandEnvelope: Codable {
   let durationMinutes: Int?
 }
 
-final class KronusNotchPanel: NSPanel {
+final class TempoNotchPanel: NSPanel {
   var acceptsKeyboardControls = false
   override var canBecomeKey: Bool { acceptsKeyboardControls }
   override var canBecomeMain: Bool { false }
@@ -162,13 +162,13 @@ final class NotchController: NSObject, ObservableObject {
   @Published var recategorizeMessage: String?
   @Published var geometry: NotchGeometry
 
-  private let panel: KronusNotchPanel
+  private let panel: TempoNotchPanel
   private var hoverOpenWork: DispatchWorkItem?
   private var hoverCloseWork: DispatchWorkItem?
   private var previousStatus: String?
   private weak var host: PassthroughHostingView?
 
-  init(panel: KronusNotchPanel, geometry: NotchGeometry) {
+  init(panel: TempoNotchPanel, geometry: NotchGeometry) {
     self.panel = panel
     self.geometry = geometry
   }
@@ -586,7 +586,7 @@ struct NotchRootView: View {
         .frame(height: 32)
       } else {
         HStack(spacing: 7) {
-          Button("Open Kronus") { controller.emit(type: "openMain") }
+          Button("Open Tempo") { controller.emit(type: "openMain") }
             .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
           Button("Hide") { controller.hide() }
             .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
@@ -621,7 +621,7 @@ struct NotchRootView: View {
           }
           Spacer()
           Button("Reclassify") { controller.toggleCategoryChooser() }
-            .accessibilityIdentifier("kronus-reclassify")
+            .accessibilityIdentifier("tempo-reclassify")
             .accessibilityLabel("Reclassify current activity")
             .disabled((controller.status.eventIds ?? []).isEmpty)
             .opacity((controller.status.eventIds ?? []).isEmpty ? 0.45 : 1)
@@ -646,10 +646,10 @@ struct NotchRootView: View {
 
   private var sessionHeading: String {
     let reasons = controller.status.suspensionReasons ?? []
-    if reasons.contains("screen_locked") { return "Screen locked — Kronus is frozen" }
-    if reasons.contains("system_sleep") { return "Mac sleeping — Kronus is frozen" }
+    if reasons.contains("screen_locked") { return "Screen locked — Tempo is frozen" }
+    if reasons.contains("system_sleep") { return "Mac sleeping — Tempo is frozen" }
     if controller.status.trackingState == "break" { return controller.status.phaseKind == "long_break" ? "Long break" : "Short break" }
-    if controller.status.trackingState == "paused" { return "Kronus paused" }
+    if controller.status.trackingState == "paused" { return "Tempo paused" }
     if controller.status.runtimeMode == "pomodoro" { return "Pomodoro \((controller.status.phaseIndex ?? 0) / 2 + 1)" }
     return controller.status.runtimeMode == "custom" ? "Focus session" : ""
   }
@@ -687,7 +687,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var controller: NotchController?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
-    let panel = KronusNotchPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel, .utilityWindow, .hudWindow], backing: .buffered, defer: false)
+    let panel = TempoNotchPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel, .utilityWindow, .hudWindow], backing: .buffered, defer: false)
     panel.isFloatingPanel = true
     panel.isOpaque = false
     panel.backgroundColor = .clear

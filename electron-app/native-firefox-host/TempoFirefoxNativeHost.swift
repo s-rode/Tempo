@@ -2,10 +2,10 @@ import Foundation
 import Darwin
 
 /* Firefox native messaging uses length-prefixed UTF-8 JSON. This helper only
- * forwards extension messages to Kronus's mode-0600 Unix socket; it never
+ * forwards extension messages to Tempo's mode-0600 Unix socket; it never
  * persists or logs URLs. */
 let socketPath = FileManager.default.homeDirectoryForCurrentUser
-  .appendingPathComponent("Library/Application Support/Kronus/firefox-native.sock")
+  .appendingPathComponent("Library/Application Support/Tempo/firefox-native.sock")
   .path
 
 func writeFrame(_ object: [String: Any]) {

@@ -91,7 +91,7 @@ export function FocusRuntimeControls({ runtime }: { runtime: any }) {
 
 function PauseMenu({ onPause }: { onPause: (minutes: (typeof pauseDurations)[number]) => void }) {
   return (
-    <select className="rounded border border-slate-600 bg-slate-950 px-2 py-1.5" aria-label="Pause Kronus" defaultValue="" onChange={(event) => {
+    <select className="rounded border border-slate-600 bg-slate-950 px-2 py-1.5" aria-label="Pause Tempo" defaultValue="" onChange={(event) => {
       const value = Number(event.target.value) as (typeof pauseDurations)[number]
       if (value) onPause(value)
       event.currentTarget.value = ''
