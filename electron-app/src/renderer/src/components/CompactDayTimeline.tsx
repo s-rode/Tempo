@@ -2,7 +2,7 @@ import { Clock3 } from 'lucide-react'
 import type { ActivitySessionBlock, TimelineChapter } from '../lib/activitySessions'
 import { formatDuration } from '../lib/activityByCategoryWidgetHelpers'
 import { cn } from '../lib/utils'
-import { ActivityIcon } from './ui/ActivityIcon'
+import { TimelineChapterIcon } from './TimelineChapterIcon'
 
 interface CompactDayTimelineProps {
   sessions: ActivitySessionBlock[]
@@ -77,7 +77,7 @@ export default function CompactDayTimeline({
                 }}
               >
                 <div className="flex min-w-0 items-center gap-2 pr-16">
-                  <ActivityIcon url={primary.url} appName={primary.ownerName} size={16} />
+                  <TimelineChapterIcon chapter={chapter} size={18} />
                   <span className="truncate text-sm font-semibold">{chapter.label}</span>
                 </div>
                 <span className="absolute right-3 top-2 text-xs font-medium text-muted-foreground">
