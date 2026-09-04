@@ -46,8 +46,26 @@ const focusRuntimeSchema = new Schema(
     // A renderer heartbeat prevents an unexpected app shutdown from being
     // interpreted as uninterrupted focus time at the next launch.
     lastHeartbeatAtMs: { type: Number, default: null },
+    revision: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
 
 export const FocusRuntimeModel = mongoose.model('FocusRuntime', focusRuntimeSchema);
+
+// Completed runs are deliberately separate from the one active runtime record.
+// This makes a day of focus sessions available to the timeline without keeping
+// stale phases alive in the live state machine.
+export const FocusRunHistoryModel = mongoose.model(
+  'FocusRunHistory',
+  new Schema(
+    {
+      userId: { type: String, required: true, index: true },
+      runId: { type: String, required: true, unique: true },
+      run: { type: focusRunSchema, required: true },
+      endedAtMs: { type: Number, required: true, index: true },
+      outcome: { type: String, required: true, enum: ['completed', 'cancelled'] },
+    },
+    { timestamps: true }
+  )
+);

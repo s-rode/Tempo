@@ -44,6 +44,43 @@ export interface DayActivitySummary {
   sessions: ActivitySessionBlock[]
 }
 
+export interface TimelineChapter {
+  id: string
+  startTime: Date
+  endTime: Date
+  sessions: ActivitySessionBlock[]
+  focusedMs: number
+  distractedMs: number
+  uncertainMs: number
+  label: string
+  summary?: string
+}
+
+const CHAPTER_MAX_MS = 30 * 60 * 1000
+const CHAPTER_GAP_MS = 5 * 60 * 1000
+
+/** Groups chronological sessions for presentation only; source events stay exact. */
+export const buildTimelineChapters = (sessions: ActivitySessionBlock[]): TimelineChapter[] => {
+  const chapters: TimelineChapter[] = []
+  for (const session of sessions) {
+    const current = chapters[chapters.length - 1]
+    const canAppend = current &&
+      session.startTime.getTime() - current.endTime.getTime() < CHAPTER_GAP_MS &&
+      session.endTime.getTime() - current.startTime.getTime() <= CHAPTER_MAX_MS
+    if (canAppend && current) current.sessions.push(session)
+    else chapters.push({ id: `chapter:${session.startTime.getTime()}`, startTime: session.startTime, endTime: session.endTime, sessions: [session], focusedMs: 0, distractedMs: 0, uncertainMs: 0, label: '', summary: undefined })
+    const target = chapters[chapters.length - 1]
+    target.endTime = session.endTime
+    if (session.isProductive === true) target.focusedMs += session.activeDurationMs
+    else if (session.isProductive === false) target.distractedMs += session.activeDurationMs
+    else target.uncertainMs += session.activeDurationMs
+  }
+  return chapters.map((chapter) => {
+    const primary = [...chapter.sessions].sort((a, b) => b.activeDurationMs - a.activeDurationMs)[0]
+    return { ...chapter, label: primary.label, summary: primary.summary }
+  })
+}
+
 const normalize = (value?: string): string =>
   (value || '')
     .toLowerCase()
@@ -185,7 +222,7 @@ const foldBriefProductiveSessions = (sessions: ActivitySessionBlock[]): Activity
 
 export const buildActivitySessions = (blocks: ProcessedEventBlock[]): ActivitySessionBlock[] => {
   const sorted = removeHistoricalFirefoxCaptureDuplicates(blocks)
-    .filter((block) => !!block.categoryId && block.durationMs > 0)
+    .filter((block) => block.durationMs > 0)
     .sort((left, right) => left.startTime.getTime() - right.startTime.getTime())
   const sessions: ActivitySessionBlock[] = []
 

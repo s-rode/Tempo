@@ -36,6 +36,7 @@ export default function DaySummaryPanel({
 }: DaySummaryPanelProps) {
   const { token } = useAuth()
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
+  const [showAllActivities, setShowAllActivities] = useState(false)
   const totals = useMemo(() => sessionTotals(sessions), [sessions])
   const summaries = useMemo(() => buildDayActivitySummaries(sessions), [sessions])
   const selectedSession = sessions.find((session) => session.id === selectedSessionId) || null
@@ -111,7 +112,7 @@ export default function DaySummaryPanel({
         <CardContent className="p-2">
           <p className="px-2 pb-2 pt-1 text-sm font-semibold">Activities</p>
           <div className="space-y-1">
-            {summaries.map((summary) => {
+            {(showAllActivities ? summaries : summaries.slice(0, 6)).map((summary) => {
               const expanded = expandedKeys.has(summary.displayKey)
               const isSelected = selectedActivityKey === summary.displayKey
               const firstSession = summary.sessions[0]
@@ -162,6 +163,7 @@ export default function DaySummaryPanel({
                 </div>
               )
             })}
+            {summaries.length > 6 && <Button variant="ghost" className="w-full text-xs" onClick={() => setShowAllActivities((value) => !value)}>{showAllActivities ? 'Show fewer activities' : `Show all ${summaries.length} activities`}</Button>}
           </div>
         </CardContent>
       </Card>

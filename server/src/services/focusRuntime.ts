@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { FocusRuntimeModel } from '../models/focusRuntime';
+import { FocusRunHistoryModel, FocusRuntimeModel } from '../models/focusRuntime';
 
 export type SuspensionReason =
   | 'manual_pause'
@@ -28,7 +28,8 @@ const phase = (kind: 'work' | 'short_break' | 'long_break', durationMinutes: num
 
 const hasSystemSuspension = (runtime: RuntimeDocument) => runtime.systemLocked || runtime.systemSleeping;
 
-const currentPhase = (runtime: RuntimeDocument) => runtime.run?.phases?.[runtime.run.currentPhaseIndex] || null;
+const currentPhase = (runtime: RuntimeDocument) =>
+  runtime.run?.state === 'active' ? runtime.run.phases?.[runtime.run.currentPhaseIndex] || null : null;
 
 const freezePhase = (runtime: RuntimeDocument, now: number) => {
   const current = currentPhase(runtime);
@@ -51,9 +52,21 @@ const resumePhase = (runtime: RuntimeDocument, now: number) => {
 
 const completeRun = (runtime: RuntimeDocument, now: number, state: 'completed' | 'cancelled') => {
   if (!runtime.run) return;
+  freezePhase(runtime, now);
   runtime.run.state = state;
   runtime.run.completedAtMs = now;
 };
+
+export async function archiveFinishedRun(runtime: RuntimeDocument): Promise<void> {
+  const run = runtime.run;
+  if (!run || run.state === 'active' || !run.completedAtMs) return;
+  await FocusRunHistoryModel.updateOne(
+    { runId: run.id },
+    { $setOnInsert: { userId: String(runtime.userId), runId: run.id, run: run.toObject ? run.toObject() : run, endedAtMs: run.completedAtMs, outcome: run.state } },
+    { upsert: true }
+  );
+  runtime.run = null;
+}
 
 const advancePhase = (runtime: RuntimeDocument, now: number) => {
   const run = runtime.run;
@@ -151,10 +164,12 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
     run: runtime.run?.state === 'active' ? runValue : null,
     currentPhase: current ? { ...phaseValue, activeElapsedMs: phaseElapsedMs } : null,
     phaseRemainingMs: current ? Math.max(0, current.plannedDurationMs - phaseElapsedMs) : null,
+    revision: runtime.revision || 0,
   };
 };
 
 export async function saveRuntime(runtime: RuntimeDocument) {
+  runtime.revision = (runtime.revision || 0) + 1;
   await runtime.save();
   return runtime;
 }

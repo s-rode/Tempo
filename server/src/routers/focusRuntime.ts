@@ -4,6 +4,7 @@ import { publicProcedure, router } from '../trpc';
 import { verifyToken } from './auth';
 import {
   advanceRuntime,
+  archiveFinishedRun,
   completeRun,
   createCustomRun,
   createPomodoroRun,
@@ -15,6 +16,7 @@ import {
   saveRuntime,
 } from '../services/focusRuntime';
 import { cancelPendingEnrichment } from '../services/categorization/enrichmentScheduler';
+import { FocusRunHistoryModel } from '../models/focusRuntime';
 
 const tokenInput = z.object({ token: z.string() });
 const durations = z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60), z.literal(90), z.literal(120)]);
@@ -29,12 +31,21 @@ const runtimeFor = async (token: string, heartbeat = true) => {
   // Active sessions sync every ten seconds; normal tracking does not poll.
   const lastHeartbeat = runtime.lastHeartbeatAtMs || now;
   advanceRuntime(runtime, Math.min(now, lastHeartbeat + 6_000));
+  await archiveFinishedRun(runtime);
   if (heartbeat) runtime.lastHeartbeatAtMs = now;
   await saveRuntime(runtime);
   return runtime;
 };
 
 export const focusRuntimeRouter = router({
+  getHistory: publicProcedure
+    .input(tokenInput.extend({ startDateMs: z.number(), endDateMs: z.number() }))
+    .query(async ({ input }) => {
+      const userId = verifyToken(input.token).userId;
+      return FocusRunHistoryModel.find({ userId, endedAtMs: { $gte: input.startDateMs, $lt: input.endDateMs } })
+        .sort({ endedAtMs: 1 })
+        .lean();
+    }),
   getState: publicProcedure.input(tokenInput).query(async ({ input }) => {
     const runtime = await runtimeFor(input.token);
     return runtimeSnapshot(runtime);
@@ -131,7 +142,10 @@ export const focusRuntimeRouter = router({
   endRun: publicProcedure.input(tokenInput).mutation(async ({ input }) => {
     const runtime = await runtimeFor(input.token);
     cancelPendingEnrichment(verifyToken(input.token).userId);
-    if (runtime.run?.state === 'active') completeRun(runtime, Date.now(), 'cancelled');
+    if (runtime.run?.state === 'active') {
+      completeRun(runtime, Date.now(), 'cancelled');
+      await archiveFinishedRun(runtime);
+    }
     runtime.manualPauseUntilMs = null;
     runtime.manualPausedAtMs = null;
     await saveRuntime(runtime);

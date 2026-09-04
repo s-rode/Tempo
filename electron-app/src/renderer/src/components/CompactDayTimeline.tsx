@@ -1,11 +1,12 @@
 import { Clock3 } from 'lucide-react'
-import type { ActivitySessionBlock } from '../lib/activitySessions'
+import type { ActivitySessionBlock, TimelineChapter } from '../lib/activitySessions'
 import { formatDuration } from '../lib/activityByCategoryWidgetHelpers'
 import { cn } from '../lib/utils'
 import { ActivityIcon } from './ui/ActivityIcon'
 
 interface CompactDayTimelineProps {
   sessions: ActivitySessionBlock[]
+  chapters?: TimelineChapter[]
   selectedSessionId: string | null
   selectedActivityKey: string | null
   onSelectSession: (session: ActivitySessionBlock) => void
@@ -21,25 +22,35 @@ const blockHeight = (durationMs: number) =>
 
 export default function CompactDayTimeline({
   sessions,
+  chapters,
   selectedSessionId,
   selectedActivityKey,
   onSelectSession
 }: CompactDayTimelineProps) {
-  if (!sessions.length) {
+  const displayedChapters = chapters || sessions.map((session) => ({
+    id: session.id, startTime: session.startTime, endTime: session.endTime, sessions: [session],
+    focusedMs: session.isProductive ? session.activeDurationMs : 0,
+    distractedMs: session.isProductive === false ? session.activeDurationMs : 0,
+    uncertainMs: session.isProductive === undefined ? session.activeDurationMs : 0,
+    label: session.label, summary: session.summary
+  }))
+  if (!displayedChapters.length) {
     return <div className="p-8 text-center text-sm text-muted-foreground">No tracked activity for this day.</div>
   }
 
   return (
     <div className="px-3 pb-4 pt-2">
-      {sessions.map((session, index) => {
-        const previous = sessions[index - 1]
-        const gap = previous ? session.startTime.getTime() - previous.endTime.getTime() : 0
-        const selected = selectedSessionId === session.id
-        const related = selectedActivityKey === session.displayKey
-        const height = blockHeight(session.activeDurationMs)
+      {displayedChapters.map((chapter, index) => {
+        const previous = displayedChapters[index - 1]
+        const gap = previous ? chapter.startTime.getTime() - previous.endTime.getTime() : 0
+        const primary = chapter.sessions[0]
+        const durationMs = chapter.focusedMs + chapter.distractedMs + chapter.uncertainMs
+        const selected = chapter.sessions.some((session) => selectedSessionId === session.id)
+        const related = chapter.sessions.some((session) => selectedActivityKey === session.displayKey)
+        const height = blockHeight(durationMs)
 
         return (
-          <div key={session.id}>
+          <div key={chapter.id}>
             {gap >= longGapMs && (
               <div className="ml-14 flex h-8 items-center gap-2 border-l border-dashed border-border pl-3 text-[11px] text-muted-foreground">
                 <Clock3 size={12} /> {formatDuration(gap)} without tracked activity
@@ -47,11 +58,11 @@ export default function CompactDayTimeline({
             )}
             <div className="grid grid-cols-[42px_minmax(0,1fr)] gap-2">
               <div className="pt-2 text-right text-[11px] font-medium text-muted-foreground">
-                {timeLabel(session.startTime)}
+                {timeLabel(chapter.startTime)}
               </div>
               <button
                 type="button"
-                onClick={() => onSelectSession(session)}
+                onClick={() => onSelectSession(primary)}
                 className={cn(
                   'relative w-full overflow-hidden rounded-lg border px-3 py-2 text-left transition-all',
                   selected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : 'hover:brightness-95',
@@ -59,23 +70,23 @@ export default function CompactDayTimeline({
                 )}
                 style={{
                   minHeight: `${height}px`,
-                  backgroundColor: `${session.categoryColor || '#808080'}26`,
-                  borderColor: `${session.categoryColor || '#808080'}66`
+                  backgroundColor: chapter.focusedMs >= chapter.distractedMs ? '#22c55e1f' : '#ef44441f',
+                  borderColor: chapter.focusedMs >= chapter.distractedMs ? '#22c55e66' : '#ef444466'
                 }}
               >
                 <div className="flex min-w-0 items-center gap-2 pr-16">
-                  <ActivityIcon url={session.url} appName={session.ownerName} size={16} />
-                  <span className="truncate text-sm font-semibold">{session.label}</span>
+                  <ActivityIcon url={primary.url} appName={primary.ownerName} size={16} />
+                  <span className="truncate text-sm font-semibold">{chapter.label}</span>
                 </div>
                 <span className="absolute right-3 top-2 text-xs font-medium text-muted-foreground">
-                  {formatDuration(session.activeDurationMs)}
+                  {formatDuration(durationMs)}
                 </span>
-                {height >= 72 && session.summary && (
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{session.summary}</p>
+                {height >= 72 && (chapter.summary || chapter.sessions.length > 1) && (
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{chapter.summary || `${chapter.sessions.length} activities · ${formatDuration(chapter.focusedMs)} focused · ${formatDuration(chapter.distractedMs)} distracted`}</p>
                 )}
                 {height >= 100 && (
                   <p className="absolute bottom-2 right-3 text-[11px] text-muted-foreground">
-                    {timeLabel(session.startTime)}–{timeLabel(session.endTime)}
+                    {timeLabel(chapter.startTime)}–{timeLabel(chapter.endTime)}
                   </p>
                 )}
               </button>
