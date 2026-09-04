@@ -13,7 +13,16 @@ const clock = (milliseconds: number | null | undefined) => {
 }
 
 /** Compact local-session controls; the runtime remains authoritative in MongoDB. */
-export function FocusRuntimeControls({ runtime }: { runtime: any }) {
+interface FocusRuntimeSnapshot {
+  mode?: 'normal' | 'custom' | 'pomodoro'
+  trackingState: string
+  run?: { kind: 'custom' | 'pomodoro'; currentPhaseIndex: number } | null
+  currentPhase?: { kind: 'work' | 'short_break' | 'long_break'; state: 'awaiting_goal' | 'running' | 'suspended'; goal?: string | null } | null
+  phaseRemainingMs: number | null
+  suspension: { reasons: string[]; pausedUntilMs?: number | null }
+}
+
+export function FocusRuntimeControls({ runtime }: { runtime: FocusRuntimeSnapshot | undefined }) {
   const { token } = useAuth()
   const [goal, setGoal] = useState('')
   const [duration, setDuration] = useState<(typeof customDurations)[number]>(30)
@@ -26,6 +35,7 @@ export function FocusRuntimeControls({ runtime }: { runtime: any }) {
   const resume = trpc.focusRuntime.resume.useMutation({ onSuccess: invalidate })
   const skipBreak = trpc.focusRuntime.skipBreak.useMutation({ onSuccess: invalidate })
   const endRun = trpc.focusRuntime.endRun.useMutation({ onSuccess: invalidate })
+  const busy = startCustom.isLoading || startPomodoro.isLoading || confirmGoal.isLoading || pause.isLoading || resume.isLoading || skipBreak.isLoading || endRun.isLoading
 
   if (!token || !runtime) return null
   const phase = runtime.currentPhase
@@ -62,16 +72,16 @@ export function FocusRuntimeControls({ runtime }: { runtime: any }) {
           >
             {customDurations.map((minutes) => <option key={minutes} value={minutes}>{minutes} min</option>)}
           </select>
-          <button className="rounded bg-emerald-600 px-3 py-1.5 font-medium disabled:opacity-50" disabled={!goal.trim() || startCustom.isLoading} onClick={() => submitGoal('custom')}>Start focus</button>
-          <button className="rounded border border-violet-400 px-3 py-1.5 text-violet-200 disabled:opacity-50" disabled={!goal.trim() || startPomodoro.isLoading} onClick={() => submitGoal('pomodoro')}>Pomodoro</button>
-          <PauseMenu onPause={(minutes) => pause.mutate({ token, durationMinutes: minutes })} />
+          <button className="rounded bg-emerald-600 px-3 py-1.5 font-medium disabled:opacity-50" disabled={!goal.trim() || busy} onClick={() => submitGoal('custom')}>Start focus</button>
+          <button className="rounded border border-violet-400 px-3 py-1.5 text-violet-200 disabled:opacity-50" disabled={!goal.trim() || busy} onClick={() => submitGoal('pomodoro')}>Pomodoro</button>
+          <PauseMenu disabled={busy} onPause={(minutes) => pause.mutate({ token, durationMinutes: minutes })} />
         </div>
       ) : isWaitingForGoal ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium text-amber-300">Next Pomodoro block is ready.</span>
           <input className="min-w-[240px] flex-1 rounded border border-slate-600 bg-slate-950 px-2 py-1.5" value={goal} onChange={(event) => setGoal(event.target.value)} placeholder="Goal for this 30-minute block" onKeyDown={(event) => event.key === 'Enter' && submitGoal('next')} />
-          <button className="rounded bg-emerald-600 px-3 py-1.5 font-medium disabled:opacity-50" disabled={!goal.trim() || confirmGoal.isLoading} onClick={() => submitGoal('next')}>Begin block</button>
-          <EndButton onEnd={() => endRun.mutate({ token })} />
+          <button className="rounded bg-emerald-600 px-3 py-1.5 font-medium disabled:opacity-50" disabled={!goal.trim() || busy} onClick={() => submitGoal('next')}>Begin block</button>
+          <EndButton disabled={busy} onEnd={() => endRun.mutate({ token })} />
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-3">
@@ -79,19 +89,19 @@ export function FocusRuntimeControls({ runtime }: { runtime: any }) {
             <div className="font-medium">{isBreak ? 'Break' : activeRun.kind === 'pomodoro' ? `Pomodoro ${Math.ceil((activeRun.currentPhaseIndex + 1) / 2)} of 4` : 'Focus session'}</div>
             <div className="text-xs text-slate-300">{isPaused ? 'Paused' : phase?.goal || (isBreak ? 'Monitoring is suspended' : 'Focus in progress')} {runtime.phaseRemainingMs !== null ? `· ${clock(runtime.phaseRemainingMs)} remaining` : ''}</div>
           </div>
-          {isPaused && runtime.suspension.reasons.includes('manual_pause') ? <button className="rounded bg-emerald-600 px-3 py-1.5" onClick={() => resume.mutate({ token })}><Play size={14} className="mr-1 inline" />Resume now</button> : null}
-          {!isBreak && !isPaused ? <PauseMenu onPause={(minutes) => pause.mutate({ token, durationMinutes: minutes })} /> : null}
-          {isBreak ? <button className="rounded border border-slate-500 px-3 py-1.5" onClick={() => skipBreak.mutate({ token })}>Skip break</button> : null}
-          <EndButton onEnd={() => endRun.mutate({ token })} />
+          {isPaused && runtime.suspension.reasons.includes('manual_pause') ? <button disabled={busy} className="rounded bg-emerald-600 px-3 py-1.5" onClick={() => resume.mutate({ token })}><Play size={14} className="mr-1 inline" />Resume now</button> : null}
+          {!isBreak && !isPaused ? <PauseMenu disabled={busy} onPause={(minutes) => pause.mutate({ token, durationMinutes: minutes })} /> : null}
+          {isBreak ? <button disabled={busy} className="rounded border border-slate-500 px-3 py-1.5" onClick={() => skipBreak.mutate({ token })}>Skip break</button> : null}
+          <EndButton disabled={busy} onEnd={() => endRun.mutate({ token })} />
         </div>
       )}
     </section>
   )
 }
 
-function PauseMenu({ onPause }: { onPause: (minutes: (typeof pauseDurations)[number]) => void }) {
+function PauseMenu({ onPause, disabled }: { onPause: (minutes: (typeof pauseDurations)[number]) => void; disabled?: boolean }) {
   return (
-    <select className="rounded border border-slate-600 bg-slate-950 px-2 py-1.5" aria-label="Pause Tempo" defaultValue="" onChange={(event) => {
+    <select disabled={disabled} className="rounded border border-slate-600 bg-slate-950 px-2 py-1.5" aria-label="Pause Tempo" defaultValue="" onChange={(event) => {
       const value = Number(event.target.value) as (typeof pauseDurations)[number]
       if (value) onPause(value)
       event.currentTarget.value = ''
@@ -102,6 +112,6 @@ function PauseMenu({ onPause }: { onPause: (minutes: (typeof pauseDurations)[num
   )
 }
 
-function EndButton({ onEnd }: { onEnd: () => void }) {
-  return <button className="rounded border border-rose-500/70 px-2.5 py-1.5 text-rose-200" onClick={() => { if (window.confirm('End the current focus session?')) onEnd() }}><X size={14} className="mr-1 inline" />End</button>
+function EndButton({ onEnd, disabled }: { onEnd: () => void; disabled?: boolean }) {
+  return <button disabled={disabled} className="rounded border border-rose-500/70 px-2.5 py-1.5 text-rose-200 disabled:opacity-50" onClick={() => { if (window.confirm('End this session? Tempo will return to normal monitoring.')) onEnd() }}><X size={14} className="mr-1 inline" />End</button>
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { ProcessedEventBlock } from '../components/DashboardView'
-import { buildActivitySessions, buildDayActivitySummaries, sessionTotals } from './activitySessions'
+import { buildActivitySessions, buildDayActivitySummaries, buildTimelineChapters, sessionTotals } from './activitySessions'
 
 const base = new Date('2026-09-02T10:00:00.000Z').getTime()
 
@@ -139,5 +139,24 @@ describe('activity sessions', () => {
     expect(summaries).toHaveLength(1)
     expect(summaries[0].sessions).toHaveLength(2)
     expect(summaries[0].totalDurationMs).toBe(120_000)
+  })
+
+  test('groups short activity switches into a readable 30-minute chapter', () => {
+    const first = block({ durationMs: 10 * 60_000, endTime: new Date(base + 10 * 60_000) })
+    const second = block({
+      ownerName: 'RemNote', activityKey: 'app:remnote', activityLabel: 'Flashcards',
+      startTime: new Date(base + 10 * 60_000), endTime: new Date(base + 20 * 60_000), durationMs: 10 * 60_000,
+      originalEvent: { ...first.originalEvent, ownerName: 'RemNote', type: 'window', browser: null }
+    })
+    const chapters = buildTimelineChapters(buildActivitySessions([first, second]))
+    expect(chapters).toHaveLength(1)
+    expect(chapters[0].focusedMs).toBe(20 * 60_000)
+    expect(chapters[0].sessions).toHaveLength(2)
+  })
+
+  test('splits chapters at a five-minute tracking gap', () => {
+    const first = block()
+    const later = block({ startTime: new Date(base + 6 * 60_000), endTime: new Date(base + 7 * 60_000) })
+    expect(buildTimelineChapters(buildActivitySessions([first, later]))).toHaveLength(2)
   })
 })
