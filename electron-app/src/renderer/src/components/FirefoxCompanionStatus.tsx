@@ -1,0 +1,37 @@
+import { CheckCircle2, CircleDashed, Info, Sparkles } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
+
+export type FirefoxCompanionState = 'not_detected' | 'connected' | 'cache_hit' | 'cache_miss'
+
+const copy: Record<FirefoxCompanionState, { label: string; detail: string; tone: string; Icon: typeof CheckCircle2 }> = {
+  cache_hit: {
+    label: 'Firefox companion · reused',
+    detail: 'Tempo recognized the unchanged Firefox page and reused its local classification. No new OCR or Ollama request was needed.',
+    tone: 'text-emerald-700 dark:text-emerald-300',
+    Icon: Sparkles
+  },
+  cache_miss: {
+    label: 'Firefox companion · new page',
+    detail: 'Firefox reported a new or changed page, so Tempo performed its one in-memory OCR capture and local classification.',
+    tone: 'text-sky-700 dark:text-sky-300',
+    Icon: CheckCircle2
+  },
+  connected: {
+    label: 'Firefox companion connected',
+    detail: 'Tempo is receiving Firefox navigation events. It can reuse local classifications when you return to an unchanged tab.',
+    tone: 'text-sky-700 dark:text-sky-300',
+    Icon: CheckCircle2
+  },
+  not_detected: {
+    label: 'Firefox companion unavailable',
+    detail: 'Tempo has not received a navigation event yet. Enable the Tempo Firefox companion, then activate a non-private Firefox tab. Tempo safely falls back to title-change capture when it is unavailable.',
+    tone: 'text-muted-foreground',
+    Icon: CircleDashed
+  }
+}
+
+export function FirefoxCompanionStatus({ state }: { state: FirefoxCompanionState }) {
+  const current = copy[state]
+  const Icon = current.Icon
+  return <Popover><PopoverTrigger asChild><button type="button" data-testid="firefox-companion-status" className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${current.tone}`} aria-label={`${current.label}. Open Firefox companion details.`}><Icon size={14} /><span className="hidden sm:inline">{current.label}</span><Info size={13} className="opacity-65" /></button></PopoverTrigger><PopoverContent align="start" className="w-80 p-3"><div className="flex gap-2"><div className={`mt-0.5 ${current.tone}`}><Icon size={16} /></div><div><p className="text-sm font-semibold">{current.label}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{current.detail}</p><p className="mt-2 text-[11px] text-muted-foreground">Navigation details and URLs remain local. No browser content is retained.</p></div></div></PopoverContent></Popover>
+}
