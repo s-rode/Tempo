@@ -498,7 +498,7 @@ private struct FocusSessionCard: View {
       }
       if let goal, !goal.isEmpty {
         Text(goal)
-          .font(.caption.weight(.medium))
+          .font(.system(size: 11, weight: .medium, design: .rounded))
           .foregroundStyle(.white.opacity(0.80))
           .lineLimit(1)
       }
@@ -514,8 +514,11 @@ private struct FocusSessionCard: View {
       }
       .frame(height: 3)
     }
-    .padding(.horizontal, 10)
-    .padding(.vertical, 7)
+    .padding(.horizontal, 9)
+    .padding(.vertical, 4)
+    // The visible content area begins below the menu-bar strip. Fix this card
+    // to a compact height so it cannot consume the footer in a 170pt panel.
+    .frame(height: 42)
     .background {
       let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
       ZStack {
@@ -532,12 +535,12 @@ private struct NotchActionStyle: ButtonStyle {
 
   func makeBody(configuration: Configuration) -> some View {
     configuration.label
-      .font(.system(size: 12, weight: .semibold))
+      .font(.system(size: 11, weight: .semibold))
       .foregroundStyle(.white)
-      .padding(.horizontal, 10)
-      .padding(.vertical, 6)
+      .padding(.horizontal, 8)
+      .padding(.vertical, 4)
       .background {
-        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
         ZStack {
           shape.fill(Color.black.opacity(configuration.isPressed ? 0.72 : 0.62))
           shape.fill(tint.opacity(configuration.isPressed ? 0.35 : 0.17))
@@ -642,15 +645,19 @@ struct NotchRootView: View {
   }
 
   private var details: some View {
-    VStack(alignment: .leading, spacing: 5) {
-      HStack {
-        Text(statusHeading)
-          .font(.caption.weight(.bold)).tracking(0.7).foregroundStyle(statusColor(controller.status.latestStatus))
-        Spacer()
-        Text("Today  \(format(controller.status.dailyProductiveMs)) focused · \(format(controller.status.dailyUnproductiveMs)) distracted")
-          .font(.caption2).foregroundStyle(.white.opacity(0.66))
+    VStack(alignment: .leading, spacing: hasActiveSessionPresentation ? 3 : 5) {
+      // In an explicit session, the session card is the primary status. Do not
+      // spend scarce vertical space repeating the focused/today header above it.
+      if !hasActiveSessionPresentation {
+        HStack {
+          Text(statusHeading)
+            .font(.caption.weight(.bold)).tracking(0.7).foregroundStyle(statusColor(controller.status.latestStatus))
+          Spacer()
+          Text("Today  \(format(controller.status.dailyProductiveMs)) focused · \(format(controller.status.dailyUnproductiveMs)) distracted")
+            .font(.caption2).foregroundStyle(.white.opacity(0.66))
+        }
+        Rectangle().fill(.white.opacity(0.10)).frame(height: 0.5)
       }
-      Rectangle().fill(.white.opacity(0.10)).frame(height: 0.5)
       if hasActiveSessionPresentation {
         FocusSessionCard(
           title: sessionHeading,
@@ -728,7 +735,7 @@ struct NotchRootView: View {
             }
             .menuStyle(.borderlessButton)
             .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
-            .frame(width: 54)
+            .frame(width: 48)
           }
           if controller.status.trackingState == "break" {
             Button("Skip break") { controller.requestFocusAction("skipBreak") }
@@ -750,7 +757,7 @@ struct NotchRootView: View {
       }
     }
     .padding(.horizontal, 18)
-    .padding(.top, 4)
+    .padding(.top, hasActiveSessionPresentation ? 2 : 4)
     .frame(width: panelWidth, alignment: .leading)
   }
 
