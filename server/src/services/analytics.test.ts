@@ -19,6 +19,11 @@ describe('Tempo analytics interval aggregation', () => {
     expect(result.days[0].focusedMs).toBe(hour);
   });
 
+  test('does not turn a missed overnight boundary into a full day of focus', () => {
+    const result = calculatePeriodAnalytics([event(monday + 9 * hour, 'RemNote', 'work')], categories, monday, monday + day, monday + day);
+    expect(result.totals.focusedMs).toBe(4 * hour);
+  });
+
   test('counts only application changes, never browser tab changes or system boundaries', () => {
     const events = [
       event(monday + hour, 'Firefox', 'work'),

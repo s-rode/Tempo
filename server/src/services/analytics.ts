@@ -24,6 +24,9 @@ export interface PeriodAnalytics {
 }
 
 const SYSTEM_EVENT_NAMES = new Set(['System Sleep', 'System Wake', 'System Lock', 'System Unlock']);
+// Mirrors the renderer's processed-event ceiling. It preserves normal long
+// study visits while avoiding legacy intervals that span a missed sleep/lock.
+const MAX_CONTINUOUS_ACTIVITY_MS = 4 * 60 * 60 * 1000;
 
 const emptyDuration = (): AnalyticsDuration => ({ focusedMs: 0, distractedMs: 0, uncertainMs: 0 });
 
@@ -88,7 +91,7 @@ export const calculatePeriodAnalytics = (
       continue;
     }
     const nextTimestamp = sorted[index + 1]?.timestamp;
-    const intervalEnd = Math.min(nextTimestamp ?? nowMs, endDateMs, nowMs);
+    const intervalEnd = Math.min(nextTimestamp ?? nowMs, timestamp + MAX_CONTINUOUS_ACTIVITY_MS, endDateMs, nowMs);
     const intervalStart = Math.max(timestamp, startDateMs);
     if (intervalEnd <= intervalStart) continue;
 
@@ -146,7 +149,7 @@ export const calculatePeriodAnalytics = (
       const category = categoriesById.get(String(event.categoryId));
       if (!category) continue;
       const overlapStart = Math.max(event.timestamp || 0, day.startDateMs, startDateMs);
-      const overlapEnd = Math.min(sorted[index + 1]?.timestamp ?? nowMs, nextBoundary(day.startDateMs), endDateMs, nowMs);
+      const overlapEnd = Math.min(sorted[index + 1]?.timestamp ?? nowMs, (event.timestamp || 0) + MAX_CONTINUOUS_ACTIVITY_MS, nextBoundary(day.startDateMs), endDateMs, nowMs);
       if (overlapEnd <= overlapStart) continue;
       const entry = dayCategories.get(category._id) || {
         categoryId: category._id, name: category.name, color: category.color, isProductive: category.isProductive, durationMs: 0
