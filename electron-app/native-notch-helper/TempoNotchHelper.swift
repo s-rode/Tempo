@@ -329,6 +329,17 @@ private func format(_ milliseconds: Double) -> String {
   return hours > 0 ? "\(hours):\(String(format: "%02d", minutes)):\(String(format: "%02d", remainder))" : "\(minutes):\(String(format: "%02d", remainder))"
 }
 
+// Compact pills use one precision mode as a pair. Once either side reaches an
+// hour, explicit minute units keep the shorter counter from looking like it is
+// showing seconds next to an h:mm value.
+private func formatPill(_ milliseconds: Double, minutePrecision: Bool) -> String {
+  guard minutePrecision else { return format(milliseconds) }
+  let totalMinutes = max(0, Int(milliseconds / 60_000))
+  let hours = totalMinutes / 60
+  let minutes = totalMinutes % 60
+  return hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
+}
+
 private func statusColor(_ value: String?) -> Color {
   switch value {
   case "productive": return .green
@@ -468,6 +479,9 @@ struct NotchRootView: View {
   private var distractedTime: Double {
     elapsed(controller.status.distractedClock, fallback: controller.status.distractedStreakMs)
   }
+  private var useMinutePrecision: Bool {
+    productiveTime >= 3_600_000 || distractedTime >= 3_600_000
+  }
   private var phaseProgress: CGFloat {
     guard let total = controller.status.phaseDurationMs,
           let remaining = controller.status.phaseRemainingMs,
@@ -501,9 +515,9 @@ struct NotchRootView: View {
             .offset(y: controller.geometry.menuBarHeight + 5)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
-        TimerPill(label: "Focused", value: format(productiveTime), active: controller.status.latestStatus == "productive", paused: isManualPause, color: .green)
+        TimerPill(label: "Focused", value: formatPill(productiveTime, minutePrecision: useMinutePrecision), active: controller.status.latestStatus == "productive", paused: isManualPause, color: .green)
           .position(x: notchLeft - notchGap - pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
-        TimerPill(label: controller.status.latestStatus == "maybe" ? "Uncertain" : "Distracted", value: format(distractedTime), active: controller.status.latestStatus == "unproductive", paused: isManualPause, color: statusColor(controller.status.latestStatus))
+        TimerPill(label: controller.status.latestStatus == "maybe" ? "Uncertain" : "Distracted", value: formatPill(distractedTime, minutePrecision: useMinutePrecision), active: controller.status.latestStatus == "unproductive", paused: isManualPause, color: statusColor(controller.status.latestStatus))
           .position(x: notchLeft + controller.geometry.notchWidth + notchGap + pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
         if controller.status.runtimeMode != "normal" {
           Capsule()
