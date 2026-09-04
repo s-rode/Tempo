@@ -14,6 +14,7 @@ import {
   runtimeSnapshot,
   saveRuntime,
 } from '../services/focusRuntime';
+import { cancelPendingEnrichment } from '../services/categorization/enrichmentScheduler';
 
 const tokenInput = z.object({ token: z.string() });
 const durations = z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60), z.literal(90), z.literal(120)]);
@@ -43,6 +44,7 @@ export const focusRuntimeRouter = router({
     .input(tokenInput.extend({ goal, durationMinutes: durations }))
     .mutation(async ({ input }) => {
       const runtime = await runtimeFor(input.token);
+      cancelPendingEnrichment(verifyToken(input.token).userId);
       if (runtime.run?.state === 'active') throw new TRPCError({ code: 'CONFLICT', message: 'Finish the current focus session first.' });
       runtime.run = createCustomRun(input.goal, input.durationMinutes);
       runtime.manualPauseUntilMs = null;
@@ -55,6 +57,7 @@ export const focusRuntimeRouter = router({
     .input(tokenInput.extend({ firstGoal: goal }))
     .mutation(async ({ input }) => {
       const runtime = await runtimeFor(input.token);
+      cancelPendingEnrichment(verifyToken(input.token).userId);
       if (runtime.run?.state === 'active') throw new TRPCError({ code: 'CONFLICT', message: 'Finish the current focus session first.' });
       runtime.run = createPomodoroRun(input.firstGoal);
       runtime.manualPauseUntilMs = null;
@@ -67,6 +70,7 @@ export const focusRuntimeRouter = router({
     .input(tokenInput.extend({ goal }))
     .mutation(async ({ input }) => {
       const runtime = await runtimeFor(input.token);
+      cancelPendingEnrichment(verifyToken(input.token).userId);
       const phase = currentPhase(runtime);
       if (runtime.run?.kind !== 'pomodoro' || !phase || phase.kind !== 'work' || phase.state !== 'awaiting_goal') {
         throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Kronus is not waiting for a Pomodoro work goal.' });
@@ -83,6 +87,7 @@ export const focusRuntimeRouter = router({
     .input(tokenInput.extend({ durationMinutes: pauseDurations }))
     .mutation(async ({ input }) => {
       const runtime = await runtimeFor(input.token);
+      cancelPendingEnrichment(verifyToken(input.token).userId);
       const now = Date.now();
       freezePhase(runtime, now);
       runtime.manualPauseUntilMs = now + input.durationMinutes * 60_000;
@@ -93,6 +98,7 @@ export const focusRuntimeRouter = router({
 
   resume: publicProcedure.input(tokenInput).mutation(async ({ input }) => {
     const runtime = await runtimeFor(input.token);
+    cancelPendingEnrichment(verifyToken(input.token).userId);
     runtime.manualPauseUntilMs = null;
     runtime.manualPausedAtMs = null;
     resumePhase(runtime, Date.now());
@@ -102,6 +108,7 @@ export const focusRuntimeRouter = router({
 
   skipBreak: publicProcedure.input(tokenInput).mutation(async ({ input }) => {
     const runtime = await runtimeFor(input.token);
+    cancelPendingEnrichment(verifyToken(input.token).userId);
     const phase = currentPhase(runtime);
     if (!runtime.run || !phase || (phase.kind !== 'short_break' && phase.kind !== 'long_break')) {
       throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Kronus is not currently on a scheduled break.' });
@@ -123,6 +130,7 @@ export const focusRuntimeRouter = router({
 
   endRun: publicProcedure.input(tokenInput).mutation(async ({ input }) => {
     const runtime = await runtimeFor(input.token);
+    cancelPendingEnrichment(verifyToken(input.token).userId);
     if (runtime.run?.state === 'active') completeRun(runtime, Date.now(), 'cancelled');
     runtime.manualPauseUntilMs = null;
     runtime.manualPausedAtMs = null;

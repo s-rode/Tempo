@@ -34,11 +34,13 @@ describe('OllamaClassificationProvider', () => {
       expect(request.keep_alive).toBe('10m');
       expect(request.options.temperature).toBe(0);
       expect(request.options.num_ctx).toBe(4096);
-      expect(request.options.num_predict).toBe(128);
+      expect(request.options.num_predict).toBe(64);
       expect(request.format.required).toEqual([
         'chosenCategoryName',
         'confidence',
-        'goalAlignment'
+        'goalAlignment',
+        'matchedGoalType',
+        'goalEvidence'
       ]);
       return new Response(
         JSON.stringify({
@@ -64,16 +66,16 @@ describe('OllamaClassificationProvider', () => {
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result.status).toBe('ollama');
     expect(result.choice?.chosenCategoryName).toBe('Work');
-    expect(result.choice?.reasoning.split(/\s+/)).toHaveLength(12);
+    expect(result.attemptCount).toBe(1);
   });
 
   test('rejects non-loopback Ollama URLs', async () => {
     process.env.OLLAMA_BASE_URL = 'https://example.com';
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
-    expect(result).toEqual({ choice: null, status: 'ollama_unavailable' });
+    expect(result).toMatchObject({ choice: null, status: 'ollama_unavailable', attemptCount: 1 });
   });
 
-  test('accepts a minimal valid decision and fills optional display prose locally', async () => {
+  test('accepts a minimal valid decision', async () => {
     process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
     globalThis.fetch = (async () => new Response(
       JSON.stringify({
@@ -82,6 +84,8 @@ describe('OllamaClassificationProvider', () => {
             chosenCategoryName: 'Distraction',
             confidence: '0.82',
             goalAlignment: 'none',
+            matchedGoalType: null,
+            goalEvidence: null,
           }),
         },
       }),
@@ -94,8 +98,6 @@ describe('OllamaClassificationProvider', () => {
       chosenCategoryName: 'Distraction',
       confidence: 0.82,
       matchedGoalType: null,
-      activityLabel: '',
-      reasoning: 'Local classification completed.',
     });
   });
 
@@ -104,7 +106,7 @@ describe('OllamaClassificationProvider', () => {
     globalThis.fetch = (async () => new Response(
       JSON.stringify({
         message: {
-          content: '```json\n{"chosenCategoryName":"Work","confidence":0.9,"goalAlignment":"explicit"}\n```',
+          content: '```json\n{"chosenCategoryName":"Work","confidence":0.9,"goalAlignment":"explicit","matchedGoalType":"daily","goalEvidence":"Directly supports the stated study goal."}\n```',
         },
       }),
       { status: 200 }
@@ -112,5 +114,17 @@ describe('OllamaClassificationProvider', () => {
 
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result.choice?.chosenCategoryName).toBe('Work');
+  });
+
+  test('retries one malformed core reply with a minimal local request', async () => {
+    process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ message: { content: calls === 1 ? '{bad' : JSON.stringify({ chosenCategoryName: 'Work', confidence: 0.9, goalAlignment: 'explicit', matchedGoalType: 'daily', goalEvidence: 'Directly supports the stated study goal.' }) } }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
+    expect(calls).toBe(2);
+    expect(result).toMatchObject({ status: 'ollama', attemptCount: 2, choice: { chosenCategoryName: 'Work' } });
   });
 });
