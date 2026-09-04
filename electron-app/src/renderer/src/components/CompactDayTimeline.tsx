@@ -20,6 +20,8 @@ const timeLabel = (value: Date) =>
 const blockHeight = (durationMs: number) =>
   Math.min(190, Math.max(44, Math.round(durationMs / (40 * 1000))))
 
+const percent = (value: number, total: number) => total > 0 ? `${(value / total) * 100}%` : '0%'
+
 export default function CompactDayTimeline({
   sessions,
   chapters,
@@ -64,7 +66,7 @@ export default function CompactDayTimeline({
                 type="button"
                 onClick={() => onSelectSession(primary)}
                 className={cn(
-                  'relative w-full overflow-hidden rounded-lg border px-3 py-2 text-left transition-all',
+                  'relative w-full overflow-hidden rounded-lg border px-3 pb-4 pt-2 text-left transition-all',
                   selected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : 'hover:brightness-95',
                   related && !selected ? 'ring-1 ring-primary/50' : ''
                 )}
@@ -89,6 +91,15 @@ export default function CompactDayTimeline({
                     {timeLabel(chapter.startTime)}–{timeLabel(chapter.endTime)}
                   </p>
                 )}
+                <div
+                  className="absolute inset-x-3 bottom-2 flex h-1.5 overflow-hidden rounded-full bg-muted/70"
+                  aria-label={`${formatDuration(chapter.focusedMs)} focused, ${formatDuration(chapter.distractedMs)} distracted, ${formatDuration(chapter.uncertainMs)} uncertain`}
+                  title={`${formatDuration(chapter.focusedMs)} focused · ${formatDuration(chapter.distractedMs)} distracted${chapter.uncertainMs ? ` · ${formatDuration(chapter.uncertainMs)} uncertain` : ''}`}
+                >
+                  {chapter.focusedMs > 0 && <span className="bg-emerald-500" style={{ width: percent(chapter.focusedMs, durationMs) }} />}
+                  {chapter.distractedMs > 0 && <span className="bg-rose-500" style={{ width: percent(chapter.distractedMs, durationMs) }} />}
+                  {chapter.uncertainMs > 0 && <span className="bg-amber-500" style={{ width: percent(chapter.uncertainMs, durationMs) }} />}
+                </div>
               </button>
             </div>
           </div>
