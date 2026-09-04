@@ -502,13 +502,17 @@ private struct FocusSessionCard: View {
           .foregroundStyle(.white.opacity(0.80))
           .lineLimit(1)
       }
-      Capsule()
-        .fill(.white.opacity(0.12))
-        .frame(height: 3)
-        .overlay(alignment: .leading) {
-          Capsule().fill(tint).frame(maxWidth: .infinity, alignment: .leading)
-            .mask(alignment: .leading) { Rectangle().frame(width: max(2, 484 * progress)) }
+      // Keep this explicitly height-bound. A max-width overlay without a
+      // concrete height can receive an unbounded SwiftUI proposal and push the
+      // footer out of the fixed-height notch panel.
+      GeometryReader { proxy in
+        ZStack(alignment: .leading) {
+          Capsule().fill(.white.opacity(0.12))
+          Capsule().fill(tint)
+            .frame(width: max(2, proxy.size.width * progress), height: 3)
         }
+      }
+      .frame(height: 3)
     }
     .padding(.horizontal, 10)
     .padding(.vertical, 7)
@@ -599,6 +603,9 @@ struct NotchRootView: View {
     guard let phaseRemaining = controller.status.phaseRemainingMs else { return nil }
     return "\(formatRemaining(phaseRemaining)) left"
   }
+  private var hasActiveSessionPresentation: Bool {
+    controller.status.runtimeMode != "normal" || controller.status.trackingState == "paused"
+  }
 
   var body: some View {
     GeometryReader { proxy in
@@ -644,7 +651,7 @@ struct NotchRootView: View {
           .font(.caption2).foregroundStyle(.white.opacity(0.66))
       }
       Rectangle().fill(.white.opacity(0.10)).frame(height: 0.5)
-      if controller.status.runtimeMode != "normal" || controller.status.trackingState == "paused" {
+      if hasActiveSessionPresentation {
         FocusSessionCard(
           title: sessionHeading,
           goal: controller.status.phaseGoal,
@@ -664,12 +671,14 @@ struct NotchRootView: View {
             Text(category.name).font(.caption.weight(.semibold)).foregroundStyle(statusColor(controller.status.latestStatus)).lineLimit(1)
           }
         }
+        // A session already provides its own focal context. Preserve one useful
+        // supporting line for the current activity, rather than stacking both
+        // a summary and explanation above the always-reachable actions.
         if let summary = controller.status.activitySummary {
           Text(summary).font(.caption).foregroundStyle(.white.opacity(0.78)).lineLimit(1)
-        }
-        if controller.status.latestStatus == "unproductive", let nudge = controller.status.nudgeBody {
+        } else if controller.status.latestStatus == "unproductive", let nudge = controller.status.nudgeBody {
           Text(nudge).font(.caption2).foregroundStyle(.red.opacity(0.95)).lineLimit(1)
-        } else if let reasoning = controller.status.categoryReasoning {
+        } else if !hasActiveSessionPresentation, let reasoning = controller.status.categoryReasoning {
           Text("Why: \(reasoning)").font(.caption2).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
         }
       }
