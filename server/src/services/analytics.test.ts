@@ -32,6 +32,13 @@ describe('Tempo analytics interval aggregation', () => {
     expect(result.totals.appSwitches).toBe(2);
   });
 
+  test('matches string event category IDs with Mongo-style object category IDs', () => {
+    const mongoLikeCategories = categories.map((category) => ({ ...category, _id: { toString: () => category._id } })) as unknown as Category[];
+    const result = calculatePeriodAnalytics([event(monday + hour, 'RemNote', 'work')], mongoLikeCategories, monday, monday + day, monday + 2 * hour);
+    expect(result.totals.focusedMs).toBe(hour);
+    expect(result.totals.uncertainMs).toBe(0);
+  });
+
   test('averages only prior matching active weekdays through the same clock time', () => {
     const comparisonAt = monday + 15 * hour;
     const events = [

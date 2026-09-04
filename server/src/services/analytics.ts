@@ -57,7 +57,11 @@ export const calculatePeriodAnalytics = (
   endDateMs: number,
   nowMs = Date.now()
 ): PeriodAnalytics => {
-  const categoriesById = new Map(categories.map((category) => [category._id, category]));
+  // `.lean()` deliberately bypasses the schema's toJSON transform, so Mongo
+  // returns category `_id`s as ObjectIds here while activity events store the
+  // reference as a string. Normalize at the analytics boundary.
+  const normalizedCategories = categories.map((category) => ({ ...category, _id: String(category._id) }));
+  const categoriesById = new Map(normalizedCategories.map((category) => [category._id, category]));
   const days = new Map<number, AnalyticsDay>();
   const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, ...emptyDuration() }));
   const periodCategoryTotals = new Map<string, AnalyticsDay['categoryTotals'][number]>();
@@ -96,7 +100,7 @@ export const calculatePeriodAnalytics = (
     }
     previousApp = event.ownerName;
 
-    const category = event.categoryId ? categoriesById.get(event.categoryId) : undefined;
+    const category = event.categoryId ? categoriesById.get(String(event.categoryId)) : undefined;
     let sliceStart = intervalStart;
     while (sliceStart < intervalEnd) {
       const hourEnd = new Date(sliceStart);
@@ -128,7 +132,7 @@ export const calculatePeriodAnalytics = (
     for (const event of sorted) {
       const timestamp = event.timestamp || 0;
       if (timestamp < day.startDateMs || timestamp >= nextBoundary(day.startDateMs) || !event.categoryId) continue;
-      const category = categoriesById.get(event.categoryId);
+      const category = categoriesById.get(String(event.categoryId));
       if (!category) continue;
       dayCategories.set(category._id, dayCategories.get(category._id) || {
         categoryId: category._id, name: category.name, color: category.color, isProductive: category.isProductive, durationMs: 0
@@ -139,7 +143,7 @@ export const calculatePeriodAnalytics = (
     for (let index = 0; index < sorted.length; index += 1) {
       const event = sorted[index];
       if (event.type === 'system' || !event.categoryId) continue;
-      const category = categoriesById.get(event.categoryId);
+      const category = categoriesById.get(String(event.categoryId));
       if (!category) continue;
       const overlapStart = Math.max(event.timestamp || 0, day.startDateMs, startDateMs);
       const overlapEnd = Math.min(sorted[index + 1]?.timestamp ?? nowMs, nextBoundary(day.startDateMs), endDateMs, nowMs);
