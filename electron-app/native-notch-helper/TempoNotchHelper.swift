@@ -8,11 +8,11 @@ private let protocolVersion = 3
 private let panelWidth: CGFloat = 520
 // The native panel stays large enough to animate in place, but the visible
 // shape and hit region use the exact current content height below.
-private let panelHeight: CGFloat = 152
-private let maximumExpandedPanelHeight: CGFloat = 150
-private let normalExpandedPanelHeight: CGFloat = 130
-private let sessionExpandedPanelHeight: CGFloat = 142
-private let chooserExpandedPanelHeight: CGFloat = 150
+private let panelHeight: CGFloat = 184
+private let maximumExpandedPanelHeight: CGFloat = 182
+private let normalExpandedPanelHeight: CGFloat = 142
+private let normalChooserExpandedPanelHeight: CGFloat = 156
+private let sessionExpandedPanelHeight: CGFloat = 182
 // Keep the compact companion visually quieter than ordinary menu-bar items.
 // These deliberately follow Tempo's light, compact dashboard controls rather
 // than looking like two miniature floating windows.
@@ -210,7 +210,7 @@ final class NotchController: NSObject, ObservableObject {
 
   var expandedContentHeight: CGFloat {
     let presentsSession = status.runtimeMode != "normal" || status.trackingState == "paused"
-    if chooserOpen { return chooserExpandedPanelHeight }
+    if chooserOpen { return presentsSession ? sessionExpandedPanelHeight : normalChooserExpandedPanelHeight }
     return presentsSession ? sessionExpandedPanelHeight : normalExpandedPanelHeight
   }
 
@@ -764,10 +764,9 @@ struct NotchRootView: View {
             .font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.74)).lineLimit(1)
             .layoutPriority(-1)
           }
-          Spacer(minLength: 6)
           if !controller.chooserOpen {
-            // Recategorization belongs beside the decision it changes, rather
-            // than being separated from it on the far edge of the footer.
+            // Recategorization belongs directly beside the decision it
+            // changes, not as a detached trailing toolbar action.
             Button("Reclassify") { controller.toggleCategoryChooser() }
               .accessibilityIdentifier("tempo-reclassify")
               .accessibilityLabel("Reclassify current activity")
