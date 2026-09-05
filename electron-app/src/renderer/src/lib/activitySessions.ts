@@ -56,6 +56,13 @@ export interface TimelineChapter {
   summary?: string
 }
 
+/** A privacy-preserving, app-level view of a compact timeline chapter. */
+export interface TimelineChapterAppUsage {
+  appName: string
+  durationMs: number
+  sessionCount: number
+}
+
 const CHAPTER_MAX_MS = 30 * 60 * 1000
 const CHAPTER_GAP_MS = 5 * 60 * 1000
 
@@ -79,6 +86,26 @@ export const buildTimelineChapters = (sessions: ActivitySessionBlock[]): Timelin
     const primary = [...chapter.sessions].sort((a, b) => b.activeDurationMs - a.activeDurationMs)[0]
     return { ...chapter, label: primary.label, summary: primary.summary }
   })
+}
+
+/**
+ * Timeline chapters intentionally contain no page-level drill-down. Aggregate
+ * their retained sessions by application so a user can understand the block
+ * without turning a compact day into a browser-history list.
+ */
+export const summarizeTimelineChapterApps = (chapter: TimelineChapter): TimelineChapterAppUsage[] => {
+  const apps = new Map<string, TimelineChapterAppUsage>()
+  for (const session of chapter.sessions) {
+    const appName = session.ownerName || 'Unknown app'
+    const existing = apps.get(appName)
+    if (existing) {
+      existing.durationMs += session.activeDurationMs
+      existing.sessionCount += 1
+    } else {
+      apps.set(appName, { appName, durationMs: session.activeDurationMs, sessionCount: 1 })
+    }
+  }
+  return [...apps.values()].sort((left, right) => right.durationMs - left.durationMs)
 }
 
 const normalize = (value?: string): string =>

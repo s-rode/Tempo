@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { ProcessedEventBlock } from '../components/DashboardView'
-import { buildActivitySessions, buildDayActivitySummaries, buildTimelineChapters, sessionTotals } from './activitySessions'
+import { buildActivitySessions, buildDayActivitySummaries, buildTimelineChapters, sessionTotals, summarizeTimelineChapterApps } from './activitySessions'
 
 const base = new Date('2026-09-02T10:00:00.000Z').getTime()
 
@@ -152,6 +152,20 @@ describe('activity sessions', () => {
     expect(chapters).toHaveLength(1)
     expect(chapters[0].focusedMs).toBe(20 * 60_000)
     expect(chapters[0].sessions).toHaveLength(2)
+  })
+
+  test('summarizes a chapter by application without exposing page-level sessions', () => {
+    const firefox = block({ durationMs: 10 * 60_000, endTime: new Date(base + 10 * 60_000) })
+    const remNote = block({
+      ownerName: 'RemNote', activityKey: 'app:remnote', activityLabel: 'Flashcards', durationMs: 5 * 60_000,
+      startTime: new Date(base + 10 * 60_000), endTime: new Date(base + 15 * 60_000),
+      originalEvent: { ...firefox.originalEvent, ownerName: 'RemNote', type: 'window', browser: null }
+    })
+    const chapter = buildTimelineChapters(buildActivitySessions([firefox, remNote]))[0]
+    expect(summarizeTimelineChapterApps(chapter)).toEqual([
+      { appName: 'Firefox', durationMs: 10 * 60_000, sessionCount: 1 },
+      { appName: 'RemNote', durationMs: 5 * 60_000, sessionCount: 1 }
+    ])
   })
 
   test('splits chapters at a five-minute tracking gap', () => {
