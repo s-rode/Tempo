@@ -230,7 +230,10 @@ final class NotchController: NSObject, ObservableObject {
   func setExpanded(_ value: Bool) {
     hoverOpenWork?.cancel()
     hoverCloseWork?.cancel()
-    withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) { expanded = value }
+    let animation: Animation = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+      ? .easeOut(duration: 0.12)
+      : .spring(response: 0.32, dampingFraction: 0.88)
+    withAnimation(animation) { expanded = value }
     panel.acceptsKeyboardControls = value && chooserOpen
     host?.refreshInteractionRegions()
   }
@@ -372,37 +375,33 @@ private struct NotchMorphShape: Shape {
     let height = menuBarHeight + (expandedPanelHeight - menuBarHeight) * p
     let x = rect.midX - width / 2
     let y = rect.minY
-    let radius = 7 + (24 - 7) * p
+    let radius = 8 + (18 - 8) * p
     return Path(roundedRect: CGRect(x: x, y: y, width: width, height: height), cornerRadius: radius)
   }
 }
 
-/** A deterministic, shape-clipped dark surface for both macOS appearances. */
-private struct LiquidGlassSurface<S: Shape>: View {
+/**
+ A deterministic, shape-clipped menu-bar surface for both macOS appearances.
+ The helper deliberately avoids `Material`: an opaque dark surface is more
+ legible over light applications and cannot leak a full-hosting-view rectangle.
+ */
+private struct NotchSurface<S: Shape>: View {
   let shape: S
   let expanded: Bool
 
   var body: some View {
+    let reduceTransparency = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+    let increaseContrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
     ZStack {
-      // Do not use Material here: AppKit can composite it over the full
-      // hosting view, which appears as a milky rectangle on light desktops.
-      // The expanded companion is intentionally opaque. Apart from being more
-      // legible, this avoids the visual noise of whatever application happens
-      // to sit beneath the detailed activity controls.
-      shape.fill(Color.black.opacity(expanded ? 1 : 0.82))
-      shape.fill(
-        LinearGradient(
-          colors: [Color.white.opacity(expanded ? 0.09 : 0.08), Color.white.opacity(0.018), Color.clear],
-          startPoint: .top,
-          endPoint: .bottom
-        )
-      )
-      shape.stroke(Color.white.opacity(expanded ? 0.16 : 0.14), lineWidth: 0.75)
-      shape.stroke(Color.black.opacity(0.68), lineWidth: 1)
+      shape.fill(Color.black.opacity((expanded || reduceTransparency) ? 1 : 0.90))
+      if !expanded && !reduceTransparency {
+        shape.fill(Color.white.opacity(0.025))
+      }
+      shape.stroke(Color.white.opacity(increaseContrast ? 0.28 : 0.14), lineWidth: increaseContrast ? 1 : 0.75)
     }
     .compositingGroup()
     .clipShape(shape)
-    .shadow(color: Color.black.opacity(expanded ? 0.38 : 0.18), radius: expanded ? 12 : 4, y: expanded ? 5 : 1)
+    .shadow(color: Color.black.opacity(expanded ? 0.32 : 0.12), radius: expanded ? 8 : 2, y: expanded ? 3 : 1)
   }
 }
 
@@ -416,30 +415,26 @@ struct TimerPill: View {
   var body: some View {
     HStack(spacing: 4) {
       Circle()
-        .fill(paused ? Color.white.opacity(0.22) : active ? color : Color.white.opacity(0.25))
+        .fill(paused ? Color.white.opacity(0.28) : active ? color : Color.white.opacity(0.30))
         .frame(width: 6, height: 6)
-        .shadow(color: !paused && active ? color.opacity(0.65) : .clear, radius: !paused && active ? 3 : 0)
       Text(value)
-        .font(.system(size: 13, weight: .semibold, design: .rounded).monospacedDigit())
+        .font(.system(size: 12, weight: .semibold).monospacedDigit())
         .contentTransition(.numericText())
     }
-    .foregroundStyle(paused ? Color.white.opacity(0.48) : active ? .white : Color.white.opacity(0.68))
+    .foregroundStyle(paused ? Color.white.opacity(0.50) : active ? .white : Color.white.opacity(0.70))
     .frame(width: pillWidth, height: pillHeight)
     .background {
       let shape = Capsule(style: .continuous)
       ZStack {
-        shape.fill(Color.black.opacity(paused ? 0.68 : active ? 0.91 : 0.80))
-        shape.fill(
-          LinearGradient(colors: [Color.white.opacity(0.10), Color.clear], startPoint: .top, endPoint: .bottom)
-        )
-        shape.stroke(Color.white.opacity(paused ? 0.10 : active ? 0.18 : 0.12), lineWidth: 0.7)
-        shape.stroke(!paused && active ? color.opacity(0.72) : Color.clear, lineWidth: 0.8)
+        shape.fill(Color.black.opacity(paused ? 0.76 : 0.94))
+        shape.stroke(Color.white.opacity(paused ? 0.10 : 0.14), lineWidth: 0.7)
+        if !paused && active {
+          shape.stroke(color.opacity(0.52), lineWidth: 0.8)
+        }
       }
     }
-    .shadow(color: !paused && active ? color.opacity(0.16) : Color.black.opacity(0.16), radius: !paused && active ? 5 : 3, y: 1)
-    .scaleEffect(!paused && active ? 1 : 0.99)
-    .animation(.easeOut(duration: 0.22), value: active || paused)
-    .accessibilityLabel("\(label) \(value)")
+    .shadow(color: Color.black.opacity(0.22), radius: 2, y: 1)
+    .accessibilityLabel("\(label), \(value)\(paused ? ", paused" : active ? ", active" : "")")
   }
 }
 
@@ -450,29 +445,28 @@ private struct FocusSessionBadge: View {
   let tint: Color
 
   var body: some View {
-    VStack(spacing: 2) {
-      HStack(spacing: 4) {
+    VStack(spacing: 3) {
+      HStack(spacing: 5) {
         Image(systemName: "target")
-          .font(.system(size: 8, weight: .bold))
+          .font(.system(size: 9, weight: .semibold))
         Text(title)
-          .font(.system(size: 9, weight: .bold, design: .rounded))
-          .tracking(0.45)
+          .font(.system(size: 10, weight: .semibold))
       }
       .foregroundStyle(tint.opacity(0.96))
-      Capsule()
+      Rectangle()
         .fill(.white.opacity(0.16))
-        .frame(width: 58, height: 2)
+        .frame(width: 60, height: 1)
         .overlay(alignment: .leading) {
-          Capsule().fill(tint).frame(width: max(2, 58 * progress), height: 2)
+          Rectangle().fill(tint).frame(width: max(2, 60 * progress), height: 1)
         }
     }
-    .frame(width: 72, height: 18)
+    .frame(width: 78, height: 20)
     .accessibilityElement(children: .combine)
     .accessibilityLabel("\(title) session in progress")
   }
 }
 
-/** The expanded companion's concise, high-contrast session progress card. */
+/** A compact session-status row that keeps the current goal prominent. */
 private struct FocusSessionCard: View {
   let title: String
   let goal: String?
@@ -481,25 +475,24 @@ private struct FocusSessionCard: View {
   let tint: Color
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack(spacing: 6) {
+    VStack(alignment: .leading, spacing: 3) {
+      HStack(spacing: 7) {
         Image(systemName: "target")
-          .font(.system(size: 10, weight: .bold))
+          .font(.system(size: 11, weight: .semibold))
           .foregroundStyle(tint)
-        Text(title.uppercased())
-          .font(.system(size: 10, weight: .bold, design: .rounded))
-          .tracking(0.8)
+        Text(title)
+          .font(.system(size: 12, weight: .semibold))
           .foregroundStyle(tint)
         Spacer(minLength: 8)
         if let remaining {
           Text(remaining)
-            .font(.system(size: 12, weight: .semibold, design: .rounded).monospacedDigit())
+            .font(.system(size: 12, weight: .semibold).monospacedDigit())
             .foregroundStyle(.white.opacity(0.92))
         }
       }
       if let goal, !goal.isEmpty {
         Text(goal)
-          .font(.system(size: 11, weight: .medium, design: .rounded))
+          .font(.system(size: 11, weight: .regular))
           .foregroundStyle(.white.opacity(0.80))
           .lineLimit(1)
       }
@@ -508,50 +501,62 @@ private struct FocusSessionCard: View {
       // footer out of the fixed-height notch panel.
       GeometryReader { proxy in
         ZStack(alignment: .leading) {
-          Capsule().fill(.white.opacity(0.12))
-          Capsule().fill(tint)
+          Rectangle().fill(.white.opacity(0.12))
+          Rectangle().fill(tint)
             .frame(width: max(2, proxy.size.width * progress), height: 3)
         }
       }
       .frame(height: 3)
     }
-    .padding(.horizontal, 9)
-    .padding(.vertical, 4)
-    // The visible content area begins below the menu-bar strip. Fix this card
-    // to a compact height so it cannot consume the footer in a 170pt panel.
-    .frame(height: 42)
+    .padding(.horizontal, 10)
+    .padding(.vertical, 5)
+    .frame(height: 40)
     .background {
-      let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+      let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
       ZStack {
-        shape.fill(Color.white.opacity(0.065))
-        shape.fill(tint.opacity(0.08))
-        shape.stroke(Color.white.opacity(0.12), lineWidth: 0.7)
+        shape.fill(Color.white.opacity(0.045))
+        shape.fill(tint.opacity(0.065))
+        shape.stroke(Color.white.opacity(0.10), lineWidth: 0.7)
       }
     }
   }
 }
 
+private enum NotchActionTone: Equatable {
+  case neutral
+  case primary
+  case productive
+  case destructive
+
+  var accent: Color {
+    switch self {
+    case .neutral: return .white
+    case .primary: return .accentColor
+    case .productive: return .green
+    case .destructive: return .red
+    }
+  }
+
+  var isNeutral: Bool { self == .neutral }
+}
+
 private struct NotchActionStyle: ButtonStyle {
-  let tint: Color
+  let tone: NotchActionTone
 
   func makeBody(configuration: Configuration) -> some View {
     configuration.label
       .font(.system(size: 11, weight: .semibold))
-      .foregroundStyle(.white)
-      .padding(.horizontal, 8)
-      .padding(.vertical, 4)
+      .foregroundStyle(Color.white.opacity(configuration.isPressed ? 0.78 : 0.94))
+      .padding(.horizontal, 7)
+      .frame(minHeight: 22)
       .background {
-        let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
         ZStack {
-          shape.fill(Color.black.opacity(configuration.isPressed ? 0.72 : 0.62))
-          shape.fill(tint.opacity(configuration.isPressed ? 0.35 : 0.17))
-          shape.fill(LinearGradient(colors: [Color.white.opacity(0.10), Color.clear], startPoint: .top, endPoint: .bottom))
-          shape.stroke(Color.white.opacity(0.16), lineWidth: 0.75)
-          shape.stroke(tint.opacity(configuration.isPressed ? 0.78 : 0.46), lineWidth: 0.9)
+          shape.fill(tone.isNeutral ? Color.white.opacity(configuration.isPressed ? 0.16 : 0.09) : tone.accent.opacity(configuration.isPressed ? 0.46 : 0.28))
+          shape.stroke(tone.isNeutral ? Color.white.opacity(0.16) : tone.accent.opacity(0.62), lineWidth: 0.75)
         }
       }
-      .scaleEffect(configuration.isPressed ? 0.97 : 1)
-      .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+      .contentShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
   }
 }
 
@@ -592,7 +597,7 @@ struct NotchRootView: View {
   private var sessionTint: Color {
     if controller.status.trackingState == "paused" { return .white.opacity(0.6) }
     if controller.status.trackingState == "break" { return .orange }
-    return controller.status.runtimeMode == "pomodoro" ? .purple : .green
+    return .green
   }
   private var compactSessionTitle: String {
     if controller.status.trackingState == "paused" { return "PAUSED" }
@@ -626,7 +631,7 @@ struct NotchRootView: View {
     GeometryReader { proxy in
       let notchLeft = proxy.size.width / 2 - controller.geometry.notchWidth / 2
       ZStack(alignment: .topLeading) {
-        LiquidGlassSurface(
+        NotchSurface(
           shape: NotchMorphShape(
           progress: controller.expanded ? 1 : 0,
           notchWidth: controller.geometry.notchWidth,
@@ -658,17 +663,17 @@ struct NotchRootView: View {
 
   private var details: some View {
     VStack(alignment: .leading, spacing: hasActiveSessionPresentation ? 3 : 5) {
-      // In an explicit session, the session card is the primary status. Do not
-      // spend scarce vertical space repeating the focused/today header above it.
       if !hasActiveSessionPresentation {
-        HStack {
+        HStack(spacing: 6) {
+          Circle().fill(statusColor(controller.status.latestStatus)).frame(width: 6, height: 6)
           Text(statusHeading)
-            .font(.caption.weight(.bold)).tracking(0.7).foregroundStyle(statusColor(controller.status.latestStatus))
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.92))
           Spacer()
           Text("Today  \(format(controller.status.dailyProductiveMs)) focused · \(format(controller.status.dailyUnproductiveMs)) distracted")
-            .font(.caption2).foregroundStyle(.white.opacity(0.66))
+            .font(.system(size: 10, weight: .regular)).foregroundStyle(.white.opacity(0.62))
         }
-        Rectangle().fill(.white.opacity(0.10)).frame(height: 0.5)
+        Rectangle().fill(.white.opacity(0.10)).frame(height: 1 / (NSScreen.main?.backingScaleFactor ?? 2))
       }
       if hasActiveSessionPresentation {
         FocusSessionCard(
@@ -680,31 +685,37 @@ struct NotchRootView: View {
         )
       }
       if isManualPause {
-        Text("Activity monitoring, local AI, sounds, and nudges are paused.")
-          .font(.caption).foregroundStyle(.white.opacity(0.72)).lineLimit(1)
+        HStack(spacing: 6) {
+          Image(systemName: "pause.circle.fill").font(.system(size: 13, weight: .medium))
+          Text("Monitoring, timers, sounds, and nudges are paused.")
+            .font(.system(size: 11, weight: .regular))
+        }
+        .foregroundStyle(.white.opacity(0.72))
+        .lineLimit(1)
       } else {
         HStack(spacing: 6) {
           Text(currentActivitySource ?? currentActivityLabel ?? "Waiting for activity")
-            .font(.system(size: 14, weight: .semibold, design: .rounded)).foregroundStyle(.white).lineLimit(1)
+            .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
           if let label = currentActivityLabel {
             Text("·")
               .font(.caption.weight(.medium)).foregroundStyle(.white.opacity(0.42))
             Text(label)
-              .font(.system(size: 13, weight: .medium, design: .rounded)).foregroundStyle(.white.opacity(0.72)).lineLimit(1)
+              .font(.system(size: 12, weight: .regular)).foregroundStyle(.white.opacity(0.72)).lineLimit(1)
           }
           if let category = controller.status.categoryDetails {
-            Text(category.name).font(.caption.weight(.semibold)).foregroundStyle(statusColor(controller.status.latestStatus)).lineLimit(1)
+            HStack(spacing: 3) {
+              Circle().fill(statusColor(controller.status.latestStatus)).frame(width: 5, height: 5)
+              Text(category.name)
+            }
+            .font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.74)).lineLimit(1)
           }
         }
-        // A session already provides its own focal context. Preserve one useful
-        // supporting line for the current activity, rather than stacking both
-        // a summary and explanation above the always-reachable actions.
         if let summary = controller.status.activitySummary {
-          Text(summary).font(.caption).foregroundStyle(.white.opacity(0.78)).lineLimit(1)
+          Text(summary).font(.system(size: 11, weight: .regular)).foregroundStyle(.white.opacity(0.72)).lineLimit(1)
         } else if controller.status.latestStatus == "unproductive", let nudge = controller.status.nudgeBody {
-          Text(nudge).font(.caption2).foregroundStyle(.red.opacity(0.95)).lineLimit(1)
+          Text(nudge).font(.system(size: 10, weight: .regular)).foregroundStyle(.red.opacity(0.92)).lineLimit(1)
         } else if !hasActiveSessionPresentation, let reasoning = controller.status.categoryReasoning {
-          Text("Why: \(reasoning)").font(.caption2).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
+          Text(reasoning).font(.system(size: 10, weight: .regular)).foregroundStyle(.white.opacity(0.58)).lineLimit(1)
         }
       }
       if controller.chooserOpen {
@@ -712,15 +723,15 @@ struct NotchRootView: View {
         // the fixed-height native notch panel.
         HStack(spacing: 7) {
           Button("Cancel") { controller.toggleCategoryChooser() }
-            .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
-          Text("Set category")
-            .font(.caption.weight(.semibold))
+            .buttonStyle(NotchActionStyle(tone: .neutral))
+          Text("Choose category")
+            .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(.white.opacity(0.72))
           ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
               ForEach(controller.status.availableCategories ?? []) { category in
                 Button(category.name) { controller.requestRecategorization(category) }
-                  .buttonStyle(NotchActionStyle(tint: category.isProductive ? .green : .red))
+                  .buttonStyle(NotchActionStyle(tone: category.isProductive ? .productive : .destructive))
                   .accessibilityLabel("Set category to \(category.name), \(category.isProductive ? "productive" : "distracting")")
               }
             }
@@ -731,12 +742,12 @@ struct NotchRootView: View {
       } else {
         HStack(spacing: 7) {
           Button("Open Tempo") { controller.emit(type: "openMain") }
-            .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
+            .buttonStyle(NotchActionStyle(tone: .neutral))
           Button("Hide") { controller.hide() }
-            .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
+            .buttonStyle(NotchActionStyle(tone: .neutral))
           if controller.status.trackingState == "paused", (controller.status.suspensionReasons ?? []).contains("manual_pause") {
             Button("Resume") { controller.requestFocusAction("resume") }
-              .buttonStyle(NotchActionStyle(tint: .green))
+              .buttonStyle(NotchActionStyle(tone: .primary))
           } else if controller.status.trackingState == "active" || controller.status.trackingState == "normal" {
             Menu {
               ForEach([1, 5, 20, 30, 60, 120], id: \.self) { minutes in
@@ -752,16 +763,16 @@ struct NotchRootView: View {
               .foregroundStyle(.white)
             }
             .menuStyle(.borderlessButton)
-            .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
+            .buttonStyle(NotchActionStyle(tone: .neutral))
             .frame(width: 48)
           }
           if controller.status.trackingState == "break" {
             Button("Skip break") { controller.requestFocusAction("skipBreak") }
-              .buttonStyle(NotchActionStyle(tint: .white.opacity(0.45)))
+              .buttonStyle(NotchActionStyle(tone: .neutral))
           }
           if controller.status.runtimeMode != "normal" {
             Button("End") { controller.requestFocusAction("endRun") }
-              .buttonStyle(NotchActionStyle(tint: .red))
+              .buttonStyle(NotchActionStyle(tone: .destructive))
           }
           Spacer()
           Button("Reclassify") { controller.toggleCategoryChooser() }
@@ -769,12 +780,12 @@ struct NotchRootView: View {
             .accessibilityLabel("Reclassify current activity")
             .disabled((controller.status.eventIds ?? []).isEmpty)
             .opacity((controller.status.eventIds ?? []).isEmpty ? 0.45 : 1)
-            .buttonStyle(NotchActionStyle(tint: statusColor(controller.status.latestStatus)))
-          if let message = controller.recategorizeMessage { Text(message).font(.caption2).foregroundStyle(.white.opacity(0.75)) }
+            .buttonStyle(NotchActionStyle(tone: .primary))
+          if let message = controller.recategorizeMessage { Text(message).font(.system(size: 10, weight: .regular)).foregroundStyle(.white.opacity(0.72)) }
         }
       }
     }
-    .padding(.horizontal, 18)
+    .padding(.horizontal, 16)
     .padding(.top, hasActiveSessionPresentation ? 2 : 4)
     .frame(width: panelWidth, alignment: .leading)
   }
