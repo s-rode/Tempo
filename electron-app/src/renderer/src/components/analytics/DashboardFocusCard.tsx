@@ -28,12 +28,6 @@ const comparisonCopy = (mode: FocusComparisonMode, date: Date) => {
   return 'average active day'
 }
 
-const comparisonFooter = (mode: FocusComparisonMode, date: Date, sampleCount: number, time: string) => {
-  if (mode === 'same_weekday') return `Average pace uses ${sampleCount} earlier ${date.toLocaleDateString(undefined, { weekday: 'long' })}${sampleCount === 1 ? '' : 's'}, each clipped at ${time}.`
-  if (mode === 'same_day_type') return `Average pace uses ${sampleCount} prior active ${sampleCount === 1 ? 'day' : 'days'} of the same type, each clipped at ${time}.`
-  return `Average pace uses the previous ${sampleCount} active ${sampleCount === 1 ? 'day' : 'days'}, each clipped at ${time}.`
-}
-
 function WeekFocusTrend({ points, currentIndex }: { points: WeeklyFocusPoint[]; currentIndex?: number }) {
   const gradientId = useId().replace(/:/g, '')
   const selectableIndexes = useMemo(() => points.flatMap((point, index) => point.isFuture ? [] : [index]), [points])
@@ -133,7 +127,6 @@ function WeekFocusTrend({ points, currentIndex }: { points: WeeklyFocusPoint[]; 
           ))}
         </div>
       </div>
-      <p className="mt-1 text-[11px] text-muted-foreground">Select a day to inspect it. Arrow keys move between tracked days.</p>
     </section>
   )
 }
@@ -211,7 +204,6 @@ export function DashboardFocusCard() {
           <p className="mt-3 text-xs text-muted-foreground">No matching tracked days yet. Tempo will show this comparison when it has history for this setting ({sampleCount}/4).</p>
         )}
         <WeekFocusTrend points={points} currentIndex={currentIndex >= 0 ? currentIndex : undefined} />
-        {sampleCount > 0 && <p className="mt-3 text-[11px] text-muted-foreground">{comparisonFooter(comparisonMode, now, sampleCount, dayTimeLabel(now))}</p>}
       </CardContent>
     </Card>
   )
