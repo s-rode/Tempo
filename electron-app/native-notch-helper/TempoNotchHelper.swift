@@ -6,8 +6,13 @@ import SwiftUI
 
 private let protocolVersion = 3
 private let panelWidth: CGFloat = 520
-private let panelHeight: CGFloat = 180
-private let expandedPanelHeight: CGFloat = 170
+// The native panel stays large enough to animate in place, but the visible
+// shape and hit region use the exact current content height below.
+private let panelHeight: CGFloat = 152
+private let maximumExpandedPanelHeight: CGFloat = 150
+private let normalExpandedPanelHeight: CGFloat = 130
+private let sessionExpandedPanelHeight: CGFloat = 142
+private let chooserExpandedPanelHeight: CGFloat = 150
 // Keep the compact companion visually quieter than ordinary menu-bar items.
 // These deliberately follow Tempo's light, compact dashboard controls rather
 // than looking like two miniature floating windows.
@@ -86,14 +91,20 @@ final class PassthroughHostingView: NSHostingView<AnyView> {
   init(rootView: AnyView, controller: NotchController) {
     self.controller = controller
     super.init(rootView: rootView)
+    wantsLayer = true
+    layer?.backgroundColor = NSColor.clear.cgColor
   }
 
   required init(rootView: AnyView) {
     super.init(rootView: rootView)
+    wantsLayer = true
+    layer?.backgroundColor = NSColor.clear.cgColor
   }
 
   @available(*, unavailable)
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+  override var isOpaque: Bool { false }
 
   override func hitTest(_ point: NSPoint) -> NSView? {
     guard let controller else { return nil }
@@ -197,13 +208,20 @@ final class NotchController: NSObject, ObservableObject {
     host?.refreshInteractionRegions()
   }
 
+  var expandedContentHeight: CGFloat {
+    let presentsSession = status.runtimeMode != "normal" || status.trackingState == "paused"
+    if chooserOpen { return chooserExpandedPanelHeight }
+    return presentsSession ? sessionExpandedPanelHeight : normalExpandedPanelHeight
+  }
+
   func interactionRects(isFlipped: Bool) -> [NSRect] {
     let bounds = NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight)
     if expanded {
       // SwiftUI lays out from the top, while an NSHostingView can use flipped
       // coordinates. Keep the tracking rectangle in the host's own system.
-      let y = isFlipped ? 0 : bounds.maxY - expandedPanelHeight
-      return [NSRect(x: 0, y: y, width: bounds.width, height: expandedPanelHeight)]
+      let visibleHeight = expandedContentHeight
+      let y = isFlipped ? 0 : bounds.maxY - visibleHeight
+      return [NSRect(x: 0, y: y, width: bounds.width, height: visibleHeight)]
     }
     let notchLeft = bounds.midX - geometry.notchWidth / 2
     let y = isFlipped ? 0 : bounds.maxY - geometry.menuBarHeight
@@ -218,6 +236,7 @@ final class NotchController: NSObject, ObservableObject {
     let previous = previousStatus
     previousStatus = next.latestStatus
     status = next
+    host?.refreshInteractionRegions()
     if previous == "productive" && next.latestStatus == "unproductive" {
       setExpanded(true)
       DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
@@ -363,6 +382,7 @@ private struct NotchMorphShape: Shape {
   var progress: CGFloat
   var notchWidth: CGFloat
   var menuBarHeight: CGFloat
+  var expandedHeight: CGFloat
 
   var animatableData: CGFloat {
     get { progress }
@@ -372,7 +392,7 @@ private struct NotchMorphShape: Shape {
   func path(in rect: CGRect) -> Path {
     let p = min(1, max(0, progress))
     let width = notchWidth + (panelWidth - notchWidth) * p
-    let height = menuBarHeight + (expandedPanelHeight - menuBarHeight) * p
+    let height = menuBarHeight + (expandedHeight - menuBarHeight) * p
     let x = rect.midX - width / 2
     let y = rect.minY
     let radius = 8 + (18 - 8) * p
@@ -560,6 +580,33 @@ private struct NotchActionStyle: ButtonStyle {
   }
 }
 
+/// `Menu` does not inherit a custom `ButtonStyle` on macOS. Give the pause
+/// control its own explicit glass label so AppKit cannot fall back to black
+/// borderless-menu text against the black notch surface.
+private struct NotchMenuLabel: View {
+  let title: String
+
+  var body: some View {
+    HStack(spacing: 4) {
+      Text(title)
+      Image(systemName: "chevron.down")
+        .font(.system(size: 8, weight: .bold))
+    }
+    .font(.system(size: 11, weight: .semibold))
+    .foregroundStyle(.white.opacity(0.94))
+    .padding(.horizontal, 7)
+    .frame(minHeight: 22)
+    .background {
+      let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
+      ZStack {
+        shape.fill(.white.opacity(0.09))
+        shape.stroke(.white.opacity(0.16), lineWidth: 0.75)
+      }
+    }
+    .contentShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+  }
+}
+
 struct NotchRootView: View {
   @ObservedObject var controller: NotchController
   private let clock = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -615,6 +662,7 @@ struct NotchRootView: View {
   private var hasActiveSessionPresentation: Bool {
     controller.status.runtimeMode != "normal" || controller.status.trackingState == "paused"
   }
+  private var expandedContentHeight: CGFloat { controller.expandedContentHeight }
   private var currentActivitySource: String? {
     guard let source = controller.status.activitySource?.trimmingCharacters(in: .whitespacesAndNewlines), !source.isEmpty else { return nil }
     return source
@@ -633,13 +681,17 @@ struct NotchRootView: View {
       ZStack(alignment: .topLeading) {
         NotchSurface(
           shape: NotchMorphShape(
-          progress: controller.expanded ? 1 : 0,
-          notchWidth: controller.geometry.notchWidth,
-          menuBarHeight: controller.geometry.menuBarHeight
+            progress: controller.expanded ? 1 : 0,
+            notchWidth: controller.geometry.notchWidth,
+            menuBarHeight: controller.geometry.menuBarHeight,
+            expandedHeight: expandedContentHeight
           ),
           expanded: controller.expanded
         )
-        .frame(width: panelWidth, height: expandedPanelHeight, alignment: .top)
+        // The hosting panel remains fixed so the morph has a stable anchor;
+        // only this clipped shape is visible and interactive at its content
+        // height. This prevents an empty black rectangle below short states.
+        .frame(width: panelWidth, height: maximumExpandedPanelHeight, alignment: .top)
         .accessibilityHidden(true)
         if controller.expanded {
           details
@@ -696,11 +748,13 @@ struct NotchRootView: View {
         HStack(spacing: 6) {
           Text(currentActivitySource ?? currentActivityLabel ?? "Waiting for activity")
             .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+            .layoutPriority(-1)
           if let label = currentActivityLabel {
             Text("·")
               .font(.caption.weight(.medium)).foregroundStyle(.white.opacity(0.42))
             Text(label)
               .font(.system(size: 12, weight: .regular)).foregroundStyle(.white.opacity(0.72)).lineLimit(1)
+              .layoutPriority(-1)
           }
           if let category = controller.status.categoryDetails {
             HStack(spacing: 3) {
@@ -708,6 +762,19 @@ struct NotchRootView: View {
               Text(category.name)
             }
             .font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.74)).lineLimit(1)
+            .layoutPriority(-1)
+          }
+          Spacer(minLength: 6)
+          if !controller.chooserOpen {
+            // Recategorization belongs beside the decision it changes, rather
+            // than being separated from it on the far edge of the footer.
+            Button("Reclassify") { controller.toggleCategoryChooser() }
+              .accessibilityIdentifier("tempo-reclassify")
+              .accessibilityLabel("Reclassify current activity")
+              .disabled((controller.status.eventIds ?? []).isEmpty)
+              .opacity((controller.status.eventIds ?? []).isEmpty ? 0.45 : 1)
+              .buttonStyle(NotchActionStyle(tone: .primary))
+              .layoutPriority(1)
           }
         }
         if let summary = controller.status.activitySummary {
@@ -755,16 +822,11 @@ struct NotchRootView: View {
                   controller.requestFocusAction("pause", durationMinutes: minutes)
                 }
               }
-            } label: {
-              HStack(spacing: 4) {
-                Text("Pause")
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
-              }
-              .foregroundStyle(.white)
+          } label: {
+              NotchMenuLabel(title: "Pause")
             }
             .menuStyle(.borderlessButton)
-            .buttonStyle(NotchActionStyle(tone: .neutral))
-            .frame(width: 48)
+            .accessibilityLabel("Pause monitoring")
           }
           if controller.status.trackingState == "break" {
             Button("Skip break") { controller.requestFocusAction("skipBreak") }
@@ -774,14 +836,12 @@ struct NotchRootView: View {
             Button("End") { controller.requestFocusAction("endRun") }
               .buttonStyle(NotchActionStyle(tone: .destructive))
           }
-          Spacer()
-          Button("Reclassify") { controller.toggleCategoryChooser() }
-            .accessibilityIdentifier("tempo-reclassify")
-            .accessibilityLabel("Reclassify current activity")
-            .disabled((controller.status.eventIds ?? []).isEmpty)
-            .opacity((controller.status.eventIds ?? []).isEmpty ? 0.45 : 1)
-            .buttonStyle(NotchActionStyle(tone: .primary))
-          if let message = controller.recategorizeMessage { Text(message).font(.system(size: 10, weight: .regular)).foregroundStyle(.white.opacity(0.72)) }
+          if let message = controller.recategorizeMessage {
+            Text(message)
+              .font(.system(size: 10, weight: .regular))
+              .foregroundStyle(.white.opacity(0.72))
+              .lineLimit(1)
+          }
         }
       }
     }
@@ -842,7 +902,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var controller: NotchController?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
-    let panel = TempoNotchPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel, .utilityWindow, .hudWindow], backing: .buffered, defer: false)
+    // `.hudWindow` adds AppKit's own translucent rectangular HUD treatment,
+    // which is visible below a custom-shaped transparent panel. The native
+    // panel itself must stay entirely clear; NotchSurface owns every pixel.
+    let panel = TempoNotchPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel, .utilityWindow], backing: .buffered, defer: false)
     panel.isFloatingPanel = true
     panel.isOpaque = false
     panel.backgroundColor = .clear
