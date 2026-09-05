@@ -1,5 +1,5 @@
 import { TrendingDown, TrendingUp } from 'lucide-react'
-import { type KeyboardEvent, useEffect, useId, useMemo, useState } from 'react'
+import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { formatDuration } from '../../lib/activityByCategoryWidgetHelpers'
 import { trpc } from '../../utils/trpc'
@@ -35,6 +35,7 @@ function WeekFocusChart({
   const fallbackIndex = usableIndexes.at(-1) ?? 0
   const initialIndex = currentIndex !== undefined && !points[currentIndex]?.isFuture ? currentIndex : fallbackIndex
   const [selectedIndex, setSelectedIndex] = useState(initialIndex)
+  const dayButtonRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   useEffect(() => {
     setSelectedIndex(initialIndex)
@@ -58,12 +59,18 @@ function WeekFocusChart({
   const trackedMs = selected ? selected.focusedMs + selected.distractedMs + selected.uncertainMs : 0
   const selectedRatio = selected ? ratio(selected.focusedMs, trackedMs) : null
 
-  const moveSelection = (direction: -1 | 1) => {
-    const current = Math.max(0, usableIndexes.indexOf(selectedIndex))
-    setSelectedIndex(usableIndexes[Math.min(usableIndexes.length - 1, Math.max(0, current + direction))] ?? fallbackIndex)
+  const selectDay = (index: number, moveFocus = false) => {
+    if (points[index]?.isFuture) return
+    setSelectedIndex(index)
+    if (moveFocus) requestAnimationFrame(() => dayButtonRefs.current[index]?.focus())
   }
 
-  const handlePointKeyDown = (event: KeyboardEvent<SVGGElement>) => {
+  const moveSelection = (direction: -1 | 1) => {
+    const current = Math.max(0, usableIndexes.indexOf(selectedIndex))
+    selectDay(usableIndexes[Math.min(usableIndexes.length - 1, Math.max(0, current + direction))] ?? fallbackIndex, true)
+  }
+
+  const handleDayKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
     } else if (event.key === 'ArrowLeft') {
@@ -74,10 +81,10 @@ function WeekFocusChart({
       moveSelection(1)
     } else if (event.key === 'Home') {
       event.preventDefault()
-      setSelectedIndex(usableIndexes[0] ?? fallbackIndex)
+      selectDay(usableIndexes[0] ?? fallbackIndex, true)
     } else if (event.key === 'End') {
       event.preventDefault()
-      setSelectedIndex(usableIndexes.at(-1) ?? fallbackIndex)
+      selectDay(usableIndexes.at(-1) ?? fallbackIndex, true)
     }
   }
 
@@ -103,14 +110,9 @@ function WeekFocusChart({
             return (
               <g
                 key={`${point.dayStartMs}-${point.label}`}
-                tabIndex={point.isFuture ? -1 : 0}
-                role={point.isFuture ? undefined : 'button'}
-                aria-label={point.isFuture ? `${point.label}, upcoming` : `${point.label}: ${formatDuration(point.focusedMs)} focused. Use left and right arrow keys to inspect another day.`}
-                aria-pressed={point.isFuture ? undefined : isSelected}
-                onClick={() => !point.isFuture && setSelectedIndex(index)}
-                onMouseEnter={() => !point.isFuture && setSelectedIndex(index)}
-                onFocus={() => !point.isFuture && setSelectedIndex(index)}
-                onKeyDown={handlePointKeyDown}
+                aria-hidden="true"
+                onClick={() => !point.isFuture && selectDay(index)}
+                onMouseEnter={() => !point.isFuture && selectDay(index)}
                 className={point.isFuture ? 'opacity-30' : 'cursor-pointer'}
               >
                 <title>{point.isFuture ? `${point.label}: upcoming` : `${point.label}: ${formatDuration(point.focusedMs)} focused`}</title>
@@ -121,8 +123,23 @@ function WeekFocusChart({
             )
           })}
         </svg>
-        <div className="pointer-events-none absolute inset-x-[8%] bottom-0 flex justify-between text-[11px] text-muted-foreground">
-          {points.map((point, index) => <span key={point.dayStartMs} className={index === selectedIndex ? 'font-medium text-foreground' : point.isFuture ? 'opacity-45' : undefined}>{point.label}</span>)}
+        <div className="absolute inset-x-[8%] bottom-0 flex justify-between text-[11px] text-muted-foreground" role="group" aria-label="Select a weekday to inspect">
+          {points.map((point, index) => (
+            <button
+              key={point.dayStartMs}
+              ref={(element) => { dayButtonRefs.current[index] = element }}
+              type="button"
+              disabled={point.isFuture}
+              aria-pressed={index === selectedIndex}
+              aria-label={point.isFuture ? `${point.label}, upcoming` : `${point.label}: ${formatDuration(point.focusedMs)} focused`}
+              onClick={() => selectDay(index)}
+              onFocus={() => selectDay(index)}
+              onKeyDown={handleDayKeyDown}
+              className={`-mx-1 rounded-sm px-1 outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${index === selectedIndex ? 'font-medium text-foreground' : point.isFuture ? 'cursor-default opacity-45' : ''}`}
+            >
+              {point.label}
+            </button>
+          ))}
         </div>
         {averageMs !== null && averageMs !== undefined && <span className="absolute left-[8%] top-0 rounded bg-card/90 px-1 text-[10px] text-muted-foreground">Usual {formatDuration(averageMs)}</span>}
       </div>
