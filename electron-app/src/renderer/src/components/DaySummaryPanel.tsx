@@ -12,7 +12,6 @@ import { cn } from '../lib/utils'
 import { trpc } from '../utils/trpc'
 import AppIcon from './AppIcon'
 import { Button } from './ui/button'
-import { Card, CardContent } from './ui/card'
 
 interface DaySummaryPanelProps {
   sessions: ActivitySessionBlock[]
@@ -70,9 +69,9 @@ export default function DaySummaryPanel({
   const maxCategoryDuration = categoryTotals[0]?.durationMs || 1
 
   return (
-    <div className="space-y-3">
-      <Card>
-        <CardContent className="space-y-3 p-4">
+    <div className="space-y-0">
+      <section className="border-b px-1 pb-4">
+        <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <p className="text-2xl font-semibold">{formatDuration(totals.focusedMs)}</p>
@@ -105,12 +104,11 @@ export default function DaySummaryPanel({
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card>
-        <CardContent className="p-2">
-          <p className="px-2 pb-2 pt-1 text-sm font-semibold">Activities</p>
+      <section className="border-b py-4">
+          <p className="pb-2 text-[11px] font-medium uppercase tracking-[.12em] text-muted-foreground">Activities</p>
           <div className="space-y-1">
             {(showAllActivities ? summaries : summaries.slice(0, 6)).map((summary) => {
               const expanded = expandedKeys.has(summary.displayKey)
@@ -165,12 +163,10 @@ export default function DaySummaryPanel({
             })}
             {summaries.length > 6 && <Button variant="ghost" className="w-full text-xs" onClick={() => setShowAllActivities((value) => !value)}>{showAllActivities ? 'Show fewer activities' : `Show all ${summaries.length} activities`}</Button>}
           </div>
-        </CardContent>
-      </Card>
+      </section>
 
       {selectedSession && (
-        <Card>
-          <CardContent className="space-y-3 p-4">
+        <section className="space-y-3 py-4">
             <div className="flex items-start gap-2">
               {selectedSession.isProductive ? <Focus size={18} /> : <TriangleAlert size={18} />}
               <div className="min-w-0">
@@ -211,8 +207,7 @@ export default function DaySummaryPanel({
                 ))}
               </div>
             </div>
-          </CardContent>
-        </Card>
+        </section>
       )}
     </div>
   )
