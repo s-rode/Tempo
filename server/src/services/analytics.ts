@@ -23,6 +23,8 @@ export interface PeriodAnalytics {
   categoryTotals: AnalyticsDay['categoryTotals'];
 }
 
+export type FocusComparisonMode = 'all_active_days' | 'same_day_type' | 'same_weekday';
+
 const SYSTEM_EVENT_NAMES = new Set(['System Sleep', 'System Wake', 'System Lock', 'System Unlock']);
 // Mirrors the renderer's processed-event ceiling. It preserves normal long
 // study visits while avoiding legacy intervals that span a missed sleep/lock.
@@ -214,6 +216,44 @@ export const averageActiveDaysByTime = (args: {
   for (let offset = 1; samples.length < (args.sampleLimit || 4) && offset <= 70; offset += 1) {
     const start = new Date(comparisonStart);
     start.setDate(start.getDate() - offset);
+    const end = new Date(start);
+    end.setHours(comparison.getHours(), comparison.getMinutes(), comparison.getSeconds(), comparison.getMilliseconds());
+    const result = calculatePeriodAnalytics(args.events, args.categories, start.getTime(), end.getTime(), args.nowMs ?? Date.now());
+    if (result.totals.trackedMs > 0) samples.push(result.totals.focusedMs);
+  }
+  return {
+    focusedMs: samples.length ? Math.round(samples.reduce((total, value) => total + value, 0) / samples.length) : null,
+    sampleCount: samples.length
+  };
+};
+
+/**
+ * Uses the same bounded, calendar-aware interval calculation as the timeline
+ * while limiting a “usual by now” baseline to genuinely comparable days.
+ */
+export const averageComparableDaysByTime = (args: {
+  events: ActiveWindowEvent[];
+  categories: Category[];
+  comparisonAtMs: number;
+  mode: FocusComparisonMode;
+  sampleLimit?: number;
+  nowMs?: number;
+}) => {
+  const comparison = new Date(args.comparisonAtMs);
+  const comparisonStart = dayStart(args.comparisonAtMs);
+  const comparisonWeekday = comparison.getDay();
+  const comparisonIsWeekend = comparisonWeekday === 0 || comparisonWeekday === 6;
+  const matchesComparison = (candidate: Date) => {
+    if (args.mode === 'all_active_days') return true;
+    if (args.mode === 'same_weekday') return candidate.getDay() === comparisonWeekday;
+    const candidateWeekday = candidate.getDay();
+    return (candidateWeekday === 0 || candidateWeekday === 6) === comparisonIsWeekend;
+  };
+  const samples: number[] = [];
+  for (let offset = 1; samples.length < (args.sampleLimit || 4) && offset <= 70; offset += 1) {
+    const start = new Date(comparisonStart);
+    start.setDate(start.getDate() - offset);
+    if (!matchesComparison(start)) continue;
     const end = new Date(start);
     end.setHours(comparison.getHours(), comparison.getMinutes(), comparison.getSeconds(), comparison.getMilliseconds());
     const result = calculatePeriodAnalytics(args.events, args.categories, start.getTime(), end.getTime(), args.nowMs ?? Date.now());

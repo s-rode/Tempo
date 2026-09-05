@@ -11,6 +11,8 @@ type WeeklyFocusPoint = DurationPoint & {
   isFuture: boolean
 }
 
+type FocusComparisonMode = 'all_active_days' | 'same_day_type' | 'same_weekday'
+
 const startOfWeek = (value: Date) => {
   const date = new Date(value)
   date.setDate(date.getDate() - ((date.getDay() + 6) % 7))
@@ -19,6 +21,18 @@ const startOfWeek = (value: Date) => {
 }
 
 const dayTimeLabel = (value: Date) => value.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+
+const comparisonCopy = (mode: FocusComparisonMode, date: Date) => {
+  if (mode === 'same_weekday') return `average ${date.toLocaleDateString(undefined, { weekday: 'long' })}`
+  if (mode === 'same_day_type') return date.getDay() === 0 || date.getDay() === 6 ? 'average weekend day' : 'average weekday'
+  return 'average active day'
+}
+
+const comparisonFooter = (mode: FocusComparisonMode, date: Date, sampleCount: number, time: string) => {
+  if (mode === 'same_weekday') return `Average pace uses ${sampleCount} earlier ${date.toLocaleDateString(undefined, { weekday: 'long' })}${sampleCount === 1 ? '' : 's'}, each clipped at ${time}.`
+  if (mode === 'same_day_type') return `Average pace uses ${sampleCount} prior active ${sampleCount === 1 ? 'day' : 'days'} of the same type, each clipped at ${time}.`
+  return `Average pace uses the previous ${sampleCount} active ${sampleCount === 1 ? 'day' : 'days'}, each clipped at ${time}.`
+}
 
 function WeekFocusTrend({ points, currentIndex }: { points: WeeklyFocusPoint[]; currentIndex?: number }) {
   const gradientId = useId().replace(/:/g, '')
@@ -126,6 +140,8 @@ function WeekFocusTrend({ points, currentIndex }: { points: WeeklyFocusPoint[]; 
 
 export function DashboardFocusCard() {
   const { token } = useAuth()
+  const { data: settings } = trpc.user.getElectronAppSettings.useQuery({ token: token || '' }, { enabled: !!token })
+  const comparisonMode = (settings?.focusComparisonMode || 'all_active_days') as FocusComparisonMode
   const [comparisonAtMs, setComparisonAtMs] = useState(() => Date.now())
   useEffect(() => {
     const timer = window.setInterval(() => setComparisonAtMs(Date.now()), 30_000)
@@ -142,7 +158,8 @@ export function DashboardFocusCard() {
       token: token || '',
       startDateMs: weekStart.getTime(),
       endDateMs: weekEnd.getTime(),
-      comparisonAtMs
+      comparisonAtMs,
+      focusComparisonMode: comparisonMode
     },
     { enabled: !!token, refetchInterval: 30_000 }
   )
@@ -182,7 +199,7 @@ export function DashboardFocusCard() {
           <div className="pl-3">
             <p className="text-[11px] text-muted-foreground">Usual by now</p>
             <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{isLoading ? '—' : usualMs === null ? '—' : formatDuration(usualMs)}</p>
-            <p className="text-xs text-muted-foreground">average active day</p>
+            <p className="text-xs text-muted-foreground">{comparisonCopy(comparisonMode, now)}</p>
           </div>
         </div>
         {delta !== null ? (
@@ -191,10 +208,10 @@ export function DashboardFocusCard() {
             <span>{Math.abs(delta) < 60_000 ? `On pace with your average by ${dayTimeLabel(now)}.` : `${formatDuration(Math.abs(delta))} ${delta >= 0 ? 'ahead of' : 'behind'} your average by ${dayTimeLabel(now)}.`}</span>
           </div>
         ) : (
-          <p className="mt-3 text-xs text-muted-foreground">Need more tracked days before Tempo can show your average pace ({sampleCount}/4).</p>
+          <p className="mt-3 text-xs text-muted-foreground">No matching tracked days yet. Tempo will show this comparison when it has history for this setting ({sampleCount}/4).</p>
         )}
         <WeekFocusTrend points={points} currentIndex={currentIndex >= 0 ? currentIndex : undefined} />
-        {sampleCount > 0 && <p className="mt-3 text-[11px] text-muted-foreground">Average pace uses the previous {sampleCount} active day{sampleCount === 1 ? '' : 's'}, each clipped at {dayTimeLabel(now)}.</p>}
+        {sampleCount > 0 && <p className="mt-3 text-[11px] text-muted-foreground">{comparisonFooter(comparisonMode, now, sampleCount, dayTimeLabel(now))}</p>}
       </CardContent>
     </Card>
   )

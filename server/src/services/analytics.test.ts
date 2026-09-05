@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { ActiveWindowEvent, Category } from '../../../shared/types';
-import { averageActiveDaysByTime, averageMatchingWeekdayByTime, calculatePeriodAnalytics } from './analytics';
+import { averageActiveDaysByTime, averageComparableDaysByTime, averageMatchingWeekdayByTime, calculatePeriodAnalytics } from './analytics';
 
 const hour = 60 * 60 * 1000;
 const day = 24 * hour;
@@ -68,5 +68,31 @@ describe('Tempo analytics interval aggregation', () => {
     const baseline = averageActiveDaysByTime({ events, categories, comparisonAtMs: comparisonAt, nowMs: comparisonAt });
     expect(baseline.sampleCount).toBe(2);
     expect(baseline.focusedMs).toBe(3.5 * hour);
+  });
+
+  test('can compare a weekend only to prior weekend days', () => {
+    const saturday = monday - 2 * day;
+    const comparisonAt = saturday + 15 * hour;
+    const events = [
+      event(saturday - day + 9 * hour, 'RemNote', 'work'), // Friday: excluded
+      event(saturday - 7 * day + 10 * hour, 'RemNote', 'work'), // Previous Saturday
+      event(saturday - 8 * day + 9 * hour, 'RemNote', 'work'), // Previous Friday: excluded
+      event(saturday - 13 * day + 8 * hour, 'RemNote', 'work') // Previous Sunday
+    ];
+    const baseline = averageComparableDaysByTime({ events, categories, comparisonAtMs: comparisonAt, mode: 'same_day_type', nowMs: comparisonAt });
+    expect(baseline.sampleCount).toBe(2);
+    expect(baseline.focusedMs).toBe(4 * hour);
+  });
+
+  test('can compare only to previous occurrences of the same weekday', () => {
+    const comparisonAt = monday + 15 * hour;
+    const events = [
+      event(monday - day + 9 * hour, 'RemNote', 'work'), // Sunday: excluded
+      event(monday - 7 * day + 10 * hour, 'RemNote', 'work'),
+      event(monday - 14 * day + 8 * hour, 'RemNote', 'work')
+    ];
+    const baseline = averageComparableDaysByTime({ events, categories, comparisonAtMs: comparisonAt, mode: 'same_weekday', nowMs: comparisonAt });
+    expect(baseline.sampleCount).toBe(2);
+    expect(baseline.focusedMs).toBe(4 * hour);
   });
 });

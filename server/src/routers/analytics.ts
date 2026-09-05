@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ActiveWindowEventModel } from '../models/activeWindowEvent';
 import { CategoryModel } from '../models/category';
-import { averageActiveDaysByTime, averageMatchingWeekdayByTime, calculatePeriodAnalytics } from '../services/analytics';
+import { averageComparableDaysByTime, averageMatchingWeekdayByTime, calculatePeriodAnalytics } from '../services/analytics';
 import { publicProcedure, router } from '../trpc';
 import { verifyToken } from './auth';
 
@@ -9,7 +9,8 @@ const periodInput = z.object({
   token: z.string(),
   startDateMs: z.number(),
   endDateMs: z.number(),
-  comparisonAtMs: z.number().optional()
+  comparisonAtMs: z.number().optional(),
+  focusComparisonMode: z.enum(['all_active_days', 'same_day_type', 'same_weekday']).optional()
 });
 
 export const analyticsRouter = router({
@@ -34,7 +35,12 @@ export const analyticsRouter = router({
       ? averageMatchingWeekdayByTime({ events: allEvents, categories: categories as any[], comparisonAtMs: input.comparisonAtMs })
       : { focusedMs: null, sampleCount: 0 };
     const averageDayByNow = input.comparisonAtMs
-      ? averageActiveDaysByTime({ events: allEvents, categories: categories as any[], comparisonAtMs: input.comparisonAtMs })
+      ? averageComparableDaysByTime({
+          events: allEvents,
+          categories: categories as any[],
+          comparisonAtMs: input.comparisonAtMs,
+          mode: input.focusComparisonMode || 'all_active_days'
+        })
       : { focusedMs: null, sampleCount: 0 };
     return { ...analytics, usualByNow, averageDayByNow };
   })
