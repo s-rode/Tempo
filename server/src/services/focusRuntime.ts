@@ -13,7 +13,12 @@ export type SuspensionReason =
 type RuntimeDocument = any;
 
 const minute = 60_000;
-const phase = (kind: 'work' | 'short_break' | 'long_break', durationMinutes: number, state: string, goal: string | null = null) => ({
+const phase = (
+  kind: 'work' | 'short_break' | 'long_break',
+  durationMinutes: number,
+  state: string,
+  goal: string | null = null
+) => ({
   id: crypto.randomUUID(),
   kind,
   goal,
@@ -26,10 +31,13 @@ const phase = (kind: 'work' | 'short_break' | 'long_break', durationMinutes: num
   distractedMs: 0,
 });
 
-const hasSystemSuspension = (runtime: RuntimeDocument) => runtime.systemLocked || runtime.systemSleeping;
+const hasSystemSuspension = (runtime: RuntimeDocument) =>
+  runtime.systemLocked || runtime.systemSleeping;
 
 const currentPhase = (runtime: RuntimeDocument) =>
-  runtime.run?.state === 'active' ? runtime.run.phases?.[runtime.run.currentPhaseIndex] || null : null;
+  runtime.run?.state === 'active'
+    ? runtime.run.phases?.[runtime.run.currentPhaseIndex] || null
+    : null;
 
 const freezePhase = (runtime: RuntimeDocument, now: number) => {
   const current = currentPhase(runtime);
@@ -45,7 +53,12 @@ const freezePhase = (runtime: RuntimeDocument, now: number) => {
 const resumePhase = (runtime: RuntimeDocument, now: number) => {
   const current = currentPhase(runtime);
   if (!current || current.state === 'awaiting_goal' || current.state === 'completed') return;
-  if (runtime.manualPauseUntilMs || hasSystemSuspension(runtime) || runtime.awaitingSystemResumeCapture) return;
+  if (
+    runtime.manualPauseUntilMs ||
+    hasSystemSuspension(runtime) ||
+    runtime.awaitingSystemResumeCapture
+  )
+    return;
   current.state = 'running';
   current.runningSinceMs = now;
 };
@@ -62,7 +75,15 @@ export async function archiveFinishedRun(runtime: RuntimeDocument): Promise<void
   if (!run || run.state === 'active' || !run.completedAtMs) return;
   await FocusRunHistoryModel.updateOne(
     { runId: run.id },
-    { $setOnInsert: { userId: String(runtime.userId), runId: run.id, run: run.toObject ? run.toObject() : run, endedAtMs: run.completedAtMs, outcome: run.state } },
+    {
+      $setOnInsert: {
+        userId: String(runtime.userId),
+        runId: run.id,
+        run: run.toObject ? run.toObject() : run,
+        endedAtMs: run.completedAtMs,
+        outcome: run.state,
+      },
+    },
     { upsert: true }
   );
   runtime.run = null;
@@ -100,7 +121,11 @@ const advancePhase = (runtime: RuntimeDocument, now: number) => {
 
 /** Applies timer expiry using server time. It never charges time while suspended. */
 export const advanceRuntime = (runtime: RuntimeDocument, now = Date.now()) => {
-  if (runtime.manualPauseUntilMs && now >= runtime.manualPauseUntilMs && !hasSystemSuspension(runtime)) {
+  if (
+    runtime.manualPauseUntilMs &&
+    now >= runtime.manualPauseUntilMs &&
+    !hasSystemSuspension(runtime)
+  ) {
     runtime.manualPauseUntilMs = null;
     runtime.manualPausedAtMs = null;
     resumePhase(runtime, now);
@@ -128,7 +153,8 @@ export const suspensionReasonsFor = (runtime: RuntimeDocument): SuspensionReason
   if (runtime.awaitingSystemResumeCapture) reasons.push('awaiting_system_resume');
   const current = currentPhase(runtime);
   if (current?.state === 'awaiting_goal') reasons.push('awaiting_goal');
-  if (current?.kind === 'short_break' && current.state === 'running') reasons.push('pomodoro_break');
+  if (current?.kind === 'short_break' && current.state === 'running')
+    reasons.push('pomodoro_break');
   if (current?.kind === 'long_break' && current.state === 'running') reasons.push('long_break');
   return reasons;
 };
@@ -140,7 +166,10 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
   const phaseElapsedMs = current
     ? Math.min(
         current.plannedDurationMs,
-        current.activeElapsedMs + (current.state === 'running' && current.runningSinceMs ? Math.max(0, now - current.runningSinceMs) : 0)
+        current.activeElapsedMs +
+          (current.state === 'running' && current.runningSinceMs
+            ? Math.max(0, now - current.runningSinceMs)
+            : 0)
       )
     : 0;
   const trackingState = reasons.length
@@ -174,7 +203,10 @@ export async function saveRuntime(runtime: RuntimeDocument) {
   return runtime;
 }
 
-export async function setSystemSuspension(userId: string, kind: 'lock' | 'unlock' | 'sleep' | 'wake') {
+export async function setSystemSuspension(
+  userId: string,
+  kind: 'lock' | 'unlock' | 'sleep' | 'wake'
+) {
   const runtime = await getOrCreateRuntime(userId);
   const now = Date.now();
   if (kind === 'lock' || kind === 'sleep') {
@@ -189,7 +221,11 @@ export async function setSystemSuspension(userId: string, kind: 'lock' | 'unlock
     runtime.systemSuspendedAtMs = null;
     runtime.awaitingSystemResumeCapture = true;
   }
-  if (!hasSystemSuspension(runtime) && !runtime.awaitingSystemResumeCapture && (!runtime.manualPauseUntilMs || now >= runtime.manualPauseUntilMs)) {
+  if (
+    !hasSystemSuspension(runtime) &&
+    !runtime.awaitingSystemResumeCapture &&
+    (!runtime.manualPauseUntilMs || now >= runtime.manualPauseUntilMs)
+  ) {
     if (runtime.manualPauseUntilMs && now >= runtime.manualPauseUntilMs) {
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
@@ -200,10 +236,26 @@ export async function setSystemSuspension(userId: string, kind: 'lock' | 'unlock
   return runtimeSnapshot(runtime, now);
 }
 
+/**
+ * Clears a stale native lock/sleep state after the user has already returned
+ * to their desktop. The next stable foreground capture remains the boundary
+ * that resumes phase timing, so no wake interval is charged as focus time.
+ */
+export async function resumeFromStaleSystemSuspension(userId: string) {
+  const runtime = await getOrCreateRuntime(userId);
+  runtime.systemLocked = false;
+  runtime.systemSleeping = false;
+  runtime.systemSuspendedAtMs = null;
+  runtime.awaitingSystemResumeCapture = true;
+  await saveRuntime(runtime);
+  return runtimeSnapshot(runtime);
+}
+
 /** Starts phase timing only after native monitoring has committed a fresh activity. */
 export async function resumeAfterSystemCapture(userId: string) {
   const runtime = await getOrCreateRuntime(userId);
-  if (!runtime.awaitingSystemResumeCapture || hasSystemSuspension(runtime)) return runtimeSnapshot(runtime);
+  if (!runtime.awaitingSystemResumeCapture || hasSystemSuspension(runtime))
+    return runtimeSnapshot(runtime);
   const now = Date.now();
   runtime.awaitingSystemResumeCapture = false;
   if (!runtime.manualPauseUntilMs || now >= runtime.manualPauseUntilMs) {
@@ -222,7 +274,9 @@ export const createCustomRun = (goal: string, durationMinutes: number, now = Dat
   kind: 'custom',
   state: 'active',
   currentPhaseIndex: 0,
-  phases: [{ ...phase('work', durationMinutes, 'running', goal), runningSinceMs: now, startedAtMs: now }],
+  phases: [
+    { ...phase('work', durationMinutes, 'running', goal), runningSinceMs: now, startedAtMs: now },
+  ],
   startedAtMs: now,
   completedAtMs: null,
 });

@@ -26,6 +26,13 @@ export interface SystemSuspensionState {
   suspendedAtMs: number | null
 }
 
+export interface ManualSystemResumeResult {
+  /** The stale system-owned state was cleared in the native observer. */
+  cleared: boolean
+  /** A normal 750 ms stable capture can now run. False means another pause remains. */
+  captureScheduled: boolean
+}
+
 /**
  * Keeps native monitoring alive independently of the dashboard's visible
  * state. The renderer receives only the newest committed capture after it has
@@ -38,7 +45,11 @@ export class ActivityMonitoringCoordinator {
   private paused = false
   private started = false
   private health: MonitoringHealth = { state: 'starting' }
-  private systemSuspension: SystemSuspensionState = { locked: false, sleeping: false, suspendedAtMs: null }
+  private systemSuspension: SystemSuspensionState = {
+    locked: false,
+    sleeping: false,
+    suspendedAtMs: null
+  }
 
   constructor(
     private readonly getMainWindow: () => BrowserWindow | null,
@@ -98,6 +109,32 @@ export class ActivityMonitoringCoordinator {
     }
   }
 
+  /**
+   * User-triggered recovery for a missed macOS wake/unlock notification.
+   * It intentionally clears only native system gates; manual pauses and focus
+   * break gates remain in force.
+   */
+  resumeAfterSystemSuspension(): ManualSystemResumeResult {
+    try {
+      const captureScheduled = nativeWindows.resumeAfterSystemSuspension()
+      this.systemSuspension = { locked: false, sleeping: false, suspendedAtMs: null }
+      this.onSystemSuspensionChange?.(this.systemSuspension)
+      this.health = {
+        ...this.health,
+        state: this.paused || !captureScheduled ? 'paused' : 'active',
+        lastErrorCode: undefined
+      }
+      return { cleared: true, captureScheduled }
+    } catch {
+      this.health = {
+        ...this.health,
+        state: 'degraded',
+        lastErrorCode: 'manual_system_resume_failed'
+      }
+      return { cleared: false, captureScheduled: false }
+    }
+  }
+
   private onNativeActivity(details: ActiveWindowDetails | null): void {
     if (!details) return
     const now = Date.now()
@@ -111,7 +148,10 @@ export class ActivityMonitoringCoordinator {
     }
     this.latestCapture = envelope
     this.health = {
-      state: this.paused || this.systemSuspension.locked || this.systemSuspension.sleeping ? 'paused' : 'active',
+      state:
+        this.paused || this.systemSuspension.locked || this.systemSuspension.sleeping
+          ? 'paused'
+          : 'active',
       lastNativeDetectionAtMs: now,
       pendingCaptureId: envelope.captureId
     }
@@ -127,7 +167,8 @@ export class ActivityMonitoringCoordinator {
     else if (text.includes('sleep')) next.sleeping = true
     else if (text.includes('lock')) next.locked = true
     else return
-    next.suspendedAtMs = next.locked || next.sleeping ? this.systemSuspension.suspendedAtMs ?? now : null
+    next.suspendedAtMs =
+      next.locked || next.sleeping ? (this.systemSuspension.suspendedAtMs ?? now) : null
     this.systemSuspension = next
     this.onSystemSuspensionChange?.(next)
   }

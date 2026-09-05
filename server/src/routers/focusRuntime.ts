@@ -13,14 +13,29 @@ import {
   getOrCreateRuntime,
   resumePhase,
   runtimeSnapshot,
+  resumeFromStaleSystemSuspension,
   saveRuntime,
 } from '../services/focusRuntime';
 import { cancelPendingEnrichment } from '../services/categorization/enrichmentScheduler';
 import { FocusRunHistoryModel } from '../models/focusRuntime';
 
 const tokenInput = z.object({ token: z.string() });
-const durations = z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60), z.literal(90), z.literal(120)]);
-const pauseDurations = z.union([z.literal(1), z.literal(5), z.literal(20), z.literal(30), z.literal(60), z.literal(120)]);
+const durations = z.union([
+  z.literal(15),
+  z.literal(30),
+  z.literal(45),
+  z.literal(60),
+  z.literal(90),
+  z.literal(120),
+]);
+const pauseDurations = z.union([
+  z.literal(1),
+  z.literal(5),
+  z.literal(20),
+  z.literal(30),
+  z.literal(60),
+  z.literal(120),
+]);
 const goal = z.string().trim().min(1).max(500);
 
 const runtimeFor = async (token: string, heartbeat = true) => {
@@ -42,7 +57,10 @@ export const focusRuntimeRouter = router({
     .input(tokenInput.extend({ startDateMs: z.number(), endDateMs: z.number() }))
     .query(async ({ input }) => {
       const userId = verifyToken(input.token).userId;
-      return FocusRunHistoryModel.find({ userId, endedAtMs: { $gte: input.startDateMs, $lt: input.endDateMs } })
+      return FocusRunHistoryModel.find({
+        userId,
+        endedAtMs: { $gte: input.startDateMs, $lt: input.endDateMs },
+      })
         .sort({ endedAtMs: 1 })
         .lean();
     }),
@@ -51,12 +69,25 @@ export const focusRuntimeRouter = router({
     return runtimeSnapshot(runtime);
   }),
 
+  // An explicit escape hatch for the rare case where macOS misses a wake or
+  // unlock notification. It does not resume the phase itself; the next fresh
+  // foreground capture performs that normal transition.
+  resumeSystemSuspension: publicProcedure.input(tokenInput).mutation(async ({ input }) => {
+    const userId = verifyToken(input.token).userId;
+    cancelPendingEnrichment(userId);
+    return resumeFromStaleSystemSuspension(userId);
+  }),
+
   startCustom: publicProcedure
     .input(tokenInput.extend({ goal, durationMinutes: durations }))
     .mutation(async ({ input }) => {
       const runtime = await runtimeFor(input.token);
       cancelPendingEnrichment(verifyToken(input.token).userId);
-      if (runtime.run?.state === 'active') throw new TRPCError({ code: 'CONFLICT', message: 'Finish the current focus session first.' });
+      if (runtime.run?.state === 'active')
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Finish the current focus session first.',
+        });
       runtime.run = createCustomRun(input.goal, input.durationMinutes);
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
@@ -69,7 +100,11 @@ export const focusRuntimeRouter = router({
     .mutation(async ({ input }) => {
       const runtime = await runtimeFor(input.token);
       cancelPendingEnrichment(verifyToken(input.token).userId);
-      if (runtime.run?.state === 'active') throw new TRPCError({ code: 'CONFLICT', message: 'Finish the current focus session first.' });
+      if (runtime.run?.state === 'active')
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Finish the current focus session first.',
+        });
       runtime.run = createPomodoroRun(input.firstGoal);
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
@@ -83,8 +118,16 @@ export const focusRuntimeRouter = router({
       const runtime = await runtimeFor(input.token);
       cancelPendingEnrichment(verifyToken(input.token).userId);
       const phase = currentPhase(runtime);
-      if (runtime.run?.kind !== 'pomodoro' || !phase || phase.kind !== 'work' || phase.state !== 'awaiting_goal') {
-        throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Tempo is not waiting for a Pomodoro work goal.' });
+      if (
+        runtime.run?.kind !== 'pomodoro' ||
+        !phase ||
+        phase.kind !== 'work' ||
+        phase.state !== 'awaiting_goal'
+      ) {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'Tempo is not waiting for a Pomodoro work goal.',
+        });
       }
       phase.goal = input.goal;
       phase.state = 'running';
@@ -122,7 +165,10 @@ export const focusRuntimeRouter = router({
     cancelPendingEnrichment(verifyToken(input.token).userId);
     const phase = currentPhase(runtime);
     if (!runtime.run || !phase || (phase.kind !== 'short_break' && phase.kind !== 'long_break')) {
-      throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Tempo is not currently on a scheduled break.' });
+      throw new TRPCError({
+        code: 'PRECONDITION_FAILED',
+        message: 'Tempo is not currently on a scheduled break.',
+      });
     }
     phase.state = 'completed';
     phase.runningSinceMs = null;
