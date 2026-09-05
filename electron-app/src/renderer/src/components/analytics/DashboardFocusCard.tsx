@@ -162,13 +162,12 @@ export function DashboardFocusCard() {
     [weekDays, todayStart]
   )
   const today = weekDays.find((day: any) => day.startDateMs === todayStart.getTime())
-  const usualByNow = data?.usualByNow
-  const usualMs = usualByNow?.focusedMs ?? null
-  const sampleCount = usualByNow?.sampleCount ?? 0
+  const averageDayByNow = data?.averageDayByNow
+  const usualMs = averageDayByNow?.focusedMs ?? null
+  const sampleCount = averageDayByNow?.sampleCount ?? 0
   const todayFocusedMs = today?.focusedMs || 0
   const delta = usualMs === null ? null : todayFocusedMs - usualMs
   const currentIndex = points.findIndex((point) => point.dayStartMs === todayStart.getTime())
-  const weekday = now.toLocaleDateString(undefined, { weekday: 'long' })
 
   return (
     <Card className="mb-3 overflow-hidden border-border bg-card">
@@ -183,19 +182,19 @@ export function DashboardFocusCard() {
           <div className="pl-3">
             <p className="text-[11px] text-muted-foreground">Usual by now</p>
             <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{isLoading ? '—' : usualMs === null ? '—' : formatDuration(usualMs)}</p>
-            <p className="text-xs text-muted-foreground">average {weekday}</p>
+            <p className="text-xs text-muted-foreground">average active day</p>
           </div>
         </div>
         {delta !== null ? (
           <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground" aria-live="polite">
             {delta >= 0 ? <TrendingUp size={14} className="mt-0.5 shrink-0 text-emerald-500" /> : <TrendingDown size={14} className="mt-0.5 shrink-0 text-rose-500" />}
-            <span>{Math.abs(delta) < 60_000 ? `On pace with your usual ${weekday} by ${dayTimeLabel(now)}.` : `${formatDuration(Math.abs(delta))} ${delta >= 0 ? 'ahead of' : 'behind'} your usual ${weekday} by ${dayTimeLabel(now)}.`}</span>
+            <span>{Math.abs(delta) < 60_000 ? `On pace with your average by ${dayTimeLabel(now)}.` : `${formatDuration(Math.abs(delta))} ${delta >= 0 ? 'ahead of' : 'behind'} your average by ${dayTimeLabel(now)}.`}</span>
           </div>
         ) : (
-          <p className="mt-3 text-xs text-muted-foreground">Need more tracked {weekday}s before Tempo can show your usual pace ({sampleCount}/4).</p>
+          <p className="mt-3 text-xs text-muted-foreground">Need more tracked days before Tempo can show your average pace ({sampleCount}/4).</p>
         )}
         <WeekFocusTrend points={points} currentIndex={currentIndex >= 0 ? currentIndex : undefined} />
-        {sampleCount > 0 && <p className="mt-3 text-[11px] text-muted-foreground">Usual pace uses the previous {sampleCount} active matching weekday{sampleCount === 1 ? '' : 's'}, each clipped at {dayTimeLabel(now)}.</p>}
+        {sampleCount > 0 && <p className="mt-3 text-[11px] text-muted-foreground">Average pace uses the previous {sampleCount} active day{sampleCount === 1 ? '' : 's'}, each clipped at {dayTimeLabel(now)}.</p>}
       </CardContent>
     </Card>
   )

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { ActiveWindowEvent, Category } from '../../../shared/types';
-import { averageMatchingWeekdayByTime, calculatePeriodAnalytics } from './analytics';
+import { averageActiveDaysByTime, averageMatchingWeekdayByTime, calculatePeriodAnalytics } from './analytics';
 
 const hour = 60 * 60 * 1000;
 const day = 24 * hour;
@@ -55,5 +55,18 @@ describe('Tempo analytics interval aggregation', () => {
     const baseline = averageMatchingWeekdayByTime({ events, categories, comparisonAtMs: comparisonAt, nowMs: comparisonAt });
     expect(baseline.sampleCount).toBe(2);
     expect(baseline.focusedMs).toBe(3 * hour);
+  });
+
+  test('averages recent active days through the same local clock time', () => {
+    const comparisonAt = monday + 15 * hour;
+    const events = [
+      event(monday - day + 9 * hour, 'RemNote', 'work'),
+      event(monday - day + 12 * hour, 'Music', 'distraction'),
+      event(monday - 2 * day + 10 * hour, 'RemNote', 'work'),
+      event(monday - 2 * day + 14 * hour, 'Music', 'distraction')
+    ];
+    const baseline = averageActiveDaysByTime({ events, categories, comparisonAtMs: comparisonAt, nowMs: comparisonAt });
+    expect(baseline.sampleCount).toBe(2);
+    expect(baseline.focusedMs).toBe(3.5 * hour);
   });
 });

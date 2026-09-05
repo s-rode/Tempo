@@ -194,3 +194,33 @@ export const averageMatchingWeekdayByTime = (args: {
     sampleCount: samples.length
   };
 };
+
+/**
+ * Returns a practical "normal day" comparison: the most recent active
+ * calendar days, each clipped at the same local clock time as the current
+ * day. Unlike a matching-weekday baseline, this remains useful while Tempo is
+ * still gathering enough history for a particular weekday.
+ */
+export const averageActiveDaysByTime = (args: {
+  events: ActiveWindowEvent[];
+  categories: Category[];
+  comparisonAtMs: number;
+  sampleLimit?: number;
+  nowMs?: number;
+}) => {
+  const comparison = new Date(args.comparisonAtMs);
+  const comparisonStart = dayStart(args.comparisonAtMs);
+  const samples: number[] = [];
+  for (let offset = 1; samples.length < (args.sampleLimit || 4) && offset <= 70; offset += 1) {
+    const start = new Date(comparisonStart);
+    start.setDate(start.getDate() - offset);
+    const end = new Date(start);
+    end.setHours(comparison.getHours(), comparison.getMinutes(), comparison.getSeconds(), comparison.getMilliseconds());
+    const result = calculatePeriodAnalytics(args.events, args.categories, start.getTime(), end.getTime(), args.nowMs ?? Date.now());
+    if (result.totals.trackedMs > 0) samples.push(result.totals.focusedMs);
+  }
+  return {
+    focusedMs: samples.length ? Math.round(samples.reduce((total, value) => total + value, 0) / samples.length) : null,
+    sampleCount: samples.length
+  };
+};
