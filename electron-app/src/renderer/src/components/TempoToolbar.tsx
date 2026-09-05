@@ -9,8 +9,9 @@ const labels: Record<TempoPage, { title: string; subtitle: string }> = {
   settings: { title: 'Settings', subtitle: 'Tempo preferences' }
 }
 
-export function TempoToolbar({ page, onToggleSidebar, onShowSettings, runtime, focusOpenRequest, focusQuickActionRequest }: {
+export function TempoToolbar({ page, sidebarCollapsed, onToggleSidebar, onShowSettings, runtime, focusOpenRequest, focusQuickActionRequest }: {
   page: TempoPage
+  sidebarCollapsed: boolean
   onToggleSidebar: () => void
   onShowSettings: () => void
   runtime: FocusRuntimeSnapshot | undefined
@@ -18,7 +19,7 @@ export function TempoToolbar({ page, onToggleSidebar, onShowSettings, runtime, f
   focusQuickActionRequest: number
 }) {
   const current = labels[page]
-  return <header className="tempo-toolbar tempo-toolbar-drag-region flex shrink-0 items-center gap-3 px-4">
+  return <header className={`tempo-toolbar tempo-toolbar-drag-region flex shrink-0 items-center gap-3 px-4${sidebarCollapsed ? ' tempo-toolbar--sidebar-collapsed' : ''}`}>
     <Button variant="ghost" size="xs" className="tempo-toolbar-icon" onClick={onToggleSidebar} aria-label="Toggle sidebar"><PanelLeft size={17} /></Button>
     <div className="min-w-0 flex-1"><div className="flex items-baseline gap-2"><h1 className="text-[15px] font-semibold tracking-tight">{current.title}</h1><span className="hidden text-xs text-muted-foreground sm:inline">{current.subtitle}</span></div></div>
     {page !== 'settings' && <div className="hidden items-center gap-1.5 text-xs text-muted-foreground lg:flex"><Sparkles size={14} className="text-emerald-600 dark:text-emerald-400" /><span>Local and private</span></div>}
