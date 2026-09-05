@@ -19,8 +19,8 @@ export function TempoSidebar({ activePage, onNavigate, collapsed, onCollapse, fi
 }) {
   if (collapsed) return null
   return (
-    <aside className="tempo-sidebar flex min-h-0 flex-col px-2 pb-3 pt-3" aria-label="Tempo navigation">
-      <div className="mb-2 flex items-center justify-between px-2"><span className="text-[11px] font-medium uppercase tracking-[.12em] text-muted-foreground">Tempo</span><button type="button" onClick={onCollapse} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Hide sidebar"><ChevronLeft size={15} /></button></div>
+    <aside className="tempo-sidebar flex min-h-0 flex-col px-2 pb-3 pt-10" aria-label="Tempo navigation">
+      <div className="mb-2 flex items-center justify-end px-2"><button type="button" onClick={onCollapse} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Hide sidebar"><ChevronLeft size={15} /></button></div>
       <nav className="space-y-0.5" aria-label="Primary navigation">
         {entries.map(({ page, label, Icon }) => <button key={page} type="button" className="tempo-sidebar-item" data-active={activePage === page} onClick={() => onNavigate(page)} aria-current={activePage === page ? 'page' : undefined}><Icon size={16} strokeWidth={1.8} /><span>{label}</span></button>)}
       </nav>
