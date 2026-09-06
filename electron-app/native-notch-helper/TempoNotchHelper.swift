@@ -557,30 +557,20 @@ private struct FocusSessionCard: View {
       }
       .frame(height: 3)
     }
-    .padding(.horizontal, 10)
-    .padding(.vertical, 5)
-    .frame(height: 40)
-    .background {
-      let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
-      ZStack {
-        shape.fill(Color.white.opacity(0.045))
-        shape.fill(tint.opacity(0.065))
-        shape.stroke(Color.white.opacity(0.10), lineWidth: 0.7)
-      }
-    }
+    .padding(.horizontal, 2)
+    .padding(.vertical, 3)
+    .frame(height: 36)
   }
 }
 
 private enum NotchActionTone: Equatable {
   case neutral
-  case primary
   case productive
   case destructive
 
   var accent: Color {
     switch self {
     case .neutral: return .white
-    case .primary: return .accentColor
     case .productive: return .green
     case .destructive: return .red
     }
@@ -606,6 +596,49 @@ private struct NotchActionStyle: ButtonStyle {
         }
       }
       .contentShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+  }
+}
+
+/**
+ A category is a small status control, not a prominent action button. Keeping
+ it beside the activity title makes its scope obvious and avoids a detached,
+ web-style blue “Reclassify” button at the edge of the notch.
+ */
+private struct NotchCategoryControl: View {
+  let name: String
+  let status: String?
+  let isEnabled: Bool
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      HStack(spacing: 4) {
+        Circle()
+          .fill(statusColor(status))
+          .frame(width: 5, height: 5)
+        Text(name)
+        if isEnabled {
+          Image(systemName: "chevron.down")
+            .font(.system(size: 7, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.54))
+        }
+      }
+      .font(.system(size: 10, weight: .medium))
+      .foregroundStyle(.white.opacity(isEnabled ? 0.78 : 0.64))
+      .padding(.horizontal, 6)
+      .frame(minHeight: 20)
+      .background {
+        RoundedRectangle(cornerRadius: 5, style: .continuous)
+          .fill(Color.white.opacity(isEnabled ? 0.075 : 0.035))
+          .overlay {
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+              .stroke(Color.white.opacity(isEnabled ? 0.14 : 0.08), lineWidth: 0.7)
+          }
+      }
+    }
+    .buttonStyle(.plain)
+    .disabled(!isEnabled)
+    .accessibilityLabel(isEnabled ? "Change category, currently \(name)" : "Category: \(name)")
   }
 }
 
@@ -665,20 +698,29 @@ struct NotchRootView: View {
     controller.status.runtimeMode != "normal" || controller.status.trackingState == "paused"
   }
   private var expandedContentHeight: CGFloat { controller.expandedContentHeight }
-  private var currentActivitySource: String? {
-    // A distracting label already names its source (for example, “Distracted
-    // by ChatGPT”). Hiding the repeated source keeps the compact inline
-    // hierarchy clear: “Distracted by ChatGPT · Distraction”.
-    if controller.status.latestStatus == "unproductive" { return nil }
-    guard let source = controller.status.activitySource?.trimmingCharacters(in: .whitespacesAndNewlines), !source.isEmpty else { return nil }
-    return source
+  private var activitySource: String? {
+    let source = controller.status.activitySource?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return source.isEmpty ? nil : source
   }
-  private var currentActivityLabel: String? {
-    guard let label = controller.status.activityName?.trimmingCharacters(in: .whitespacesAndNewlines), !label.isEmpty else { return nil }
-    guard let source = currentActivitySource else { return label }
-    // Avoid “PDFgear · PDFgear” when the safe local fallback is already the
-    // app name rather than an AI-derived activity label.
-    return label.caseInsensitiveCompare(source) == .orderedSame ? nil : label
+  private var activityLabel: String? {
+    let label = controller.status.activityName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return label.isEmpty ? nil : label
+  }
+  private var activityPrimaryText: String {
+    // A distraction presentation label already contains its source, e.g.
+    // “Distracted by ChatGPT”. It is the whole primary identity—not a second
+    // subtitle next to the exact same phrase.
+    if controller.status.latestStatus == "unproductive" {
+      return activityLabel ?? activitySource ?? "Waiting for activity"
+    }
+    return activitySource ?? activityLabel ?? "Waiting for activity"
+  }
+  private var activitySecondaryText: String? {
+    guard controller.status.latestStatus != "unproductive",
+          let source = activitySource,
+          let label = activityLabel,
+          label.caseInsensitiveCompare(source) != .orderedSame else { return nil }
+    return label
   }
 
   var body: some View {
@@ -723,7 +765,7 @@ struct NotchRootView: View {
   }
 
   private var details: some View {
-    VStack(alignment: .leading, spacing: hasActiveSessionPresentation ? 3 : 5) {
+    VStack(alignment: .leading, spacing: 6) {
       if !hasActiveSessionPresentation {
         HStack(spacing: 6) {
           Circle().fill(statusColor(controller.status.latestStatus)).frame(width: 6, height: 6)
@@ -745,63 +787,62 @@ struct NotchRootView: View {
           tint: sessionTint
         )
       }
-      if isManualPause {
-        HStack(spacing: 6) {
-          Image(systemName: "pause.circle.fill").font(.system(size: 13, weight: .medium))
-          Text("Monitoring, timers, sounds, and nudges are paused.")
-            .font(.system(size: 11, weight: .regular))
-        }
-        .foregroundStyle(.white.opacity(0.72))
-        .lineLimit(1)
+      if hasActiveSessionPresentation && controller.status.trackingState != "active" {
+        Text(suspensionDescription)
+          .font(.system(size: 11, weight: .regular))
+          .foregroundStyle(.white.opacity(0.66))
+          .lineLimit(1)
       } else {
-        HStack(spacing: 6) {
-          Text(currentActivitySource ?? currentActivityLabel ?? "Waiting for activity")
-            .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          Text(activityPrimaryText)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.white)
+            .lineLimit(1)
             .layoutPriority(-1)
-          if let label = currentActivityLabel {
-            Text("·")
-              .font(.caption.weight(.medium)).foregroundStyle(.white.opacity(0.42))
-            Text(label)
-              .font(.system(size: 12, weight: .regular)).foregroundStyle(.white.opacity(0.72)).lineLimit(1)
+          if let secondary = activitySecondaryText {
+            Text(secondary)
+              .font(.system(size: 11, weight: .regular))
+              .foregroundStyle(.white.opacity(0.62))
+              .lineLimit(1)
               .layoutPriority(-1)
           }
+          Spacer(minLength: 4)
           if let category = controller.status.categoryDetails {
-            HStack(spacing: 3) {
-              Circle().fill(statusColor(controller.status.latestStatus)).frame(width: 5, height: 5)
-              Text(category.name)
-            }
-            .font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.74)).lineLimit(1)
-            .layoutPriority(-1)
-          }
-          if !controller.chooserOpen {
-            // Recategorization belongs directly beside the decision it
-            // changes, not as a detached trailing toolbar action.
-            Button("Reclassify") { controller.toggleCategoryChooser() }
-              .accessibilityIdentifier("tempo-reclassify")
-              .accessibilityLabel("Reclassify current activity")
-              .disabled((controller.status.eventIds ?? []).isEmpty)
-              .opacity((controller.status.eventIds ?? []).isEmpty ? 0.45 : 1)
-              .buttonStyle(NotchActionStyle(tone: .primary))
-              .layoutPriority(1)
+            NotchCategoryControl(
+              name: category.name,
+              status: controller.status.latestStatus,
+              isEnabled: !controller.chooserOpen && !(controller.status.eventIds ?? []).isEmpty,
+              action: { controller.toggleCategoryChooser() }
+            )
+            .accessibilityIdentifier("tempo-reclassify")
+            .layoutPriority(1)
           }
         }
         if let summary = controller.status.activitySummary {
-          Text(summary).font(.system(size: 11, weight: .regular)).foregroundStyle(.white.opacity(0.72)).lineLimit(1)
+          Text(summary)
+            .font(.system(size: 11, weight: .regular))
+            .foregroundStyle(.white.opacity(0.66))
+            .lineLimit(1)
         } else if controller.status.latestStatus == "unproductive", let nudge = controller.status.nudgeBody {
-          Text(nudge).font(.system(size: 10, weight: .regular)).foregroundStyle(.red.opacity(0.92)).lineLimit(1)
+          Text(nudge)
+            .font(.system(size: 10, weight: .regular))
+            .foregroundStyle(.red.opacity(0.88))
+            .lineLimit(1)
         } else if !hasActiveSessionPresentation, let reasoning = controller.status.categoryReasoning {
-          Text(reasoning).font(.system(size: 10, weight: .regular)).foregroundStyle(.white.opacity(0.58)).lineLimit(1)
+          Text(reasoning)
+            .font(.system(size: 10, weight: .regular))
+            .foregroundStyle(.white.opacity(0.56))
+            .lineLimit(1)
         }
       }
+      Rectangle().fill(.white.opacity(0.10)).frame(height: 1 / (NSScreen.main?.backingScaleFactor ?? 2))
       if controller.chooserOpen {
-        // This replaces the footer rather than appending a clipped row below
-        // the fixed-height native notch panel.
         HStack(spacing: 7) {
           Button("Cancel") { controller.toggleCategoryChooser() }
             .buttonStyle(NotchActionStyle(tone: .neutral))
-          Text("Choose category")
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.72))
+          Text("Change category")
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(.white.opacity(0.62))
           ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
               ForEach(controller.status.availableCategories ?? []) { category in
@@ -815,9 +856,6 @@ struct NotchRootView: View {
         }
         .frame(height: 32)
       } else if controller.pausePickerOpen {
-        // This replaces the footer, keeping the picker anchored to Pause and
-        // within the current notch geometry instead of opening a fragile
-        // detached menu panel.
         HStack(spacing: 6) {
           Button("Cancel") { controller.togglePausePicker() }
             .buttonStyle(NotchActionStyle(tone: .neutral))
@@ -828,7 +866,7 @@ struct NotchRootView: View {
             Button(minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h") {
               controller.requestPause(minutes: minutes)
             }
-            .buttonStyle(NotchActionStyle(tone: .primary))
+            .buttonStyle(NotchActionStyle(tone: .neutral))
             .accessibilityLabel("Pause monitoring for \(minutes) minutes")
           }
         }
@@ -837,14 +875,12 @@ struct NotchRootView: View {
         HStack(spacing: 7) {
           Button("Open Tempo") { controller.emit(type: "openMain") }
             .buttonStyle(NotchActionStyle(tone: .neutral))
-          Button("Hide") { controller.hide() }
-            .buttonStyle(NotchActionStyle(tone: .neutral))
           if controller.status.trackingState == "paused", (controller.status.suspensionReasons ?? []).contains("manual_pause") {
             Button("Resume") { controller.requestFocusAction("resume") }
-              .buttonStyle(NotchActionStyle(tone: .primary))
+              .buttonStyle(NotchActionStyle(tone: .neutral))
           } else if controller.status.trackingState == "active" || controller.status.trackingState == "normal" {
             Button("Pause…") { controller.togglePausePicker() }
-              .buttonStyle(NotchActionStyle(tone: .primary))
+              .buttonStyle(NotchActionStyle(tone: .neutral))
               .accessibilityIdentifier("tempo-pause")
               .accessibilityLabel("Pause monitoring for a selected duration")
           }
@@ -856,18 +892,30 @@ struct NotchRootView: View {
             Button("End") { controller.requestFocusAction("endRun") }
               .buttonStyle(NotchActionStyle(tone: .destructive))
           }
+          Spacer(minLength: 0)
           if let message = controller.recategorizeMessage {
             Text(message)
               .font(.system(size: 10, weight: .regular))
-              .foregroundStyle(.white.opacity(0.72))
+              .foregroundStyle(.white.opacity(0.60))
               .lineLimit(1)
           }
+          Button("Hide") { controller.hide() }
+            .buttonStyle(NotchActionStyle(tone: .neutral))
         }
       }
     }
     .padding(.horizontal, 16)
-    .padding(.top, hasActiveSessionPresentation ? 2 : 4)
+    .padding(.top, hasActiveSessionPresentation ? 4 : 5)
     .frame(width: panelWidth, alignment: .leading)
+  }
+
+  private var suspensionDescription: String {
+    let reasons = controller.status.suspensionReasons ?? []
+    if reasons.contains("screen_locked") { return "Tempo is frozen until the screen is unlocked." }
+    if reasons.contains("system_sleep") { return "Tempo is frozen while your Mac is asleep." }
+    if let pauseRemaining { return "Monitoring is paused · \(pauseRemaining) remaining." }
+    if controller.status.trackingState == "break" { return "Monitoring is paused for your scheduled break." }
+    return "Monitoring is paused."
   }
 
   private var statusHeading: String {
