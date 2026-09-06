@@ -8,11 +8,14 @@ private let protocolVersion = 3
 private let panelWidth: CGFloat = 520
 // The native panel stays large enough to animate in place, but the visible
 // shape and hit region use the exact current content height below.
-private let panelHeight: CGFloat = 184
-private let maximumExpandedPanelHeight: CGFloat = 182
-private let normalExpandedPanelHeight: CGFloat = 142
-private let normalChooserExpandedPanelHeight: CGFloat = 156
-private let sessionExpandedPanelHeight: CGFloat = 182
+private let panelHeight: CGFloat = 194
+private let maximumExpandedPanelHeight: CGFloat = 192
+// The normal details view has a compact final command row. Reserve one
+// additional macOS spacing unit beneath it so its native 22-point controls
+// are never clipped by the shape or hit-testing region.
+private let normalExpandedPanelHeight: CGFloat = 152
+private let normalChooserExpandedPanelHeight: CGFloat = 166
+private let sessionExpandedPanelHeight: CGFloat = 192
 // Keep the compact companion visually quieter than ordinary menu-bar items.
 // These deliberately follow Tempo's light, compact dashboard controls rather
 // than looking like two miniature floating windows.
