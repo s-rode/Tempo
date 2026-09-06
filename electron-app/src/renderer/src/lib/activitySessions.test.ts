@@ -170,6 +170,46 @@ describe('activity sessions', () => {
     expect(summaries[0].totalDurationMs).toBe(120_000)
   })
 
+  test('uses one inspector source per app while retaining its focus-state mix', () => {
+    const focusedFirefox = block({
+      title: 'Lecture notes',
+      activityKey: 'firefox:lecture',
+      activityLabel: 'Lecture notes',
+      durationMs: 4 * 60_000,
+      endTime: new Date(base + 4 * 60_000)
+    })
+    const distractedFirefox = block({
+      title: 'Unrelated browsing',
+      activityKey: 'firefox:unrelated',
+      activityLabel: 'Unrelated browsing',
+      categoryId: 'distraction',
+      categoryName: 'Distraction',
+      isProductive: false,
+      durationMs: 2 * 60_000,
+      startTime: new Date(base + 4 * 60_000),
+      endTime: new Date(base + 6 * 60_000),
+      originalEvent: {
+        ...focusedFirefox.originalEvent,
+        title: 'Unrelated browsing',
+        categoryId: 'distraction'
+      }
+    })
+
+    const summaries = buildDayActivitySummaries(
+      buildActivitySessions([focusedFirefox, distractedFirefox])
+    )
+
+    expect(summaries).toHaveLength(1)
+    expect(summaries[0]).toMatchObject({
+      ownerName: 'Firefox',
+      focusedMs: 4 * 60_000,
+      distractedMs: 2 * 60_000,
+      uncertainMs: 0,
+      totalDurationMs: 6 * 60_000
+    })
+    expect(summaries[0].sessions).toHaveLength(2)
+  })
+
   test('groups short activity switches into a readable 30-minute chapter', () => {
     const first = block({ durationMs: 10 * 60_000, endTime: new Date(base + 10 * 60_000) })
     const second = block({

@@ -40,8 +40,12 @@ export interface DayActivitySummary {
   displayKey: string
   label: string
   ownerName: string
-  categoryIds: string[]
   totalDurationMs: number
+  focusedMs: number
+  distractedMs: number
+  uncertainMs: number
+  startTime: Date
+  endTime: Date
   sessionIds: string[]
   sessions: ActivitySessionBlock[]
 }
@@ -510,20 +514,35 @@ export const buildDayActivitySummaries = (
 ): DayActivitySummary[] => {
   const summaries = new Map<string, DayActivitySummary>()
   for (const session of sessions) {
-    const existing = summaries.get(session.displayKey)
+    // The day inspector is a compact source list, rather than a second browser
+    // history.  A source is therefore an application, irrespective of its
+    // page title, category, or number of visits.  The underlying sessions are
+    // kept intact for the selected-source inspector and recategorisation.
+    const ownerName = session.ownerName?.trim() || 'Unknown app'
+    const displayKey = `source:${normalize(ownerName) || 'unknown'}`
+    const existing = summaries.get(displayKey)
     if (existing) {
       existing.totalDurationMs += session.activeDurationMs
       existing.sessionIds.push(session.id)
       existing.sessions.push(session)
-      if (!existing.categoryIds.includes(session.categoryId))
-        existing.categoryIds.push(session.categoryId)
+      existing.startTime = new Date(
+        Math.min(existing.startTime.getTime(), session.startTime.getTime())
+      )
+      existing.endTime = new Date(Math.max(existing.endTime.getTime(), session.endTime.getTime()))
+      if (session.isProductive === true) existing.focusedMs += session.activeDurationMs
+      else if (session.isProductive === false) existing.distractedMs += session.activeDurationMs
+      else existing.uncertainMs += session.activeDurationMs
     } else {
-      summaries.set(session.displayKey, {
-        displayKey: session.displayKey,
-        label: session.label,
-        ownerName: session.ownerName,
-        categoryIds: [session.categoryId],
+      summaries.set(displayKey, {
+        displayKey,
+        label: ownerName,
+        ownerName,
         totalDurationMs: session.activeDurationMs,
+        focusedMs: session.isProductive === true ? session.activeDurationMs : 0,
+        distractedMs: session.isProductive === false ? session.activeDurationMs : 0,
+        uncertainMs: session.isProductive === undefined ? session.activeDurationMs : 0,
+        startTime: session.startTime,
+        endTime: session.endTime,
         sessionIds: [session.id],
         sessions: [session]
       })

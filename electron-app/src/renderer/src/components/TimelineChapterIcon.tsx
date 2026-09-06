@@ -28,7 +28,12 @@ export const chapterEmoji = (label: string): string => {
   return '✦'
 }
 
-function NativeAppIcon({ appName, size }: { appName: string; size: number }) {
+/**
+ * A local macOS application icon.  This is shared by the timeline and the
+ * day inspector so source rows never fall back to decorative letter tiles
+ * when the system can identify the application.
+ */
+export function NativeAppIcon({ appName, size }: { appName: string; size: number }) {
   const [src, setSrc] = useState<string | null | undefined>(() => iconDataUrls.get(appName))
 
   useEffect(() => {
