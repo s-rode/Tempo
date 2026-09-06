@@ -173,6 +173,7 @@ final class NotchController: NSObject, ObservableObject {
   @Published var expanded = false
   @Published var now = Date()
   @Published var chooserOpen = false
+  @Published var pausePickerOpen = false
   @Published var recategorizeMessage: String?
   @Published var geometry: NotchGeometry
 
@@ -210,7 +211,9 @@ final class NotchController: NSObject, ObservableObject {
 
   var expandedContentHeight: CGFloat {
     let presentsSession = status.runtimeMode != "normal" || status.trackingState == "paused"
-    if chooserOpen { return presentsSession ? sessionExpandedPanelHeight : normalChooserExpandedPanelHeight }
+    if chooserOpen || pausePickerOpen {
+      return presentsSession ? sessionExpandedPanelHeight : normalChooserExpandedPanelHeight
+    }
     return presentsSession ? sessionExpandedPanelHeight : normalExpandedPanelHeight
   }
 
@@ -236,11 +239,12 @@ final class NotchController: NSObject, ObservableObject {
     let previous = previousStatus
     previousStatus = next.latestStatus
     status = next
+    if next.trackingState == "paused" { pausePickerOpen = false }
     host?.refreshInteractionRegions()
     if previous == "productive" && next.latestStatus == "unproductive" {
       setExpanded(true)
       DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-        guard let self, !self.chooserOpen else { return }
+        guard let self, !self.chooserOpen, !self.pausePickerOpen else { return }
         self.setExpanded(false)
       }
     }
@@ -253,7 +257,7 @@ final class NotchController: NSObject, ObservableObject {
       ? .easeOut(duration: 0.12)
       : .spring(response: 0.32, dampingFraction: 0.88)
     withAnimation(animation) { expanded = value }
-    panel.acceptsKeyboardControls = value && chooserOpen
+    panel.acceptsKeyboardControls = value && (chooserOpen || pausePickerOpen)
     host?.refreshInteractionRegions()
   }
 
@@ -264,7 +268,7 @@ final class NotchController: NSObject, ObservableObject {
       let work = DispatchWorkItem { [weak self] in self?.setExpanded(true) }
       hoverOpenWork = work
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
-    } else if !chooserOpen {
+    } else if !chooserOpen && !pausePickerOpen {
       let work = DispatchWorkItem { [weak self] in self?.setExpanded(false) }
       hoverCloseWork = work
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
@@ -273,7 +277,18 @@ final class NotchController: NSObject, ObservableObject {
 
   func toggleCategoryChooser() {
     chooserOpen.toggle()
-    panel.acceptsKeyboardControls = chooserOpen
+    if chooserOpen { pausePickerOpen = false }
+    panel.acceptsKeyboardControls = chooserOpen || pausePickerOpen
+    host?.refreshInteractionRegions()
+  }
+
+  func togglePausePicker() {
+    pausePickerOpen.toggle()
+    if pausePickerOpen {
+      chooserOpen = false
+      setExpanded(true)
+    }
+    panel.acceptsKeyboardControls = chooserOpen || pausePickerOpen
     host?.refreshInteractionRegions()
   }
 
@@ -299,6 +314,20 @@ final class NotchController: NSObject, ObservableObject {
     var payload: [String: Any] = ["action": action]
     if let durationMinutes { payload["durationMinutes"] = durationMinutes }
     emit(type: "focusCommand", extra: payload)
+  }
+
+  func requestPause(minutes: Int) {
+    pausePickerOpen = false
+    panel.acceptsKeyboardControls = chooserOpen
+    host?.refreshInteractionRegions()
+    requestFocusAction("pause", durationMinutes: minutes)
+  }
+
+  func dismissTransientControls() {
+    chooserOpen = false
+    pausePickerOpen = false
+    panel.acceptsKeyboardControls = false
+    host?.refreshInteractionRegions()
   }
 
   func receiveRecategorizationResult(_ command: CommandEnvelope) {
@@ -580,33 +609,6 @@ private struct NotchActionStyle: ButtonStyle {
   }
 }
 
-/// `Menu` does not inherit a custom `ButtonStyle` on macOS. Give the pause
-/// control its own explicit glass label so AppKit cannot fall back to black
-/// borderless-menu text against the black notch surface.
-private struct NotchMenuLabel: View {
-  let title: String
-
-  var body: some View {
-    HStack(spacing: 4) {
-      Text(title)
-      Image(systemName: "chevron.down")
-        .font(.system(size: 8, weight: .bold))
-    }
-    .font(.system(size: 11, weight: .semibold))
-    .foregroundStyle(.white.opacity(0.94))
-    .padding(.horizontal, 7)
-    .frame(minHeight: 22)
-    .background {
-      let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
-      ZStack {
-        shape.fill(.white.opacity(0.09))
-        shape.stroke(.white.opacity(0.16), lineWidth: 0.75)
-      }
-    }
-    .contentShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-  }
-}
-
 struct NotchRootView: View {
   @ObservedObject var controller: NotchController
   private let clock = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -712,7 +714,10 @@ struct NotchRootView: View {
         }
       }
       .onReceive(clock) { controller.now = $0 }
-      .onExitCommand { controller.setExpanded(false) }
+      .onExitCommand {
+        controller.dismissTransientControls()
+        controller.setExpanded(false)
+      }
     }
     .frame(width: panelWidth, height: panelHeight, alignment: .top)
   }
@@ -809,6 +814,25 @@ struct NotchRootView: View {
           .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .frame(height: 32)
+      } else if controller.pausePickerOpen {
+        // This replaces the footer, keeping the picker anchored to Pause and
+        // within the current notch geometry instead of opening a fragile
+        // detached menu panel.
+        HStack(spacing: 6) {
+          Button("Cancel") { controller.togglePausePicker() }
+            .buttonStyle(NotchActionStyle(tone: .neutral))
+          Text("Pause for")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.72))
+          ForEach([1, 5, 20, 30, 60, 120], id: \.self) { minutes in
+            Button(minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h") {
+              controller.requestPause(minutes: minutes)
+            }
+            .buttonStyle(NotchActionStyle(tone: .primary))
+            .accessibilityLabel("Pause monitoring for \(minutes) minutes")
+          }
+        }
+        .frame(height: 32, alignment: .leading)
       } else {
         HStack(spacing: 7) {
           Button("Open Tempo") { controller.emit(type: "openMain") }
@@ -819,17 +843,10 @@ struct NotchRootView: View {
             Button("Resume") { controller.requestFocusAction("resume") }
               .buttonStyle(NotchActionStyle(tone: .primary))
           } else if controller.status.trackingState == "active" || controller.status.trackingState == "normal" {
-            Menu {
-              ForEach([1, 5, 20, 30, 60, 120], id: \.self) { minutes in
-                Button(minutes < 60 ? "\(minutes) min" : "\(minutes / 60) hour\(minutes == 60 ? "" : "s")") {
-                  controller.requestFocusAction("pause", durationMinutes: minutes)
-                }
-              }
-          } label: {
-              NotchMenuLabel(title: "Pause")
-            }
-            .menuStyle(.borderlessButton)
-            .accessibilityLabel("Pause monitoring")
+            Button("Pause…") { controller.togglePausePicker() }
+              .buttonStyle(NotchActionStyle(tone: .primary))
+              .accessibilityIdentifier("tempo-pause")
+              .accessibilityLabel("Pause monitoring for a selected duration")
           }
           if controller.status.trackingState == "break" {
             Button("Skip break") { controller.requestFocusAction("skipBreak") }
