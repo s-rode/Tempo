@@ -41,6 +41,8 @@ struct StatusPayload: Codable {
   let latestStatus: String?
   let dailyProductiveMs: Double
   let dailyUnproductiveMs: Double
+  let dailyProductiveClock: StreakClockPayload?
+  let dailyUnproductiveClock: StreakClockPayload?
   let productiveClock: StreakClockPayload?
   let distractedClock: StreakClockPayload?
   let provisionalDistractionStartedAtMs: Double?
@@ -65,6 +67,7 @@ struct StatusPayload: Codable {
   let suspendedAtMs: Double?
   let pausedUntilMs: Double?
   let phaseRemainingMs: Double?
+  let phaseRemainingSampledAtMs: Double?
   let phaseDurationMs: Double?
   let phaseGoal: String?
   let phaseKind: String?
@@ -164,6 +167,8 @@ struct NotchGeometry {
 final class NotchController: NSObject, ObservableObject {
   @Published var status = StatusPayload(
     latestStatus: "maybe", dailyProductiveMs: 0, dailyUnproductiveMs: 0,
+    dailyProductiveClock: StreakClockPayload(accumulatedMs: 0, runningSinceMs: nil),
+    dailyUnproductiveClock: StreakClockPayload(accumulatedMs: 0, runningSinceMs: nil),
     productiveClock: StreakClockPayload(accumulatedMs: 0, runningSinceMs: nil),
     distractedClock: StreakClockPayload(accumulatedMs: 0, runningSinceMs: nil),
     provisionalDistractionStartedAtMs: nil,
@@ -172,7 +177,8 @@ final class NotchController: NSObject, ObservableObject {
     activitySummary: nil, activityUrl: nil, categoryReasoning: nil,
     classificationStatus: nil, nudgeTitle: nil, nudgeBody: nil, eventIds: [],
     runtimeMode: "normal", trackingState: "normal", suspensionReasons: [], suspendedAtMs: nil, pausedUntilMs: nil,
-    phaseRemainingMs: nil, phaseDurationMs: nil, phaseGoal: nil, phaseKind: nil, phaseIndex: nil
+    phaseRemainingMs: nil, phaseRemainingSampledAtMs: nil,
+    phaseDurationMs: nil, phaseGoal: nil, phaseKind: nil, phaseIndex: nil
   )
   @Published var expanded = false
   @Published var now = Date()
@@ -185,6 +191,7 @@ final class NotchController: NSObject, ObservableObject {
   private var hoverOpenWork: DispatchWorkItem?
   private var hoverCloseWork: DispatchWorkItem?
   private var previousStatus: String?
+  private var displayClock: DispatchSourceTimer?
   private weak var host: PassthroughHostingView?
 
   init(panel: TempoNotchPanel, geometry: NotchGeometry) {
@@ -199,6 +206,7 @@ final class NotchController: NSObject, ObservableObject {
     positionPanel()
     panel.orderFrontRegardless()
     host.refreshInteractionRegions()
+    startDisplayClock()
     emit(type: "ready")
     emit(type: "visibilityChanged", extra: ["visible": true])
   }
@@ -243,6 +251,9 @@ final class NotchController: NSObject, ObservableObject {
     let previous = previousStatus
     previousStatus = next.latestStatus
     status = next
+    // Status changes must render at the instant they arrive, rather than
+    // waiting for the next one-second display tick.
+    now = Date()
     if next.trackingState == "paused" { pausePickerOpen = false }
     host?.refreshInteractionRegions()
     if previous == "productive" && next.latestStatus == "unproductive" {
@@ -252,6 +263,31 @@ final class NotchController: NSObject, ObservableObject {
         self.setExpanded(false)
       }
     }
+  }
+
+  /**
+   * This replaces SwiftUI's run-loop timer with one main-queue source aligned
+   * to second boundaries. It is still exactly one redraw per second: no new
+   * IPC, database query, activity capture, OCR, or model work is introduced.
+   */
+  private func startDisplayClock() {
+    guard displayClock == nil else { return }
+    let timer = DispatchSource.makeTimerSource(queue: .main)
+    let milliseconds = Int(Date().timeIntervalSince1970 * 1_000)
+    let delay = max(1, 1_000 - (milliseconds % 1_000))
+    timer.schedule(
+      deadline: .now() + .milliseconds(delay),
+      repeating: .seconds(1),
+      leeway: .milliseconds(20)
+    )
+    timer.setEventHandler { [weak self] in self?.now = Date() }
+    displayClock = timer
+    timer.resume()
+  }
+
+  deinit {
+    displayClock?.setEventHandler {}
+    displayClock?.cancel()
   }
 
   func setExpanded(_ value: Bool) {
@@ -712,7 +748,6 @@ private struct NotchCategoryControl: View {
 
 struct NotchRootView: View {
   @ObservedObject var controller: NotchController
-  private let clock = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
   private func elapsed(_ clock: StreakClockPayload?, fallback: Double?) -> Double {
     guard let clock else { return fallback ?? 0 }
@@ -727,6 +762,12 @@ struct NotchRootView: View {
   }
   private var distractedTime: Double {
     elapsed(controller.status.distractedClock, fallback: controller.status.distractedStreakMs)
+  }
+  private var dailyProductiveTime: Double {
+    elapsed(controller.status.dailyProductiveClock, fallback: controller.status.dailyProductiveMs)
+  }
+  private var dailyUnproductiveTime: Double {
+    elapsed(controller.status.dailyUnproductiveClock, fallback: controller.status.dailyUnproductiveMs)
   }
   private var useMinutePrecision: Bool {
     productiveTime >= 3_600_000 || distractedTime >= 3_600_000
@@ -743,9 +784,19 @@ struct NotchRootView: View {
   }
   private var phaseProgress: CGFloat {
     guard let total = controller.status.phaseDurationMs,
-          let remaining = controller.status.phaseRemainingMs,
+          let remaining = livePhaseRemainingMs,
           total > 0 else { return 0 }
     return min(1, max(0, CGFloat((total - remaining) / total)))
+  }
+  private var livePhaseRemainingMs: Double? {
+    guard let remaining = controller.status.phaseRemainingMs else { return nil }
+    guard controller.status.trackingState == "active",
+          (controller.status.suspensionReasons ?? []).isEmpty,
+          let sampledAt = controller.status.phaseRemainingSampledAtMs else {
+      return max(0, remaining)
+    }
+    let elapsed = max(0, controller.now.timeIntervalSince1970 * 1_000 - sampledAt)
+    return max(0, remaining - elapsed)
   }
   private var isManualPause: Bool {
     (controller.status.suspensionReasons ?? []).contains("manual_pause")
@@ -769,7 +820,7 @@ struct NotchRootView: View {
   }
   private var sessionRemaining: String? {
     if let pauseRemaining { return "\(pauseRemaining) paused" }
-    guard let phaseRemaining = controller.status.phaseRemainingMs else { return nil }
+    guard let phaseRemaining = livePhaseRemainingMs else { return nil }
     return "\(formatRemaining(phaseRemaining)) left"
   }
   private var hasActiveSessionPresentation: Bool {
@@ -833,7 +884,6 @@ struct NotchRootView: View {
             .position(x: proxy.size.width / 2, y: controller.geometry.menuBarHeight / 2)
         }
       }
-      .onReceive(clock) { controller.now = $0 }
       .onExitCommand {
         controller.dismissTransientControls()
         controller.setExpanded(false)
@@ -851,7 +901,7 @@ struct NotchRootView: View {
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(.white.opacity(0.92))
           Spacer()
-          Text("Today  \(format(controller.status.dailyProductiveMs)) focused · \(format(controller.status.dailyUnproductiveMs)) distracted")
+          Text("Today  \(format(dailyProductiveTime)) focused · \(format(dailyUnproductiveTime)) distracted")
             .font(.system(size: 10, weight: .regular)).foregroundStyle(.white.opacity(0.62))
         }
         Rectangle().fill(.white.opacity(0.10)).frame(height: 1 / (NSScreen.main?.backingScaleFactor ?? 2))
@@ -991,6 +1041,7 @@ struct NotchRootView: View {
     let reasons = controller.status.suspensionReasons ?? []
     if reasons.contains("screen_locked") { return "Tempo is frozen until the screen is unlocked." }
     if reasons.contains("system_sleep") { return "Tempo is frozen while your Mac is asleep." }
+    if reasons.contains("awaiting_system_resume") { return "Tempo is rechecking the frontmost app." }
     if let pauseRemaining { return "Monitoring is paused · \(pauseRemaining) remaining." }
     if controller.status.trackingState == "break" { return "Monitoring is paused for your scheduled break." }
     return "Monitoring is paused."
@@ -1000,6 +1051,7 @@ struct NotchRootView: View {
     let reasons = controller.status.suspensionReasons ?? []
     if reasons.contains("screen_locked") { return "LOCKED" }
     if reasons.contains("system_sleep") { return "SLEEPING" }
+    if reasons.contains("awaiting_system_resume") { return "RESUMING" }
     if controller.status.trackingState == "paused" { return "PAUSED" }
     if controller.status.trackingState == "break" { return "BREAK" }
     return controller.status.latestStatus == "productive" ? "FOCUSED" : controller.status.latestStatus == "unproductive" ? "DISTRACTED" : "UNCERTAIN"
@@ -1009,6 +1061,7 @@ struct NotchRootView: View {
     let reasons = controller.status.suspensionReasons ?? []
     if reasons.contains("screen_locked") { return "Screen locked — Tempo is frozen" }
     if reasons.contains("system_sleep") { return "Mac sleeping — Tempo is frozen" }
+    if reasons.contains("awaiting_system_resume") { return "Resuming — rechecking the frontmost app" }
     if controller.status.trackingState == "break" { return controller.status.phaseKind == "long_break" ? "Long break" : "Short break" }
     if controller.status.trackingState == "paused" { return "Tempo paused" }
     if controller.status.runtimeMode == "pomodoro" { return "Pomodoro \((controller.status.phaseIndex ?? 0) / 2 + 1)" }

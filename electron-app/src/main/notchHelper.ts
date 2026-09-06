@@ -7,6 +7,9 @@ export interface FloatingStatusUpdate {
   latestStatus: 'productive' | 'unproductive' | 'maybe' | null
   dailyProductiveMs: number
   dailyUnproductiveMs: number
+  /** Live workday totals used by the expanded notch without renderer polling. */
+  dailyProductiveClock?: { accumulatedMs: number; runningSinceMs: number | null }
+  dailyUnproductiveClock?: { accumulatedMs: number; runningSinceMs: number | null }
   productiveClock?: { accumulatedMs: number; runningSinceMs: number | null }
   distractedClock?: { accumulatedMs: number; runningSinceMs: number | null }
   provisionalDistractionStartedAtMs?: number | null
@@ -32,6 +35,8 @@ export interface FloatingStatusUpdate {
   suspendedAtMs?: number | null
   pausedUntilMs?: number | null
   phaseRemainingMs?: number | null
+  /** Timestamp at which the phase remainder was sampled by the renderer. */
+  phaseRemainingSampledAtMs?: number | null
   phaseDurationMs?: number | null
   phaseGoal?: string | null
   phaseKind?: 'work' | 'short_break' | 'long_break' | null
@@ -57,6 +62,8 @@ export class NotchHelper {
   private availability: HelperAvailability = 'starting'
   private restartCount = 0
   private stopped = false
+  /** The state to restore after only the system-owned freeze reasons clear. */
+  private trackingStateBeforeSystemSuspension: FloatingStatusUpdate['trackingState'] | null = null
   private mainWindow: () => BrowserWindow | null
 
   constructor(mainWindow: () => BrowserWindow | null) {
@@ -123,13 +130,38 @@ export class NotchHelper {
   /** Freeze immediately from main-process system events; renderer/server state can lag. */
   setSystemSuspension(state: { locked: boolean; sleeping: boolean; suspendedAtMs: number | null }): void {
     if (!this.lastStatus) return
-    const suspensionReasons = [
+    const systemReasons = [
       ...(state.locked ? ['screen_locked'] : []),
       ...(state.sleeping ? ['system_sleep'] : [])
     ]
+    const previousReasons = this.lastStatus.suspensionReasons || []
+    const hadSystemSuspension = previousReasons.some(
+      (reason) => reason === 'screen_locked' || reason === 'system_sleep'
+    )
+
+    // Preserve manual pauses and Pomodoro breaks. A lock/sleep event must not
+    // erase their reason, and clearing the system event must not leave Tempo
+    // permanently "paused" just because that was the temporary frozen state.
+    if (systemReasons.length && !hadSystemSuspension) {
+      this.trackingStateBeforeSystemSuspension = this.lastStatus.trackingState || null
+    }
+    const retainedReasons = previousReasons.filter(
+      (reason) => reason !== 'screen_locked' && reason !== 'system_sleep'
+    )
+    const suspensionReasons = [...retainedReasons, ...systemReasons]
+    const restoredState = this.trackingStateBeforeSystemSuspension
+    const trackingState = systemReasons.length
+      ? 'paused'
+      : retainedReasons.includes('manual_pause')
+        ? 'paused'
+        : retainedReasons.includes('pomodoro_break') || retainedReasons.includes('long_break')
+          ? 'break'
+          : restoredState || this.lastStatus.trackingState
+
+    if (!systemReasons.length) this.trackingStateBeforeSystemSuspension = null
     this.updateStatus({
       ...this.lastStatus,
-      trackingState: suspensionReasons.length ? 'paused' : this.lastStatus.trackingState,
+      trackingState,
       suspensionReasons,
       suspendedAtMs: state.suspendedAtMs
     })
