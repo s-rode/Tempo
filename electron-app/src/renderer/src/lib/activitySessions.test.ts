@@ -287,6 +287,76 @@ describe('activity sessions', () => {
     })
   })
 
+  test('keeps a distraction chapter honest instead of inheriting an overlapping focus goal', () => {
+    const focused = block({
+      durationMs: 10 * 60_000,
+      endTime: new Date(base + 10 * 60_000)
+    })
+    const chatGptDistraction = block({
+      ownerName: 'ChatGPT',
+      title: 'ChatGPT',
+      activityKey: 'app:chatgpt',
+      // This reproduces stale enrichment from an earlier focus context. The
+      // category, not this field, must determine the presented label.
+      activityLabel: 'Study Focus',
+      durationMs: 12 * 60_000,
+      startTime: new Date(base + 16 * 60_000),
+      endTime: new Date(base + 28 * 60_000),
+      categoryId: 'distraction',
+      categoryName: 'Distraction',
+      isProductive: false,
+      originalEvent: {
+        ...focused.originalEvent,
+        ownerName: 'ChatGPT',
+        title: 'ChatGPT',
+        type: 'window',
+        browser: null,
+        categoryId: 'distraction'
+      }
+    })
+    const runs: FocusTimelineRun[] = [
+      {
+        endedAtMs: base + 30 * 60_000,
+        outcome: 'completed',
+        run: {
+          id: 'focus-run',
+          kind: 'custom',
+          state: 'completed',
+          currentPhaseIndex: 0,
+          startedAtMs: base,
+          completedAtMs: base + 30 * 60_000,
+          phases: [
+            {
+              id: 'work-phase',
+              kind: 'work',
+              goal: 'Organize life calendar and journal',
+              startedAtMs: base,
+              completedAtMs: base + 30 * 60_000,
+              plannedDurationMs: 30 * 60_000,
+              activeElapsedMs: 30 * 60_000,
+              runningSinceMs: null,
+              state: 'completed',
+              productiveMs: 0,
+              distractedMs: 0
+            }
+          ]
+        }
+      }
+    ]
+
+    const chapters = attachFocusGoalsToTimelineChapters(
+      buildTimelineChapters(buildActivitySessions([focused, chatGptDistraction])),
+      runs,
+      base + 30 * 60_000
+    )
+
+    expect(chapters).toHaveLength(2)
+    expect(chapters[0].focusGoal?.goal).toBe('Organize life calendar and journal')
+    expect(chapters[1].focusGoal).toBeUndefined()
+    expect(chapters[1].label).toBe('Distracted by ChatGPT')
+    expect(chapters[1].summary).toBe('Does not support the current goal.')
+  })
+
   test('does not attach a focus goal outside its recorded work-phase boundary', () => {
     const chapters = buildTimelineChapters(buildActivitySessions([block()]))
     const runs: FocusTimelineRun[] = [

@@ -1,5 +1,6 @@
 import type { FocusRun } from 'shared'
 import type { ProcessedEventBlock } from '../components/DashboardView'
+import { displayActivityLabel, displayActivitySummary } from './activityPresentation'
 
 const SESSION_GAP_MS = 2 * 60 * 1000
 const SHORT_PRODUCTIVE_BLOCK_MS = 30 * 1000
@@ -164,6 +165,19 @@ const sessionContributionWithin = (
   return Math.min(session.activeDurationMs, session.activeDurationMs * (overlap / span))
 }
 
+const chapterContributionWithin = (chapter: TimelineChapter, startMs: number, endMs: number) =>
+  chapter.sessions.reduce(
+    (totals, session) => {
+      const contribution = sessionContributionWithin(session, startMs, endMs)
+      totals.overlapMs += contribution
+      if (session.isProductive === true) totals.focusedMs += contribution
+      else if (session.isProductive === false) totals.distractedMs += contribution
+      else totals.uncertainMs += contribution
+      return totals
+    },
+    { overlapMs: 0, focusedMs: 0, distractedMs: 0, uncertainMs: 0 }
+  )
+
 const adherenceFor = (
   focusedMs: number,
   distractedMs: number,
@@ -265,20 +279,28 @@ export const attachFocusGoalsToTimelineChapters = (
     const matching = candidates
       .map((candidate) => ({
         candidate,
-        overlapMs: chapter.sessions.reduce(
-          (total, session) =>
-            total +
-            sessionContributionWithin(
-              session,
-              candidate.startTime.getTime(),
-              candidate.endTime.getTime()
-            ),
-          0
+        ...chapterContributionWithin(
+          chapter,
+          candidate.startTime.getTime(),
+          candidate.endTime.getTime()
         )
       }))
       .filter((match) => match.overlapMs > 0)
       .sort((left, right) => right.overlapMs - left.overlapMs)
-    return matching[0]?.candidate || null
+    const strongest = matching[0]
+    // A running focus session supplies useful context for its aggregate score,
+    // but it is not a label for every moment inside the phase. Only attach the
+    // goal to a chapter whose *overlapping classified activity* is genuinely
+    // focus-led. A distracted or uncertain detour stays honest and standalone.
+    if (
+      !strongest ||
+      strongest.focusedMs <= 0 ||
+      strongest.focusedMs <= strongest.distractedMs ||
+      strongest.focusedMs < strongest.uncertainMs
+    ) {
+      return null
+    }
+    return strongest.candidate
   })
 
   const firstChapterForPhase = new Map<string, number>()
@@ -394,8 +416,8 @@ const makeSession = (block: ProcessedEventBlock): ActivitySessionBlock => ({
   isProductive: block.isProductive,
   ownerName: block.ownerName,
   browser: block.originalEvent.browser,
-  label: block.activityLabel || block.title || block.ownerName,
-  summary: block.activitySummary,
+  label: displayActivityLabel(block),
+  summary: displayActivitySummary(block),
   reasoning: block.categoryReasoning,
   title: block.title,
   url: block.url,
@@ -420,8 +442,8 @@ const mergeIntoSession = (session: ActivitySessionBlock, block: ProcessedEventBl
     (nextIsManual && !currentIsManual) ||
     (!currentIsManual && block.durationMs > currentPrimaryDuration)
   ) {
-    session.label = block.activityLabel || block.title || block.ownerName
-    session.summary = block.activitySummary
+    session.label = displayActivityLabel(block)
+    session.summary = displayActivitySummary(block)
     session.reasoning = block.categoryReasoning
     session.title = block.title
     session.url = block.url

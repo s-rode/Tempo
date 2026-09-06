@@ -664,6 +664,10 @@ struct NotchRootView: View {
   }
   private var expandedContentHeight: CGFloat { controller.expandedContentHeight }
   private var currentActivitySource: String? {
+    // A distracting label already names its source (for example, “Distracted
+    // by ChatGPT”). Hiding the repeated source keeps the compact inline
+    // hierarchy clear: “Distracted by ChatGPT · Distraction”.
+    if controller.status.latestStatus == "unproductive" { return nil }
     guard let source = controller.status.activitySource?.trimmingCharacters(in: .whitespacesAndNewlines), !source.isEmpty else { return nil }
     return source
   }

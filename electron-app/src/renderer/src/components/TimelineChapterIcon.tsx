@@ -4,16 +4,15 @@ import AppIcon from './AppIcon'
 
 const iconDataUrls = new Map<string, string | null>()
 
-const normalize = (value: string | undefined | null) => (value || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase()
+const normalize = (value: string | undefined | null) =>
+  (value || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase()
 
 /** A chapter title is generated when it is not a captured title or app name. */
 export const isGeneratedChapterLabel = (chapter: TimelineChapter): boolean => {
   const label = normalize(chapter.label)
   if (!label) return false
   return !chapter.sessions.some((session) =>
-    [session.ownerName, session.title]
-      .filter(Boolean)
-      .some((source) => normalize(source) === label)
+    [session.ownerName, session.title].filter(Boolean).some((source) => normalize(source) === label)
   )
 }
 
@@ -37,9 +36,12 @@ function NativeAppIcon({ appName, size }: { appName: string; size: number }) {
     const cached = iconDataUrls.get(appName)
     if (cached !== undefined) {
       setSrc(cached)
-      return () => { disposed = true }
+      return () => {
+        disposed = true
+      }
     }
-    window.api?.getAppIconDataUrl(appName)
+    window.api
+      ?.getAppIconDataUrl(appName)
       .then((next) => {
         iconDataUrls.set(appName, next)
         if (!disposed) setSrc(next)
@@ -48,19 +50,41 @@ function NativeAppIcon({ appName, size }: { appName: string; size: number }) {
         iconDataUrls.set(appName, null)
         if (!disposed) setSrc(null)
       })
-    return () => { disposed = true }
+    return () => {
+      disposed = true
+    }
   }, [appName])
 
   if (src) {
-    return <img src={src} alt={`${appName} icon`} width={size} height={size} className="shrink-0 rounded-[5px] shadow-sm" />
+    return (
+      <img
+        src={src}
+        alt={`${appName} icon`}
+        width={size}
+        height={size}
+        className="shrink-0 rounded-[5px] shadow-sm"
+      />
+    )
   }
   return <AppIcon appName={appName} size={size} className="shrink-0" />
 }
 
 /** Uses a local macOS app icon for source-named chapters, otherwise an emoji for generated/mixed chapters. */
-export function TimelineChapterIcon({ chapter, size = 18 }: { chapter: TimelineChapter; size?: number }) {
+export function TimelineChapterIcon({
+  chapter,
+  size = 18
+}: {
+  chapter: TimelineChapter
+  size?: number
+}) {
   const owners = [...new Set(chapter.sessions.map((session) => session.ownerName).filter(Boolean))]
-  const shouldUseEmoji = owners.length !== 1 || isGeneratedChapterLabel(chapter)
+  const isSingleAppDistraction =
+    owners.length === 1 &&
+    chapter.distractedMs > 0 &&
+    chapter.focusedMs === 0 &&
+    chapter.uncertainMs === 0
+  const shouldUseEmoji =
+    owners.length !== 1 || (isGeneratedChapterLabel(chapter) && !isSingleAppDistraction)
 
   if (shouldUseEmoji) {
     return (

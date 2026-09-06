@@ -5,7 +5,10 @@ import { getOrCreateRuntime, suspensionReasonsFor } from '../focusRuntime';
 import { resolveGoalContext } from './categorizationService';
 import { localClassificationProvider } from './provider';
 
-type ActivityContext = Pick<ActiveWindowDetails, 'ownerName' | 'title' | 'url' | 'content' | 'type' | 'browser'>;
+type ActivityContext = Pick<
+  ActiveWindowDetails,
+  'ownerName' | 'title' | 'url' | 'content' | 'type' | 'browser'
+>;
 
 interface PendingEnrichment {
   generation: number;
@@ -45,42 +48,103 @@ export function scheduleEnrichment(args: {
   goalContextFingerprint: string | null;
   activity: ActivityContext;
 }): void {
-  if (!args.categoryId || !args.goalContextFingerprint || generationByUser.get(args.userId) !== args.generation) return;
+  if (
+    !args.categoryId ||
+    !args.goalContextFingerprint ||
+    generationByUser.get(args.userId) !== args.generation
+  )
+    return;
   const controller = new AbortController();
-  const pending: PendingEnrichment = { generation: args.generation, timer: null, controller, activity: { ...args.activity } };
+  const pending: PendingEnrichment = {
+    generation: args.generation,
+    timer: null,
+    controller,
+    activity: { ...args.activity },
+  };
   pendingByUser.set(args.userId, pending);
   const delay = Math.max(0, ENRICH_AFTER_STABLE_MS - (Date.now() - args.timestamp));
-  pending.timer = setTimeout(() => { void runEnrichment(args, pending); }, delay);
+  pending.timer = setTimeout(() => {
+    void runEnrichment(args, pending);
+  }, delay);
 }
 
-async function runEnrichment(args: Parameters<typeof scheduleEnrichment>[0], pending: PendingEnrichment): Promise<void> {
-  const stillCurrent = () => pendingByUser.get(args.userId) === pending && generationByUser.get(args.userId) === args.generation && !pending.controller.signal.aborted;
+async function runEnrichment(
+  args: Parameters<typeof scheduleEnrichment>[0],
+  pending: PendingEnrichment
+): Promise<void> {
+  const stillCurrent = () =>
+    pendingByUser.get(args.userId) === pending &&
+    generationByUser.get(args.userId) === args.generation &&
+    !pending.controller.signal.aborted;
   try {
     if (!stillCurrent()) return;
     const [latest, context, runtime, category] = await Promise.all([
-      ActiveWindowEventModel.findOne({ userId: args.userId }).sort({ timestamp: -1 }).select('_id goalContextFingerprint categoryId').lean(),
+      ActiveWindowEventModel.findOne({ userId: args.userId })
+        .sort({ timestamp: -1 })
+        .select('_id goalContextFingerprint categoryId')
+        .lean(),
       resolveGoalContext(args.userId),
       getOrCreateRuntime(args.userId),
       CategoryModel.findById(args.categoryId).lean(),
     ]);
-    if (!stillCurrent() || String(latest?._id) !== args.eventId || latest?.goalContextFingerprint !== args.goalContextFingerprint || context.fingerprint !== args.goalContextFingerprint || suspensionReasonsFor(runtime).length || !category) return;
+    if (
+      !stillCurrent() ||
+      String(latest?._id) !== args.eventId ||
+      latest?.goalContextFingerprint !== args.goalContextFingerprint ||
+      context.fingerprint !== args.goalContextFingerprint ||
+      suspensionReasonsFor(runtime).length ||
+      !category
+    )
+      return;
     const enrichment = await localClassificationProvider.enrich(
       context.goals,
-      { name: category.name, description: category.description, isProductive: category.isProductive },
+      {
+        name: category.name,
+        description: category.description,
+        isProductive: category.isProductive,
+      },
       pending.activity,
       pending.controller.signal
     );
     if (!stillCurrent() || !enrichment) {
       if (stillCurrent() && !pending.controller.signal.aborted) {
-        await ActiveWindowEventModel.updateOne({ _id: args.eventId, userId: args.userId, categoryId: args.categoryId }, { $set: { classificationFailureCode: 'enrichment_failed' } });
+        await ActiveWindowEventModel.updateOne(
+          { _id: args.eventId, userId: args.userId, categoryId: args.categoryId },
+          { $set: { classificationFailureCode: 'enrichment_failed' } }
+        );
       }
       return;
     }
-    const latestAfter = await ActiveWindowEventModel.findOne({ userId: args.userId }).sort({ timestamp: -1 }).select('_id').lean();
+    const latestAfter = await ActiveWindowEventModel.findOne({ userId: args.userId })
+      .sort({ timestamp: -1 })
+      .select('_id')
+      .lean();
     if (!stillCurrent() || String(latestAfter?._id) !== args.eventId) return;
+    const metadata =
+      category.isProductive === false
+        ? {
+            // Rich copy is deliberately unable to relabel a distraction as a
+            // focus task. Retain the core policy rationale already on the event.
+            activityLabel: `Distracted by ${pending.activity.ownerName?.trim() || pending.activity.title?.trim() || 'this activity'}`,
+            activitySummary: 'Does not support the current goal.',
+            nudgeTitle: enrichment.nudgeTitle,
+            nudgeBody: enrichment.nudgeBody,
+          }
+        : {
+            activityLabel: enrichment.activityLabel,
+            activitySummary: enrichment.activitySummary,
+            categoryReasoning: enrichment.reasoning,
+            nudgeTitle: enrichment.nudgeTitle,
+            nudgeBody: enrichment.nudgeBody,
+          };
     await ActiveWindowEventModel.updateOne(
-      { _id: args.eventId, userId: args.userId, categoryId: args.categoryId, goalContextFingerprint: args.goalContextFingerprint },
-      { $set: { activityLabel: enrichment.activityLabel, activitySummary: enrichment.activitySummary, categoryReasoning: enrichment.reasoning, nudgeTitle: enrichment.nudgeTitle, nudgeBody: enrichment.nudgeBody } }
+      {
+        _id: args.eventId,
+        userId: args.userId,
+        categoryId: args.categoryId,
+        goalContextFingerprint: args.goalContextFingerprint,
+      },
+      { $set: metadata }
     );
   } finally {
     pending.activity.content = null;
