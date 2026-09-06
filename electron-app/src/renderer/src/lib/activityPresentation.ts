@@ -25,8 +25,13 @@ export const displayActivityLabel = (activity: ActivityPresentationInput): strin
 
 export const displayActivitySummary = (activity: ActivityPresentationInput): string | undefined => {
   if (activity.isProductive === false) {
-    // Historical enrichment and manual rules may carry old model prose. Keep
-    // a distraction's supporting line equally unambiguous as its title.
+    // Historical enrichment and manual rules may carry old model prose. Only
+    // render the explicit off-goal format written by the current pipeline.
+    // This keeps a legacy “Study Focus” label from resurfacing below a
+    // distraction title.
+    if (activity.activitySummary?.trim().startsWith('Off goal:')) {
+      return activity.activitySummary.trim()
+    }
     return 'Does not support the current goal.'
   }
   return activity.activitySummary?.trim() || undefined

@@ -21,6 +21,12 @@ const pendingByUser = new Map<string, PendingEnrichment>();
 const generationByUser = new Map<string, number>();
 const ENRICH_AFTER_STABLE_MS = 12_000;
 
+const offGoalSummary = (value: string): string => {
+  const detail =
+    value.replace(/^off goal:\s*/i, '').trim() || 'This did not support the current goal.';
+  return `Off goal: ${detail.slice(0, 70).trim()}`;
+};
+
 /** Called as soon as a newer capture exists, before it begins core inference. */
 export function beginEnrichmentCapture(userId: string): number {
   cancelPendingEnrichment(userId);
@@ -124,9 +130,10 @@ async function runEnrichment(
       category.isProductive === false
         ? {
             // Rich copy is deliberately unable to relabel a distraction as a
-            // focus task. Retain the core policy rationale already on the event.
+            // focus task. The summary is tagged so older unrestricted model
+            // copy is never mistaken for an honest off-goal explanation.
             activityLabel: `Distracted by ${pending.activity.ownerName?.trim() || pending.activity.title?.trim() || 'this activity'}`,
-            activitySummary: 'Does not support the current goal.',
+            activitySummary: offGoalSummary(enrichment.activitySummary),
             nudgeTitle: enrichment.nudgeTitle,
             nudgeBody: enrichment.nudgeBody,
           }
