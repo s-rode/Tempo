@@ -1,9 +1,9 @@
 import { TrendingDown, TrendingUp } from 'lucide-react'
-import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { formatDuration } from '../../lib/activityByCategoryWidgetHelpers'
 import { trpc } from '../../utils/trpc'
-import { FOCUSED, type DurationPoint } from './AnalyticsCharts'
+import { type DurationPoint } from './AnalyticsCharts'
 import { Card, CardContent } from '../ui/card'
 
 type WeeklyFocusPoint = DurationPoint & {
@@ -13,6 +13,9 @@ type WeeklyFocusPoint = DurationPoint & {
 
 type FocusComparisonMode = 'all_active_days' | 'same_day_type' | 'same_weekday'
 
+const hourMs = 60 * 60 * 1000
+const minuteMs = 60 * 1000
+
 const startOfWeek = (value: Date) => {
   const date = new Date(value)
   date.setDate(date.getDate() - ((date.getDay() + 6) % 7))
@@ -20,34 +23,77 @@ const startOfWeek = (value: Date) => {
   return date
 }
 
-const dayTimeLabel = (value: Date) => value.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+const dayTimeLabel = (value: Date) =>
+  value.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+
+const chartDuration = (value: number) => {
+  if (value === 0) return '0'
+  if (value < hourMs) return `${Math.round(value / minuteMs)}m`
+  return `${Math.round((value / hourMs) * 10) / 10}h`
+}
+
+const dayLabel = (value: number, isToday: boolean) =>
+  isToday ? 'Today' : new Date(value).toLocaleDateString(undefined, { weekday: 'long' })
 
 const comparisonCopy = (mode: FocusComparisonMode, date: Date) => {
-  if (mode === 'same_weekday') return `average ${date.toLocaleDateString(undefined, { weekday: 'long' })}`
-  if (mode === 'same_day_type') return date.getDay() === 0 || date.getDay() === 6 ? 'average weekend day' : 'average weekday'
+  if (mode === 'same_weekday') {
+    return `average ${date.toLocaleDateString(undefined, { weekday: 'long' })}`
+  }
+  if (mode === 'same_day_type') {
+    return date.getDay() === 0 || date.getDay() === 6 ? 'average weekend day' : 'average weekday'
+  }
   return 'average active day'
 }
 
-function WeekFocusTrend({ points, currentIndex }: { points: WeeklyFocusPoint[]; currentIndex?: number }) {
-  const gradientId = useId().replace(/:/g, '')
-  const selectableIndexes = useMemo(() => points.flatMap((point, index) => point.isFuture ? [] : [index]), [points])
+const roundedScaleMaximum = (value: number) => {
+  const target = Math.max(hourMs, value * 1.12)
+  return (
+    [
+      hourMs,
+      2 * hourMs,
+      3 * hourMs,
+      4 * hourMs,
+      6 * hourMs,
+      8 * hourMs,
+      10 * hourMs,
+      12 * hourMs
+    ].find((candidate) => candidate >= target) || Math.ceil(target / (2 * hourMs)) * 2 * hourMs
+  )
+}
+
+function WeekFocusBars({
+  points,
+  currentIndex
+}: {
+  points: WeeklyFocusPoint[]
+  currentIndex?: number
+}) {
+  const selectableIndexes = useMemo(
+    () => points.flatMap((point, index) => (point.isFuture ? [] : [index])),
+    [points]
+  )
   const fallbackIndex = selectableIndexes.at(-1) ?? 0
-  const initialIndex = currentIndex !== undefined && !points[currentIndex]?.isFuture ? currentIndex : fallbackIndex
+  const initialIndex =
+    currentIndex !== undefined && !points[currentIndex]?.isFuture ? currentIndex : fallbackIndex
   const [selectedIndex, setSelectedIndex] = useState(initialIndex)
   const dayButtonRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   useEffect(() => setSelectedIndex(initialIndex), [initialIndex])
 
-  const max = Math.max(60 * 60 * 1000, ...points.filter((point) => !point.isFuture).map((point) => point.focusedMs))
-  const coordinates = points.map((point, index) => ({
-    x: points.length === 1 ? 50 : 8 + (index / Math.max(1, points.length - 1)) * 84,
-    y: 75 - (point.focusedMs / max) * 47
-  }))
-  const plotted = coordinates.filter((_, index) => !points[index].isFuture)
-  const line = plotted.map((point) => `${point.x},${point.y}`).join(' ')
-  const area = plotted.length ? `${plotted[0].x},78 ${line} ${plotted.at(-1)!.x},78` : ''
+  const maximum = roundedScaleMaximum(
+    Math.max(0, ...points.filter((point) => !point.isFuture).map((point) => point.focusedMs))
+  )
   const selected = points[selectedIndex] || points[fallbackIndex]
-  const selectedCoordinate = coordinates[selectedIndex] || coordinates[fallbackIndex]
+  const selectedIsToday = selectedIndex === currentIndex
+  const weekTotal = points
+    .filter((point) => !point.isFuture)
+    .reduce((total, point) => total + point.focusedMs, 0)
+  const best = points
+    .filter((point) => !point.isFuture)
+    .reduce<WeeklyFocusPoint | null>(
+      (current, point) => (!current || point.focusedMs > current.focusedMs ? point : current),
+      null
+    )
 
   const selectDay = (index: number, moveFocus = false) => {
     if (points[index]?.isFuture) return
@@ -57,7 +103,9 @@ function WeekFocusTrend({ points, currentIndex }: { points: WeeklyFocusPoint[]; 
 
   const moveSelection = (direction: -1 | 1) => {
     const current = Math.max(0, selectableIndexes.indexOf(selectedIndex))
-    const next = selectableIndexes[Math.min(selectableIndexes.length - 1, Math.max(0, current + direction))] ?? fallbackIndex
+    const next =
+      selectableIndexes[Math.min(selectableIndexes.length - 1, Math.max(0, current + direction))] ??
+      fallbackIndex
     selectDay(next, true)
   }
 
@@ -77,55 +125,73 @@ function WeekFocusTrend({ points, currentIndex }: { points: WeeklyFocusPoint[]; 
     }
   }
 
+  if (!points.length) return null
+
   return (
-    <section className="mt-4 border-t border-border pt-3" aria-label="Focused time this week">
-      <div className="mb-1 flex items-baseline justify-between gap-2">
-        <h3 className="text-xs font-medium text-foreground">This week</h3>
-        <span className="text-[11px] text-muted-foreground">{selectedIndex === currentIndex ? 'Today' : selected?.label || '—'} · {selected ? formatDuration(selected.focusedMs) : '—'}</span>
+    <section className="tempo-week-focus-chart" aria-label="Focused time this week">
+      <div className="tempo-week-focus-chart-heading">
+        <span>This week</span>
+        <span>{formatDuration(weekTotal)} total</span>
       </div>
-      <div className="relative h-28">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full overflow-visible" role="img" aria-label="Weekly focused time trend">
-          <defs>
-            <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-              <stop stopColor={FOCUSED} stopOpacity=".16" />
-              <stop offset="1" stopColor={FOCUSED} stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          {[31, 55, 78].map((y) => <line key={y} x1="8" x2="92" y1={y} y2={y} stroke="currentColor" className="text-border" strokeWidth=".45" />)}
-          {area && <polygon points={area} fill={`url(#${gradientId})`} />}
-          {line && <polyline points={line} fill="none" stroke={FOCUSED} strokeWidth="1.35" vectorEffect="non-scaling-stroke" />}
-          {selectedCoordinate && <line x1={selectedCoordinate.x} x2={selectedCoordinate.x} y1="17" y2="79" stroke="currentColor" className="text-border" strokeWidth=".55" />}
-          {coordinates.map((coordinate, index) => {
-            const point = points[index]
-            const isCurrent = index === currentIndex
-            const isSelected = index === selectedIndex
+      <div className="tempo-week-focus-plot">
+        <div className="tempo-week-focus-axis" aria-hidden="true">
+          <span>{chartDuration(maximum)}</span>
+          <span>{chartDuration(maximum / 2)}</span>
+          <span>0</span>
+        </div>
+        <div
+          className="tempo-week-focus-bars"
+          role="group"
+          aria-label="Select a weekday to inspect"
+        >
+          <span className="tempo-week-focus-gridline is-top" aria-hidden="true" />
+          <span className="tempo-week-focus-gridline is-middle" aria-hidden="true" />
+          <span className="tempo-week-focus-gridline is-bottom" aria-hidden="true" />
+          {points.map((point, index) => {
+            const selectedDay = index === selectedIndex
+            const today = index === currentIndex
+            const height =
+              point.focusedMs === 0 ? 0 : Math.max(4, (point.focusedMs / maximum) * 100)
             return (
-              <g key={point.dayStartMs} aria-hidden="true" onClick={() => selectDay(index)} onMouseEnter={() => selectDay(index)} className={point.isFuture ? 'opacity-25' : 'cursor-pointer'}>
-                <circle cx={coordinate.x} cy={coordinate.y} r="5" fill="transparent" />
-                {isCurrent && <circle cx={coordinate.x} cy={coordinate.y} r="3.1" fill="none" stroke={FOCUSED} strokeOpacity=".28" strokeWidth=".8" vectorEffect="non-scaling-stroke" />}
-                <circle cx={coordinate.x} cy={coordinate.y} r={isSelected ? '2.1' : '1.35'} fill={FOCUSED} vectorEffect="non-scaling-stroke" />
-              </g>
+              <button
+                key={point.dayStartMs}
+                ref={(element) => {
+                  dayButtonRefs.current[index] = element
+                }}
+                type="button"
+                disabled={point.isFuture}
+                aria-pressed={selectedDay}
+                aria-label={
+                  point.isFuture
+                    ? `${point.label}, upcoming`
+                    : `${dayLabel(point.dayStartMs, today)}: ${formatDuration(point.focusedMs)} focused. Select to inspect.`
+                }
+                onClick={() => selectDay(index)}
+                onMouseEnter={() => selectDay(index)}
+                onFocus={() => selectDay(index)}
+                onKeyDown={handleDayKeyDown}
+                className={`tempo-week-focus-day ${selectedDay ? 'is-selected' : ''} ${today ? 'is-today' : ''} ${point.isFuture ? 'is-future' : ''}`}
+              >
+                <span className="tempo-week-focus-bar-slot">
+                  <span className="tempo-week-focus-bar" style={{ height: `${height}%` }} />
+                </span>
+                <span className="tempo-week-focus-day-label">{point.label}</span>
+              </button>
             )
           })}
-        </svg>
-        <div className="absolute inset-x-[8%] bottom-0 flex justify-between" role="group" aria-label="Select a weekday to inspect">
-          {points.map((point, index) => (
-            <button
-              key={point.dayStartMs}
-              ref={(element) => { dayButtonRefs.current[index] = element }}
-              type="button"
-              disabled={point.isFuture}
-              aria-pressed={index === selectedIndex}
-              aria-label={point.isFuture ? `${point.label}, upcoming` : `${point.label}: ${formatDuration(point.focusedMs)} focused`}
-              onClick={() => selectDay(index)}
-              onFocus={() => selectDay(index)}
-              onKeyDown={handleDayKeyDown}
-              className={`-mx-1 rounded-sm px-1 text-[11px] text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${index === selectedIndex ? 'font-medium text-foreground' : point.isFuture ? 'cursor-default opacity-40' : ''}`}
-            >
-              {point.label}
-            </button>
-          ))}
         </div>
+      </div>
+      <div className="tempo-week-focus-selection" aria-live="polite">
+        <div>
+          <span>{selected ? dayLabel(selected.dayStartMs, selectedIsToday) : '—'}</span>
+          <strong>{selected ? formatDuration(selected.focusedMs) : '—'} focused</strong>
+        </div>
+        {best && best.focusedMs > 0 && (
+          <span>
+            Best: {new Date(best.dayStartMs).toLocaleDateString(undefined, { weekday: 'short' })}{' '}
+            {formatDuration(best.focusedMs)}
+          </span>
+        )}
       </div>
     </section>
   )
@@ -133,13 +199,17 @@ function WeekFocusTrend({ points, currentIndex }: { points: WeeklyFocusPoint[]; 
 
 export function DashboardFocusCard() {
   const { token } = useAuth()
-  const { data: settings } = trpc.user.getElectronAppSettings.useQuery({ token: token || '' }, { enabled: !!token })
+  const { data: settings } = trpc.user.getElectronAppSettings.useQuery(
+    { token: token || '' },
+    { enabled: !!token }
+  )
   const comparisonMode = (settings?.focusComparisonMode || 'all_active_days') as FocusComparisonMode
   const [comparisonAtMs, setComparisonAtMs] = useState(() => Date.now())
   useEffect(() => {
     const timer = window.setInterval(() => setComparisonAtMs(Date.now()), 30_000)
     return () => window.clearInterval(timer)
   }, [])
+
   const now = useMemo(() => new Date(comparisonAtMs), [comparisonAtMs])
   const weekStart = startOfWeek(now)
   const weekEnd = new Date(weekStart)
@@ -157,18 +227,22 @@ export function DashboardFocusCard() {
     { enabled: !!token, refetchInterval: 30_000 }
   )
   const weekDays = useMemo(
-    () => (data?.days || []).filter((day: any) => day.startDateMs >= weekStart.getTime() && day.startDateMs < weekEnd.getTime()),
+    () =>
+      (data?.days || []).filter(
+        (day: any) => day.startDateMs >= weekStart.getTime() && day.startDateMs < weekEnd.getTime()
+      ),
     [data, weekStart, weekEnd]
   )
   const points = useMemo<WeeklyFocusPoint[]>(
-    () => weekDays.map((day: any) => ({
-      label: new Date(day.startDateMs).toLocaleDateString(undefined, { weekday: 'short' }),
-      focusedMs: day.focusedMs,
-      distractedMs: day.distractedMs,
-      uncertainMs: day.uncertainMs,
-      dayStartMs: day.startDateMs,
-      isFuture: day.startDateMs > todayStart.getTime()
-    })),
+    () =>
+      weekDays.map((day: any) => ({
+        label: new Date(day.startDateMs).toLocaleDateString(undefined, { weekday: 'short' }),
+        focusedMs: day.focusedMs,
+        distractedMs: day.distractedMs,
+        uncertainMs: day.uncertainMs,
+        dayStartMs: day.startDateMs,
+        isFuture: day.startDateMs > todayStart.getTime()
+      })),
     [weekDays, todayStart]
   )
   const today = weekDays.find((day: any) => day.startDateMs === todayStart.getTime())
@@ -182,28 +256,54 @@ export function DashboardFocusCard() {
   return (
     <Card className="mb-3 overflow-hidden border-border bg-card">
       <CardContent className="p-4">
-        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-400">Focus this week</p>
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-400">
+            Focus this week
+          </p>
+          <span className="text-[11px] text-muted-foreground">Updated {dayTimeLabel(now)}</span>
+        </div>
         <div className="mt-3 grid grid-cols-2 divide-x divide-border">
           <div className="pr-3">
-            <p className="text-[11px] text-muted-foreground">Today · by {dayTimeLabel(now)}</p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{isLoading ? '—' : formatDuration(todayFocusedMs)}</p>
+            <p className="text-[11px] text-muted-foreground">Today through {dayTimeLabel(now)}</p>
+            <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+              {isLoading ? '—' : formatDuration(todayFocusedMs)}
+            </p>
             <p className="text-xs text-muted-foreground">focused</p>
           </div>
           <div className="pl-3">
-            <p className="text-[11px] text-muted-foreground">Usual by now</p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{isLoading ? '—' : usualMs === null ? '—' : formatDuration(usualMs)}</p>
+            <p className="text-[11px] text-muted-foreground">Normal pace by now</p>
+            <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+              {isLoading ? '—' : usualMs === null ? '—' : formatDuration(usualMs)}
+            </p>
             <p className="text-xs text-muted-foreground">{comparisonCopy(comparisonMode, now)}</p>
           </div>
         </div>
         {delta !== null ? (
-          <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground" aria-live="polite">
-            {delta >= 0 ? <TrendingUp size={14} className="mt-0.5 shrink-0 text-emerald-500" /> : <TrendingDown size={14} className="mt-0.5 shrink-0 text-rose-500" />}
-            <span>{Math.abs(delta) < 60_000 ? `On pace with your average by ${dayTimeLabel(now)}.` : `${formatDuration(Math.abs(delta))} ${delta >= 0 ? 'ahead of' : 'behind'} your average by ${dayTimeLabel(now)}.`}</span>
+          <div
+            className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground"
+            aria-live="polite"
+          >
+            {delta >= 0 ? (
+              <TrendingUp size={14} className="mt-0.5 shrink-0 text-emerald-500" />
+            ) : (
+              <TrendingDown size={14} className="mt-0.5 shrink-0 text-rose-500" />
+            )}
+            <span>
+              {Math.abs(delta) < 60_000
+                ? `On pace with your normal day by ${dayTimeLabel(now)}.`
+                : `${formatDuration(Math.abs(delta))} ${delta >= 0 ? 'ahead of' : 'behind'} your normal pace by ${dayTimeLabel(now)}.`}
+            </span>
           </div>
         ) : (
-          <p className="mt-3 text-xs text-muted-foreground">No matching tracked days yet. Tempo will show this comparison when it has history for this setting ({sampleCount}/4).</p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            No comparable tracked days yet. Tempo will show a normal pace after it has history for
+            this setting ({sampleCount}/4).
+          </p>
         )}
-        <WeekFocusTrend points={points} currentIndex={currentIndex >= 0 ? currentIndex : undefined} />
+        <WeekFocusBars
+          points={points}
+          currentIndex={currentIndex >= 0 ? currentIndex : undefined}
+        />
       </CardContent>
     </Card>
   )
