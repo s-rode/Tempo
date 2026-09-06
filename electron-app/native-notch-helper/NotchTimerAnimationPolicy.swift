@@ -24,9 +24,11 @@ struct NotchTimerAnimationSnapshot: Equatable {
 func shouldAnimateNotchTimerTransition(
   from previous: NotchTimerAnimationSnapshot?,
   to next: NotchTimerAnimationSnapshot,
-  reduceMotion: Bool
+  reduceMotion: Bool,
+  animationsEnabled: Bool = true
 ) -> Bool {
-  guard !reduceMotion,
+  guard animationsEnabled,
+        !reduceMotion,
         let previous,
         !previous.isFrozen,
         !next.isFrozen,

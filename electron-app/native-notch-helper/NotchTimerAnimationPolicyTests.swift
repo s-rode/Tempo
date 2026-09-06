@@ -27,6 +27,7 @@ struct NotchTimerAnimationPolicyTests {
     expect(!shouldAnimateNotchTimerTransition(from: snapshot(18, frozen: true), to: snapshot(19), reduceMotion: false), "resume stays static")
     expect(!shouldAnimateNotchTimerTransition(from: snapshot(18), to: snapshot(18, frozen: true), reduceMotion: false), "pause stays static")
     expect(!shouldAnimateNotchTimerTransition(from: snapshot(18), to: snapshot(19), reduceMotion: true), "Reduce Motion stays static")
+    expect(!shouldAnimateNotchTimerTransition(from: snapshot(18), to: snapshot(19), reduceMotion: false, animationsEnabled: false), "preference disables animation")
     print("Notch timer animation policy tests passed")
   }
 }

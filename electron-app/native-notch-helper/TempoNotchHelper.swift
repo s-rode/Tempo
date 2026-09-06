@@ -47,6 +47,7 @@ struct StatusPayload: Codable {
   let productiveStreakMs: Double?
   let distractedStreakMs: Double?
   let statusStartedAtMs: Double?
+  let animateTimerDigits: Bool?
   let categoryDetails: HelperCategory?
   let availableCategories: [HelperCategory]?
   let activitySource: String?
@@ -166,7 +167,7 @@ final class NotchController: NSObject, ObservableObject {
     productiveClock: StreakClockPayload(accumulatedMs: 0, runningSinceMs: nil),
     distractedClock: StreakClockPayload(accumulatedMs: 0, runningSinceMs: nil),
     provisionalDistractionStartedAtMs: nil,
-    productiveStreakMs: 0, distractedStreakMs: 0, statusStartedAtMs: nil,
+    productiveStreakMs: 0, distractedStreakMs: 0, statusStartedAtMs: nil, animateTimerDigits: true,
     categoryDetails: nil, availableCategories: [], activitySource: nil, activityName: nil,
     activitySummary: nil, activityUrl: nil, categoryReasoning: nil,
     classificationStatus: nil, nudgeTitle: nil, nudgeBody: nil, eventIds: [],
@@ -462,6 +463,7 @@ private struct NativeClockTimerText: View {
   let value: Int
   let precision: NotchTimerPrecision
   let isFrozen: Bool
+  let animationsEnabled: Bool
 
   @State private var previousSnapshot: NotchTimerAnimationSnapshot?
 
@@ -473,7 +475,8 @@ private struct NativeClockTimerText: View {
     shouldAnimateNotchTimerTransition(
       from: previousSnapshot,
       to: snapshot,
-      reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+      reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+      animationsEnabled: animationsEnabled
     )
   }
 
@@ -516,6 +519,7 @@ struct TimerPill: View {
   let active: Bool
   let paused: Bool
   let isFrozen: Bool
+  let animateDigits: Bool
   let color: Color
 
   private var displayValue: Int {
@@ -532,7 +536,7 @@ struct TimerPill: View {
       Circle()
         .fill(paused ? Color.white.opacity(0.28) : active ? color : Color.white.opacity(0.30))
         .frame(width: 6, height: 6)
-      NativeClockTimerText(text: text, value: displayValue, precision: precision, isFrozen: isFrozen)
+      NativeClockTimerText(text: text, value: displayValue, precision: precision, isFrozen: isFrozen, animationsEnabled: animateDigits)
     }
     .foregroundStyle(paused ? Color.white.opacity(0.50) : active ? .white : Color.white.opacity(0.70))
     .frame(width: pillWidth, height: pillHeight)
@@ -734,6 +738,9 @@ struct NotchRootView: View {
     let reasons = controller.status.suspensionReasons ?? []
     return !reasons.isEmpty || controller.status.trackingState == "paused" || controller.status.trackingState == "break"
   }
+  private var shouldAnimateTimerPills: Bool {
+    controller.status.animateTimerDigits ?? true
+  }
   private var phaseProgress: CGFloat {
     guard let total = controller.status.phaseDurationMs,
           let remaining = controller.status.phaseRemainingMs,
@@ -817,9 +824,9 @@ struct NotchRootView: View {
             .offset(y: controller.geometry.menuBarHeight + 5)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
-        TimerPill(label: "Focused", elapsedMilliseconds: productiveTime, precision: timerPillPrecision, active: controller.status.latestStatus == "productive", paused: isManualPause, isFrozen: areTimerPillsFrozen, color: .green)
+        TimerPill(label: "Focused", elapsedMilliseconds: productiveTime, precision: timerPillPrecision, active: controller.status.latestStatus == "productive", paused: isManualPause, isFrozen: areTimerPillsFrozen, animateDigits: shouldAnimateTimerPills, color: .green)
           .position(x: notchLeft - notchGap - pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
-        TimerPill(label: controller.status.latestStatus == "maybe" ? "Uncertain" : "Distracted", elapsedMilliseconds: distractedTime, precision: timerPillPrecision, active: controller.status.latestStatus == "unproductive", paused: isManualPause, isFrozen: areTimerPillsFrozen, color: statusColor(controller.status.latestStatus))
+        TimerPill(label: controller.status.latestStatus == "maybe" ? "Uncertain" : "Distracted", elapsedMilliseconds: distractedTime, precision: timerPillPrecision, active: controller.status.latestStatus == "unproductive", paused: isManualPause, isFrozen: areTimerPillsFrozen, animateDigits: shouldAnimateTimerPills, color: statusColor(controller.status.latestStatus))
           .position(x: notchLeft + controller.geometry.notchWidth + notchGap + pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
         if controller.status.runtimeMode != "normal" {
           FocusSessionBadge(title: compactSessionTitle, progress: phaseProgress, tint: sessionTint)

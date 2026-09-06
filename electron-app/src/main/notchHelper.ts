@@ -13,6 +13,7 @@ export interface FloatingStatusUpdate {
   productiveStreakMs?: number
   distractedStreakMs?: number
   statusStartedAtMs?: number | null
+  animateTimerDigits?: boolean
   categoryDetails?: Category
   availableCategories?: Category[]
   /** Foreground app/site identity. Kept separate from the AI-derived label. */
