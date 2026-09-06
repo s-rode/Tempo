@@ -127,4 +127,31 @@ describe('OllamaClassificationProvider', () => {
     expect(calls).toBe(2);
     expect(result).toMatchObject({ status: 'ollama', attemptCount: 2, choice: { chosenCategoryName: 'Work' } });
   });
+
+  test('creates a direct local distraction nudge only in the deferred enrichment request', async () => {
+    process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
+    globalThis.fetch = (async (_url: unknown, init: RequestInit | undefined) => {
+      const request = JSON.parse(String(init?.body));
+      expect(request.options.num_predict).toBe(96);
+      expect(request.messages[1].content).toContain('direct interruption notification');
+      expect(request.messages[1].content).toContain('Both nudge fields must be non-null');
+      return new Response(JSON.stringify({ message: { content: JSON.stringify({
+        activityLabel: 'Instagram',
+        activitySummary: 'Off goal: scrolling social posts.',
+        reasoning: 'The visible content does not advance the supplied study goal.',
+        nudgeTitle: 'Close Instagram',
+        nudgeBody: 'Scrolling is borrowing time from your exam prep. Close it and open your notes now.'
+      }) } }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const result = await new OllamaClassificationProvider().enrich(
+      goals,
+      { name: 'Distraction', description: 'Unrelated entertainment', isProductive: false },
+      activity
+    );
+    expect(result).toMatchObject({
+      nudgeTitle: 'Close Instagram',
+      nudgeBody: 'Scrolling is borrowing time from your exam prep. Close it and open your notes now.'
+    });
+  });
 });
