@@ -389,8 +389,8 @@ private func format(_ milliseconds: Double) -> String {
 // Compact pills use one precision mode as a pair. Once either side reaches an
 // hour, explicit minute units keep the shorter counter from looking like it is
 // showing seconds next to an h:mm value.
-private func formatPill(_ milliseconds: Double, minutePrecision: Bool) -> String {
-  guard minutePrecision else { return format(milliseconds) }
+private func formatPill(_ milliseconds: Double, precision: NotchTimerPrecision) -> String {
+  guard precision == .minutes else { return format(milliseconds) }
   let totalMinutes = max(0, Int(milliseconds / 60_000))
   let hours = totalMinutes / 60
   let minutes = totalMinutes % 60
@@ -457,21 +457,82 @@ private struct NotchSurface<S: Shape>: View {
   }
 }
 
+private struct NativeClockTimerText: View {
+  let text: String
+  let value: Int
+  let precision: NotchTimerPrecision
+  let isFrozen: Bool
+
+  @State private var previousSnapshot: NotchTimerAnimationSnapshot?
+
+  private var snapshot: NotchTimerAnimationSnapshot {
+    NotchTimerAnimationSnapshot(value: value, precision: precision, isFrozen: isFrozen)
+  }
+
+  private var shouldAnimate: Bool {
+    shouldAnimateNotchTimerTransition(
+      from: previousSnapshot,
+      to: snapshot,
+      reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    )
+  }
+
+  @ViewBuilder
+  var body: some View {
+    if #available(macOS 14.0, *) {
+      timerText
+        .contentTransition(shouldAnimate ? .numericText(value: Double(value)) : .identity)
+        // The system numeric transition only animates inside an animation
+        // transaction. This is deliberately shorter than the one-second clock
+        // tick, so no transition stacks up or creates continuous work.
+        .transaction { transaction in
+          transaction.animation = shouldAnimate ? .easeInOut(duration: 0.24) : nil
+        }
+        .onAppear { previousSnapshot = snapshot }
+        .onChange(of: snapshot) { nextSnapshot in
+          previousSnapshot = nextSnapshot
+        }
+    } else {
+      // Tempo supports macOS 13 as well. Keep the existing static number there
+      // rather than substituting a custom, less-native animation.
+      timerText
+        .onAppear { previousSnapshot = snapshot }
+        .onChange(of: snapshot) { nextSnapshot in
+          previousSnapshot = nextSnapshot
+        }
+    }
+  }
+
+  private var timerText: some View {
+    Text(text)
+      .font(.system(size: 12, weight: .semibold).monospacedDigit())
+  }
+}
+
 struct TimerPill: View {
   let label: String
-  let value: String
+  let elapsedMilliseconds: Double
+  let precision: NotchTimerPrecision
   let active: Bool
   let paused: Bool
+  let isFrozen: Bool
   let color: Color
+
+  private var displayValue: Int {
+    let divisor = precision == .minutes ? 60_000 : 1_000
+    return max(0, Int(elapsedMilliseconds / Double(divisor)))
+  }
+
+  private var text: String {
+    formatPill(elapsedMilliseconds, precision: precision)
+  }
 
   var body: some View {
     HStack(spacing: 4) {
       Circle()
         .fill(paused ? Color.white.opacity(0.28) : active ? color : Color.white.opacity(0.30))
         .frame(width: 6, height: 6)
-      Text(value)
-        .font(.system(size: 12, weight: .semibold).monospacedDigit())
-        .contentTransition(.numericText())
+      NativeClockTimerText(text: text, value: displayValue, precision: precision, isFrozen: isFrozen)
     }
     .foregroundStyle(paused ? Color.white.opacity(0.50) : active ? .white : Color.white.opacity(0.70))
     .frame(width: pillWidth, height: pillHeight)
@@ -486,7 +547,7 @@ struct TimerPill: View {
       }
     }
     .shadow(color: Color.black.opacity(0.22), radius: 2, y: 1)
-    .accessibilityLabel("\(label), \(value)\(paused ? ", paused" : active ? ", active" : "")")
+    .accessibilityLabel("\(label), \(text)\(paused ? ", paused" : active ? ", active" : "")")
   }
 }
 
@@ -666,6 +727,13 @@ struct NotchRootView: View {
   private var useMinutePrecision: Bool {
     productiveTime >= 3_600_000 || distractedTime >= 3_600_000
   }
+  private var timerPillPrecision: NotchTimerPrecision {
+    useMinutePrecision ? .minutes : .seconds
+  }
+  private var areTimerPillsFrozen: Bool {
+    let reasons = controller.status.suspensionReasons ?? []
+    return !reasons.isEmpty || controller.status.trackingState == "paused" || controller.status.trackingState == "break"
+  }
   private var phaseProgress: CGFloat {
     guard let total = controller.status.phaseDurationMs,
           let remaining = controller.status.phaseRemainingMs,
@@ -749,9 +817,9 @@ struct NotchRootView: View {
             .offset(y: controller.geometry.menuBarHeight + 5)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
-        TimerPill(label: "Focused", value: formatPill(productiveTime, minutePrecision: useMinutePrecision), active: controller.status.latestStatus == "productive", paused: isManualPause, color: .green)
+        TimerPill(label: "Focused", elapsedMilliseconds: productiveTime, precision: timerPillPrecision, active: controller.status.latestStatus == "productive", paused: isManualPause, isFrozen: areTimerPillsFrozen, color: .green)
           .position(x: notchLeft - notchGap - pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
-        TimerPill(label: controller.status.latestStatus == "maybe" ? "Uncertain" : "Distracted", value: formatPill(distractedTime, minutePrecision: useMinutePrecision), active: controller.status.latestStatus == "unproductive", paused: isManualPause, color: statusColor(controller.status.latestStatus))
+        TimerPill(label: controller.status.latestStatus == "maybe" ? "Uncertain" : "Distracted", elapsedMilliseconds: distractedTime, precision: timerPillPrecision, active: controller.status.latestStatus == "unproductive", paused: isManualPause, isFrozen: areTimerPillsFrozen, color: statusColor(controller.status.latestStatus))
           .position(x: notchLeft + controller.geometry.notchWidth + notchGap + pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
         if controller.status.runtimeMode != "normal" {
           FocusSessionBadge(title: compactSessionTitle, progress: phaseProgress, tint: sessionTint)
@@ -1021,8 +1089,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 }
 
-let application = NSApplication.shared
-application.setActivationPolicy(.accessory)
-let delegate = MainActor.assumeIsolated { AppDelegate() }
-application.delegate = delegate
-application.run()
+@main
+struct TempoNotchHelperMain {
+  @MainActor
+  static func main() {
+    let application = NSApplication.shared
+    application.setActivationPolicy(.accessory)
+    let delegate = AppDelegate()
+    application.delegate = delegate
+    application.run()
+  }
+}
