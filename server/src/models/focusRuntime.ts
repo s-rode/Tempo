@@ -6,6 +6,7 @@ const focusPhaseSchema = new Schema(
     kind: { type: String, required: true, enum: ['work', 'short_break', 'long_break'] },
     goal: { type: String, default: null },
     startedAtMs: { type: Number, default: null },
+    completedAtMs: { type: Number, default: null },
     plannedDurationMs: { type: Number, required: true },
     activeElapsedMs: { type: Number, default: 0 },
     runningSinceMs: { type: Number, default: null },

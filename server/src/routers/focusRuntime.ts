@@ -53,6 +53,42 @@ const runtimeFor = async (token: string, heartbeat = true) => {
 };
 
 export const focusRuntimeRouter = router({
+  /**
+   * Work-phase metadata for annotating a selected day's timeline. The client
+   * still calculates focused and distracted time from classified activity,
+   * rather than trusting a session timer as a proxy for adherence.
+   */
+  getTimelineRuns: publicProcedure
+    .input(tokenInput.extend({ startDateMs: z.number(), endDateMs: z.number() }))
+    .query(async ({ input }) => {
+      const userId = verifyToken(input.token).userId;
+      // A completed run is archived during reconciliation. Do that before the
+      // history query so a just-finished focus phase appears immediately.
+      const runtime = await runtimeFor(input.token, false);
+      const history = await FocusRunHistoryModel.find({
+        userId,
+        'run.startedAtMs': { $lt: input.endDateMs },
+        endedAtMs: { $gte: input.startDateMs },
+      })
+        .sort({ 'run.startedAtMs': 1 })
+        .lean();
+
+      const activeRun =
+        runtime.run?.state === 'active' && runtime.run.startedAtMs < input.endDateMs
+          ? runtime.run.toObject
+            ? runtime.run.toObject()
+            : runtime.run
+          : null;
+
+      return [
+        ...history.map((entry) => ({
+          run: entry.run,
+          endedAtMs: entry.endedAtMs,
+          outcome: entry.outcome,
+        })),
+        ...(activeRun ? [{ run: activeRun, endedAtMs: null, outcome: null }] : []),
+      ];
+    }),
   getHistory: publicProcedure
     .input(tokenInput.extend({ startDateMs: z.number(), endDateMs: z.number() }))
     .query(async ({ input }) => {
@@ -133,6 +169,7 @@ export const focusRuntimeRouter = router({
       phase.state = 'running';
       phase.runningSinceMs = Date.now();
       phase.startedAtMs = phase.runningSinceMs;
+      phase.completedAtMs = null;
       await saveRuntime(runtime);
       return runtimeSnapshot(runtime);
     }),
@@ -172,6 +209,7 @@ export const focusRuntimeRouter = router({
     }
     phase.state = 'completed';
     phase.runningSinceMs = null;
+    phase.completedAtMs = Date.now();
     if (phase.kind === 'long_break') completeRun(runtime, Date.now(), 'completed');
     else {
       runtime.run.currentPhaseIndex += 1;

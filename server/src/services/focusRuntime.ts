@@ -23,6 +23,7 @@ const phase = (
   kind,
   goal,
   startedAtMs: state === 'running' ? Date.now() : null,
+  completedAtMs: null,
   plannedDurationMs: durationMinutes * minute,
   activeElapsedMs: 0,
   runningSinceMs: state === 'running' ? Date.now() : null,
@@ -66,6 +67,12 @@ const resumePhase = (runtime: RuntimeDocument, now: number) => {
 const completeRun = (runtime: RuntimeDocument, now: number, state: 'completed' | 'cancelled') => {
   if (!runtime.run) return;
   freezePhase(runtime, now);
+  const current = currentPhase(runtime);
+  if (current && current.state !== 'completed') {
+    current.state = 'completed';
+    current.runningSinceMs = null;
+    current.completedAtMs = now;
+  }
   runtime.run.state = state;
   runtime.run.completedAtMs = now;
 };
@@ -96,6 +103,7 @@ const advancePhase = (runtime: RuntimeDocument, now: number) => {
   current.activeElapsedMs = current.plannedDurationMs;
   current.runningSinceMs = null;
   current.state = 'completed';
+  current.completedAtMs = now;
 
   if (run.kind === 'custom' || current.kind === 'long_break') {
     completeRun(runtime, now, 'completed');

@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import type { ProcessedEventBlock } from '../components/DashboardView'
-import { buildActivitySessions, buildDayActivitySummaries, buildTimelineChapters, sessionTotals, summarizeTimelineChapterApps } from './activitySessions'
+import {
+  attachFocusGoalsToTimelineChapters,
+  buildActivitySessions,
+  buildDayActivitySummaries,
+  buildTimelineChapters,
+  sessionTotals,
+  summarizeTimelineChapterApps,
+  type FocusTimelineRun
+} from './activitySessions'
 
 const base = new Date('2026-09-02T10:00:00.000Z').getTime()
 
@@ -54,7 +62,13 @@ describe('activity sessions', () => {
       title: 'Graphical Models flashcards',
       activityLabel: 'Graphical Models flashcards',
       activityKey: 'app:remnote:first',
-      originalEvent: { ...block().originalEvent, ownerName: 'RemNote', title: 'Graphical Models flashcards', type: 'window', browser: null }
+      originalEvent: {
+        ...block().originalEvent,
+        ownerName: 'RemNote',
+        title: 'Graphical Models flashcards',
+        type: 'window',
+        browser: null
+      }
     })
     const second = block({
       ownerName: 'RemNote',
@@ -82,7 +96,14 @@ describe('activity sessions', () => {
       isProductive: false,
       startTime: new Date(base + 60_000),
       endTime: new Date(base + 120_000),
-      originalEvent: { ...first.originalEvent, ownerName: 'Signal', title: 'Signal', type: 'window', browser: null, categoryId: 'distraction' }
+      originalEvent: {
+        ...first.originalEvent,
+        ownerName: 'Signal',
+        title: 'Signal',
+        type: 'window',
+        browser: null,
+        categoryId: 'distraction'
+      }
     })
     const returnVisit = block({
       startTime: new Date(base + 120_000),
@@ -113,7 +134,12 @@ describe('activity sessions', () => {
       url: 'https://local.test/study',
       durationMs: 120_000,
       endTime: new Date(base + 120_000),
-      originalEvent: { ...block().originalEvent, ownerName: 'Google Chrome', title: 'Study notes', browser: 'chrome' }
+      originalEvent: {
+        ...block().originalEvent,
+        ownerName: 'Google Chrome',
+        title: 'Study notes',
+        browser: 'chrome'
+      }
     })
     const brief = block({
       ownerName: 'Google Chrome',
@@ -134,7 +160,10 @@ describe('activity sessions', () => {
 
   test('aggregates repeat visits into one summary row while preserving sessions', () => {
     const first = block()
-    const second = block({ startTime: new Date(base + 5 * 60_000), endTime: new Date(base + 6 * 60_000) })
+    const second = block({
+      startTime: new Date(base + 5 * 60_000),
+      endTime: new Date(base + 6 * 60_000)
+    })
     const summaries = buildDayActivitySummaries(buildActivitySessions([first, second]))
     expect(summaries).toHaveLength(1)
     expect(summaries[0].sessions).toHaveLength(2)
@@ -144,8 +173,12 @@ describe('activity sessions', () => {
   test('groups short activity switches into a readable 30-minute chapter', () => {
     const first = block({ durationMs: 10 * 60_000, endTime: new Date(base + 10 * 60_000) })
     const second = block({
-      ownerName: 'RemNote', activityKey: 'app:remnote', activityLabel: 'Flashcards',
-      startTime: new Date(base + 10 * 60_000), endTime: new Date(base + 20 * 60_000), durationMs: 10 * 60_000,
+      ownerName: 'RemNote',
+      activityKey: 'app:remnote',
+      activityLabel: 'Flashcards',
+      startTime: new Date(base + 10 * 60_000),
+      endTime: new Date(base + 20 * 60_000),
+      durationMs: 10 * 60_000,
       originalEvent: { ...first.originalEvent, ownerName: 'RemNote', type: 'window', browser: null }
     })
     const chapters = buildTimelineChapters(buildActivitySessions([first, second]))
@@ -157,9 +190,18 @@ describe('activity sessions', () => {
   test('summarizes a chapter by application without exposing page-level sessions', () => {
     const firefox = block({ durationMs: 10 * 60_000, endTime: new Date(base + 10 * 60_000) })
     const remNote = block({
-      ownerName: 'RemNote', activityKey: 'app:remnote', activityLabel: 'Flashcards', durationMs: 5 * 60_000,
-      startTime: new Date(base + 10 * 60_000), endTime: new Date(base + 15 * 60_000),
-      originalEvent: { ...firefox.originalEvent, ownerName: 'RemNote', type: 'window', browser: null }
+      ownerName: 'RemNote',
+      activityKey: 'app:remnote',
+      activityLabel: 'Flashcards',
+      durationMs: 5 * 60_000,
+      startTime: new Date(base + 10 * 60_000),
+      endTime: new Date(base + 15 * 60_000),
+      originalEvent: {
+        ...firefox.originalEvent,
+        ownerName: 'RemNote',
+        type: 'window',
+        browser: null
+      }
     })
     const chapter = buildTimelineChapters(buildActivitySessions([firefox, remNote]))[0]
     expect(summarizeTimelineChapterApps(chapter)).toEqual([
@@ -170,7 +212,114 @@ describe('activity sessions', () => {
 
   test('splits chapters at a five-minute tracking gap', () => {
     const first = block()
-    const later = block({ startTime: new Date(base + 6 * 60_000), endTime: new Date(base + 7 * 60_000) })
+    const later = block({
+      startTime: new Date(base + 6 * 60_000),
+      endTime: new Date(base + 7 * 60_000)
+    })
     expect(buildTimelineChapters(buildActivitySessions([first, later]))).toHaveLength(2)
+  })
+
+  test('annotates a manual focus goal with classified adherence, not timer duration', () => {
+    const productive = block({
+      durationMs: 15 * 60_000,
+      endTime: new Date(base + 15 * 60_000)
+    })
+    const distraction = block({
+      ownerName: 'Messages',
+      activityKey: 'app:messages',
+      activityLabel: 'Messages',
+      durationMs: 5 * 60_000,
+      startTime: new Date(base + 15 * 60_000),
+      endTime: new Date(base + 20 * 60_000),
+      categoryId: 'distraction',
+      categoryName: 'Distraction',
+      isProductive: false,
+      originalEvent: {
+        ...productive.originalEvent,
+        ownerName: 'Messages',
+        browser: null,
+        type: 'window',
+        categoryId: 'distraction'
+      }
+    })
+    const runs: FocusTimelineRun[] = [
+      {
+        endedAtMs: base + 20 * 60_000,
+        outcome: 'completed',
+        run: {
+          id: 'focus-run',
+          kind: 'custom',
+          state: 'completed',
+          currentPhaseIndex: 0,
+          startedAtMs: base,
+          completedAtMs: base + 20 * 60_000,
+          phases: [
+            {
+              id: 'work-phase',
+              kind: 'work',
+              goal: 'Review graphical models',
+              startedAtMs: base,
+              completedAtMs: base + 20 * 60_000,
+              plannedDurationMs: 20 * 60_000,
+              activeElapsedMs: 20 * 60_000,
+              runningSinceMs: null,
+              state: 'completed',
+              productiveMs: 0,
+              distractedMs: 0
+            }
+          ]
+        }
+      }
+    ]
+
+    const chapters = attachFocusGoalsToTimelineChapters(
+      buildTimelineChapters(buildActivitySessions([productive, distraction])),
+      runs,
+      base + 20 * 60_000
+    )
+
+    expect(chapters[0].focusGoal).toMatchObject({
+      goal: 'Review graphical models',
+      focusedMs: 15 * 60_000,
+      distractedMs: 5 * 60_000,
+      adherence: 'mostly_on_track',
+      isLead: true
+    })
+  })
+
+  test('does not attach a focus goal outside its recorded work-phase boundary', () => {
+    const chapters = buildTimelineChapters(buildActivitySessions([block()]))
+    const runs: FocusTimelineRun[] = [
+      {
+        endedAtMs: base + 30 * 60_000,
+        outcome: 'completed',
+        run: {
+          id: 'later-focus-run',
+          kind: 'custom',
+          state: 'completed',
+          currentPhaseIndex: 0,
+          startedAtMs: base + 20 * 60_000,
+          completedAtMs: base + 30 * 60_000,
+          phases: [
+            {
+              id: 'later-work-phase',
+              kind: 'work',
+              goal: 'Later work',
+              startedAtMs: base + 20 * 60_000,
+              completedAtMs: base + 30 * 60_000,
+              plannedDurationMs: 10 * 60_000,
+              activeElapsedMs: 10 * 60_000,
+              runningSinceMs: null,
+              state: 'completed',
+              productiveMs: 0,
+              distractedMs: 0
+            }
+          ]
+        }
+      }
+    ]
+    expect(
+      attachFocusGoalsToTimelineChapters(chapters, runs, base + 30 * 60_000)[0].focusGoal
+    ).toBeUndefined()
   })
 })
