@@ -10,6 +10,23 @@ export type SuspensionReason =
   | 'screen_locked'
   | 'system_sleep';
 
+export type FocusTransitionNoticeKind =
+  | 'focus_complete'
+  | 'break_started'
+  | 'break_complete'
+  | 'pomodoro_complete';
+
+export interface FocusTransitionNotice {
+  id: string;
+  kind: FocusTransitionNoticeKind;
+  runId: string;
+  phaseId: string;
+  phaseIndex: number;
+  occurredAtMs: number;
+  goal: string | null;
+  breakDurationMs: number | null;
+}
+
 type RuntimeDocument = any;
 
 const minute = 60_000;
@@ -96,16 +113,54 @@ export async function archiveFinishedRun(runtime: RuntimeDocument): Promise<void
   runtime.run = null;
 }
 
-const advancePhase = (runtime: RuntimeDocument, now: number) => {
+const recordTransitionNotice = (
+  runtime: RuntimeDocument,
+  notice: Omit<FocusTransitionNotice, 'id' | 'occurredAtMs'>,
+  now: number
+) => {
+  runtime.transitionNotice = {
+    ...notice,
+    id: crypto.randomUUID(),
+    occurredAtMs: now,
+  };
+  // A new notice must never be hidden by acknowledgement of an earlier one.
+  runtime.acknowledgedTransitionNoticeId = null;
+};
+
+const advancePhase = (
+  runtime: RuntimeDocument,
+  now: number,
+  options: { emitTransitionNotice?: boolean } = {}
+) => {
   const run = runtime.run;
   const current = currentPhase(runtime);
   if (!run || !current) return;
+  const phaseIndex = run.currentPhaseIndex;
+  const completedGoal = current.goal || null;
   current.activeElapsedMs = current.plannedDurationMs;
   current.runningSinceMs = null;
   current.state = 'completed';
   current.completedAtMs = now;
 
   if (run.kind === 'custom' || current.kind === 'long_break') {
+    if (options.emitTransitionNotice) {
+      recordTransitionNotice(
+        runtime,
+        {
+          kind: run.kind === 'custom' ? 'focus_complete' : 'pomodoro_complete',
+          runId: run.id,
+          phaseId: current.id,
+          phaseIndex,
+          goal:
+            run.kind === 'custom'
+              ? completedGoal
+              : [...run.phases].reverse().find((candidate: any) => candidate.kind === 'work')
+                  ?.goal || null,
+          breakDurationMs: null,
+        },
+        now
+      );
+    }
     completeRun(runtime, now, 'completed');
     return;
   }
@@ -125,10 +180,33 @@ const advancePhase = (runtime: RuntimeDocument, now: number) => {
     next.runningSinceMs = now;
     next.startedAtMs = now;
   }
+
+  if (options.emitTransitionNotice) {
+    recordTransitionNotice(
+      runtime,
+      {
+        kind: current.kind === 'work' ? 'break_started' : 'break_complete',
+        runId: run.id,
+        phaseId: current.id,
+        phaseIndex,
+        goal: current.kind === 'work' ? completedGoal : null,
+        breakDurationMs: current.kind === 'work' ? next.plannedDurationMs : null,
+      },
+      now
+    );
+  }
 };
 
 /** Applies timer expiry using server time. It never charges time while suspended. */
-export const advanceRuntime = (runtime: RuntimeDocument, now = Date.now()) => {
+export const advanceRuntime = (
+  runtime: RuntimeDocument,
+  now = Date.now(),
+  options: { emitTransitionNotice?: boolean } = {}
+) => {
+  // A native lock/sleep boundary and the deliberate fresh-capture gate are
+  // authoritative. Never complete a phase or emit an alert while either is
+  // active, even if a legacy record still says the phase was running.
+  if (hasSystemSuspension(runtime) || runtime.awaitingSystemResumeCapture) return null;
   if (
     runtime.manualPauseUntilMs &&
     now >= runtime.manualPauseUntilMs &&
@@ -141,8 +219,9 @@ export const advanceRuntime = (runtime: RuntimeDocument, now = Date.now()) => {
   const current = currentPhase(runtime);
   if (!current || current.state !== 'running' || !current.runningSinceMs) return;
   const elapsed = current.activeElapsedMs + Math.max(0, now - current.runningSinceMs);
-  if (elapsed < current.plannedDurationMs) return;
-  advancePhase(runtime, now);
+  if (elapsed < current.plannedDurationMs) return null;
+  advancePhase(runtime, now, options);
+  return runtime.transitionNotice as FocusTransitionNotice | null;
 };
 
 export async function getOrCreateRuntime(userId: string): Promise<RuntimeDocument> {
@@ -189,6 +268,18 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
       : 'normal';
   const runValue = runtime.run?.toObject ? runtime.run.toObject() : runtime.run;
   const phaseValue = current?.toObject ? current.toObject() : current;
+  const pendingNotice = runtime.transitionNotice;
+  const transitionNotice =
+    pendingNotice?.id && pendingNotice.id !== runtime.acknowledgedTransitionNoticeId
+      ? pendingNotice.toObject
+        ? pendingNotice.toObject()
+        : pendingNotice
+      : null;
+  const nextDeadlineAtMs = runtime.manualPauseUntilMs
+    ? runtime.manualPauseUntilMs
+    : current?.state === 'running' && current.runningSinceMs
+      ? current.runningSinceMs + Math.max(0, current.plannedDurationMs - current.activeElapsedMs)
+      : null;
   return {
     mode: runtime.run?.state === 'active' ? runtime.run.kind : 'normal',
     trackingState,
@@ -201,13 +292,25 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
     run: runtime.run?.state === 'active' ? runValue : null,
     currentPhase: current ? { ...phaseValue, activeElapsedMs: phaseElapsedMs } : null,
     phaseRemainingMs: current ? Math.max(0, current.plannedDurationMs - phaseElapsedMs) : null,
+    nextDeadlineAtMs,
+    transitionNotice,
     revision: runtime.revision || 0,
   };
 };
 
-export async function saveRuntime(runtime: RuntimeDocument) {
+export async function saveRuntime(
+  runtime: RuntimeDocument,
+  options: { rearmScheduler?: boolean } = {}
+) {
   runtime.revision = (runtime.revision || 0) + 1;
   await runtime.save();
+  if (options.rearmScheduler !== false) {
+    // Avoid a static circular dependency: the scheduler invokes this helper
+    // after it advances a deadline, while ordinary runtime mutations re-arm it.
+    void import('./focusRuntimeScheduler').then(({ armFocusRuntimeDeadline }) =>
+      armFocusRuntimeDeadline(String(runtime.userId))
+    );
+  }
   return runtime;
 }
 
@@ -275,6 +378,15 @@ export async function resumeAfterSystemCapture(userId: string) {
   }
   await saveRuntime(runtime);
   return runtimeSnapshot(runtime, now);
+}
+
+export async function acknowledgeTransitionNotice(userId: string, noticeId: string) {
+  const runtime = await getOrCreateRuntime(userId);
+  if (runtime.transitionNotice?.id === noticeId) {
+    runtime.acknowledgedTransitionNoticeId = noticeId;
+    await saveRuntime(runtime);
+  }
+  return runtimeSnapshot(runtime);
 }
 
 export const createCustomRun = (goal: string, durationMinutes: number, now = Date.now()) => ({

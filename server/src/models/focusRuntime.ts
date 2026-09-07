@@ -44,6 +44,21 @@ const focusRuntimeSchema = new Schema(
     systemSleeping: { type: Boolean, default: false },
     systemSuspendedAtMs: { type: Number, default: null },
     awaitingSystemResumeCapture: { type: Boolean, default: false },
+    transitionNotice: {
+      id: { type: String, default: null },
+      kind: {
+        type: String,
+        enum: ['focus_complete', 'break_started', 'break_complete', 'pomodoro_complete'],
+        default: null,
+      },
+      runId: { type: String, default: null },
+      phaseId: { type: String, default: null },
+      phaseIndex: { type: Number, default: null },
+      occurredAtMs: { type: Number, default: null },
+      goal: { type: String, default: null },
+      breakDurationMs: { type: Number, default: null },
+    },
+    acknowledgedTransitionNoticeId: { type: String, default: null },
     // A renderer heartbeat prevents an unexpected app shutdown from being
     // interpreted as uninterrupted focus time at the next launch.
     lastHeartbeatAtMs: { type: Number, default: null },

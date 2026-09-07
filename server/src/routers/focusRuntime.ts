@@ -4,6 +4,7 @@ import { publicProcedure, router } from '../trpc';
 import { verifyToken } from './auth';
 import {
   advanceRuntime,
+  acknowledgeTransitionNotice,
   archiveFinishedRun,
   completeRun,
   createCustomRun,
@@ -45,7 +46,13 @@ const runtimeFor = async (token: string, heartbeat = true) => {
   // On a fresh renderer after downtime, charge at most one sync window.
   // Active sessions sync every ten seconds; normal tracking does not poll.
   const lastHeartbeat = runtime.lastHeartbeatAtMs || now;
-  advanceRuntime(runtime, Math.min(now, lastHeartbeat + 6_000));
+  const rendererWasContinuouslyPresent = heartbeat && now - lastHeartbeat <= 12_000;
+  // The scheduler owns ordinary boundaries. This is only a narrow recovery
+  // path for a live renderer racing the same event-loop turn; a stale reload
+  // can reconcile state but never manufactures an alert.
+  advanceRuntime(runtime, Math.min(now, lastHeartbeat + 6_000), {
+    emitTransitionNotice: rendererWasContinuouslyPresent,
+  });
   await archiveFinishedRun(runtime);
   if (heartbeat) runtime.lastHeartbeatAtMs = now;
   await saveRuntime(runtime);
@@ -104,6 +111,15 @@ export const focusRuntimeRouter = router({
     const runtime = await runtimeFor(input.token);
     return runtimeSnapshot(runtime);
   }),
+
+  // Delivery acknowledgement is idempotent. It prevents a renderer reload or
+  // helper restart from replaying a natural phase-completion alert.
+  acknowledgeTransitionNotice: publicProcedure
+    .input(tokenInput.extend({ noticeId: z.string().uuid() }))
+    .mutation(async ({ input }) => {
+      const userId = verifyToken(input.token).userId;
+      return acknowledgeTransitionNotice(userId, input.noticeId);
+    }),
 
   // An explicit escape hatch for the rare case where macOS misses a wake or
   // unlock notification. It does not resume the phase itself; the next fresh

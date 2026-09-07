@@ -4,7 +4,7 @@ import CoreGraphics
 import Foundation
 import SwiftUI
 
-private let protocolVersion = 3
+private let protocolVersion = 4
 private let panelWidth: CGFloat = 520
 // The native panel stays large enough to animate in place, but the visible
 // shape and hit region use the exact current content height below.
@@ -35,6 +35,17 @@ struct HelperCategory: Codable, Identifiable {
 struct StreakClockPayload: Codable {
   let accumulatedMs: Double
   let runningSinceMs: Double?
+}
+
+struct FocusTransitionNotice: Codable, Equatable {
+  let id: String
+  let kind: String
+  let runId: String
+  let phaseId: String
+  let phaseIndex: Int
+  let occurredAtMs: Double
+  let goal: String?
+  let breakDurationMs: Double?
 }
 
 struct StatusPayload: Codable {
@@ -72,6 +83,9 @@ struct StatusPayload: Codable {
   let phaseGoal: String?
   let phaseKind: String?
   let phaseIndex: Int?
+  let sessionTransitionAlertsEnabled: Bool?
+  let playSessionTransitionChime: Bool?
+  let transitionNotice: FocusTransitionNotice?
 }
 
 struct CommandEnvelope: Codable {
@@ -178,13 +192,15 @@ final class NotchController: NSObject, ObservableObject {
     classificationStatus: nil, nudgeTitle: nil, nudgeBody: nil, eventIds: [],
     runtimeMode: "normal", trackingState: "normal", suspensionReasons: [], suspendedAtMs: nil, pausedUntilMs: nil,
     phaseRemainingMs: nil, phaseRemainingSampledAtMs: nil,
-    phaseDurationMs: nil, phaseGoal: nil, phaseKind: nil, phaseIndex: nil
+    phaseDurationMs: nil, phaseGoal: nil, phaseKind: nil, phaseIndex: nil,
+    sessionTransitionAlertsEnabled: true, playSessionTransitionChime: true, transitionNotice: nil
   )
   @Published var expanded = false
   @Published var now = Date()
   @Published var chooserOpen = false
   @Published var pausePickerOpen = false
   @Published var recategorizeMessage: String?
+  @Published var presentedTransitionNotice: FocusTransitionNotice?
   @Published var geometry: NotchGeometry
 
   private let panel: TempoNotchPanel
@@ -192,6 +208,8 @@ final class NotchController: NSObject, ObservableObject {
   private var hoverCloseWork: DispatchWorkItem?
   private var previousStatus: String?
   private var displayClock: DispatchSourceTimer?
+  private var transitionAlertWork: DispatchWorkItem?
+  private var isHovering = false
   private weak var host: PassthroughHostingView?
 
   init(panel: TempoNotchPanel, geometry: NotchGeometry) {
@@ -222,6 +240,9 @@ final class NotchController: NSObject, ObservableObject {
   }
 
   var expandedContentHeight: CGFloat {
+    if presentedTransitionNotice != nil {
+      return normalExpandedPanelHeight
+    }
     let presentsSession = status.runtimeMode != "normal" || status.trackingState == "paused"
     if chooserOpen || pausePickerOpen {
       return presentsSession ? sessionExpandedPanelHeight : normalChooserExpandedPanelHeight
@@ -255,7 +276,15 @@ final class NotchController: NSObject, ObservableObject {
     // waiting for the next one-second display tick.
     now = Date()
     if next.trackingState == "paused" { pausePickerOpen = false }
+    if next.sessionTransitionAlertsEnabled == false {
+      transitionAlertWork?.cancel()
+      presentedTransitionNotice = nil
+    } else if let notice = next.transitionNotice,
+              notice.id != presentedTransitionNotice?.id {
+      presentTransitionNotice(notice, playChime: next.playSessionTransitionChime != false)
+    }
     host?.refreshInteractionRegions()
+    if presentedTransitionNotice != nil { return }
     if previous == "productive" && next.latestStatus == "unproductive" {
       setExpanded(true)
       DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
@@ -263,6 +292,26 @@ final class NotchController: NSObject, ObservableObject {
         self.setExpanded(false)
       }
     }
+  }
+
+  private func presentTransitionNotice(_ notice: FocusTransitionNotice, playChime: Bool) {
+    transitionAlertWork?.cancel()
+    presentedTransitionNotice = notice
+    chooserOpen = false
+    pausePickerOpen = false
+    if playChime {
+      NSSound(named: NSSound.Name("Glass"))?.play()
+    }
+    setExpanded(true)
+    let work = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      self.presentedTransitionNotice = nil
+      self.panel.acceptsKeyboardControls = self.chooserOpen || self.pausePickerOpen
+      self.host?.refreshInteractionRegions()
+      if !self.isHovering { self.setExpanded(false) }
+    }
+    transitionAlertWork = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: work)
   }
 
   /**
@@ -297,18 +346,19 @@ final class NotchController: NSObject, ObservableObject {
       ? .easeOut(duration: 0.12)
       : .spring(response: 0.32, dampingFraction: 0.88)
     withAnimation(animation) { expanded = value }
-    panel.acceptsKeyboardControls = value && (chooserOpen || pausePickerOpen)
+    panel.acceptsKeyboardControls = value && (chooserOpen || pausePickerOpen || presentedTransitionNotice != nil)
     host?.refreshInteractionRegions()
   }
 
   func hoverChanged(_ hovering: Bool) {
+    isHovering = hovering
     hoverOpenWork?.cancel()
     hoverCloseWork?.cancel()
     if hovering {
       let work = DispatchWorkItem { [weak self] in self?.setExpanded(true) }
       hoverOpenWork = work
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
-    } else if !chooserOpen && !pausePickerOpen {
+    } else if !chooserOpen && !pausePickerOpen && presentedTransitionNotice == nil {
       let work = DispatchWorkItem { [weak self] in self?.setExpanded(false) }
       hoverCloseWork = work
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
@@ -366,6 +416,8 @@ final class NotchController: NSObject, ObservableObject {
   func dismissTransientControls() {
     chooserOpen = false
     pausePickerOpen = false
+    transitionAlertWork?.cancel()
+    presentedTransitionNotice = nil
     panel.acceptsKeyboardControls = false
     host?.refreshInteractionRegions()
   }
@@ -667,6 +719,37 @@ private struct FocusSessionCard: View {
   }
 }
 
+/** A short, action-oriented card shown only for a newly completed phase. */
+private struct FocusTransitionCard: View {
+  let symbol: String
+  let title: String
+  let message: String
+  let tint: Color
+
+  var body: some View {
+    HStack(alignment: .top, spacing: 9) {
+      Image(systemName: symbol)
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(tint)
+        .frame(width: 18, height: 18)
+        .background(Circle().fill(tint.opacity(0.13)))
+      VStack(alignment: .leading, spacing: 2) {
+        Text(title)
+          .font(.system(size: 12, weight: .semibold))
+          .foregroundStyle(.white.opacity(0.96))
+        Text(message)
+          .font(.system(size: 10, weight: .regular))
+          .foregroundStyle(.white.opacity(0.67))
+          .lineLimit(1)
+      }
+      Spacer(minLength: 0)
+    }
+    .frame(height: 34, alignment: .leading)
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("\(title). \(message)")
+  }
+}
+
 private enum NotchActionTone: Equatable {
   case neutral
   case productive
@@ -826,6 +909,40 @@ struct NotchRootView: View {
   private var hasActiveSessionPresentation: Bool {
     controller.status.runtimeMode != "normal" || controller.status.trackingState == "paused"
   }
+  private var transitionNotice: FocusTransitionNotice? {
+    controller.presentedTransitionNotice
+  }
+  private var transitionTitle: String {
+    switch transitionNotice?.kind {
+    case "focus_complete": return "Focus session complete"
+    case "break_started": return "Work block complete"
+    case "break_complete": return "Break complete"
+    case "pomodoro_complete": return "Pomodoro complete"
+    default: return "Session update"
+    }
+  }
+  private var transitionMessage: String {
+    guard let notice = transitionNotice else { return "" }
+    switch notice.kind {
+    case "focus_complete": return notice.goal.map { "Completed: \($0)" } ?? "Your focus session is complete."
+    case "break_started":
+      let duration = max(1, Int((notice.breakDurationMs ?? 0) / 60_000))
+      return "Take your \(duration)-minute break before the next block."
+    case "break_complete": return "Choose one clear goal for your next work block."
+    case "pomodoro_complete": return "All four work blocks and the long break are complete."
+    default: return ""
+    }
+  }
+  private var transitionSymbol: String {
+    switch transitionNotice?.kind {
+    case "break_started": return "cup.and.saucer.fill"
+    case "break_complete": return "target"
+    default: return "checkmark.circle.fill"
+    }
+  }
+  private var transitionTint: Color {
+    transitionNotice?.kind == "break_started" ? .orange : .green
+  }
   private var expandedContentHeight: CGFloat { controller.expandedContentHeight }
   private var activitySource: String? {
     let source = controller.status.activitySource?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -894,6 +1011,33 @@ struct NotchRootView: View {
 
   private var details: some View {
     VStack(alignment: .leading, spacing: 6) {
+      if transitionNotice != nil {
+        FocusTransitionCard(
+          symbol: transitionSymbol,
+          title: transitionTitle,
+          message: transitionMessage,
+          tint: transitionTint
+        )
+        Rectangle().fill(.white.opacity(0.10)).frame(height: 1 / (NSScreen.main?.backingScaleFactor ?? 2))
+        HStack(spacing: 7) {
+          if transitionNotice?.kind == "break_complete" {
+            Button("Set next goal") { controller.emit(type: "openFocusGoal") }
+              .buttonStyle(NotchActionStyle(tone: .productive))
+              .accessibilityLabel("Open Tempo to set the next Pomodoro goal")
+          } else {
+            Button("Open Tempo") { controller.emit(type: "openMain") }
+              .buttonStyle(NotchActionStyle(tone: .neutral))
+          }
+          if transitionNotice?.kind == "break_started" {
+            Button("Skip break") { controller.requestFocusAction("skipBreak") }
+              .buttonStyle(NotchActionStyle(tone: .neutral))
+              .accessibilityLabel("Skip the scheduled Pomodoro break")
+          }
+          Spacer(minLength: 0)
+          Button("Hide") { controller.hide() }
+            .buttonStyle(NotchActionStyle(tone: .neutral))
+        }
+      } else {
       if !hasActiveSessionPresentation {
         HStack(spacing: 6) {
           Circle().fill(statusColor(controller.status.latestStatus)).frame(width: 6, height: 6)
@@ -1030,6 +1174,7 @@ struct NotchRootView: View {
           Button("Hide") { controller.hide() }
             .buttonStyle(NotchActionStyle(tone: .neutral))
         }
+      }
       }
     }
     .padding(.horizontal, 16)

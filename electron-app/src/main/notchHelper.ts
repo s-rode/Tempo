@@ -41,19 +41,37 @@ export interface FloatingStatusUpdate {
   phaseGoal?: string | null
   phaseKind?: 'work' | 'short_break' | 'long_break' | null
   phaseIndex?: number | null
+  sessionTransitionAlertsEnabled?: boolean
+  playSessionTransitionChime?: boolean
+  transitionNotice?: {
+    id: string
+    kind: 'focus_complete' | 'break_started' | 'break_complete' | 'pomodoro_complete'
+    runId: string
+    phaseId: string
+    phaseIndex: number
+    occurredAtMs: number
+    goal: string | null
+    breakDurationMs: number | null
+  } | null
 }
 
 type NotchEvent =
-  | { version: 3; type: 'ready' }
-  | { version: 3; type: 'visibilityChanged'; visible: boolean }
-  | { version: 3; type: 'openMain' }
-  | { version: 3; type: 'recategorize'; requestId: string; categoryId: string; eventIds: string[] }
-  | { version: 3; type: 'focusCommand'; action: 'pause' | 'resume' | 'skipBreak' | 'endRun'; durationMinutes?: number }
-  | { version: 3; type: 'error'; code: string }
+  | { version: 4; type: 'ready' }
+  | { version: 4; type: 'visibilityChanged'; visible: boolean }
+  | { version: 4; type: 'openMain' }
+  | { version: 4; type: 'openFocusGoal' }
+  | { version: 4; type: 'recategorize'; requestId: string; categoryId: string; eventIds: string[] }
+  | {
+      version: 4
+      type: 'focusCommand'
+      action: 'pause' | 'resume' | 'skipBreak' | 'endRun'
+      durationMinutes?: number
+    }
+  | { version: 4; type: 'error'; code: string }
 
 type HelperAvailability = 'starting' | 'ready' | 'unavailable'
 
-const protocolVersion = 3
+const protocolVersion = 4
 
 export class NotchHelper {
   private child: ChildProcessWithoutNullStreams | null = null
@@ -62,6 +80,10 @@ export class NotchHelper {
   private availability: HelperAvailability = 'starting'
   private restartCount = 0
   private stopped = false
+  /** Main-process lifetime dedupe survives a helper-only restart. */
+  private deliveredTransitionNoticeIds = new Set<string>()
+  /** A fallback beep was already played while the helper was unavailable. */
+  private externallyChimedTransitionNoticeIds = new Set<string>()
   /** The state to restore after only the system-owned freeze reasons clear. */
   private trackingStateBeforeSystemSuspension: FloatingStatusUpdate['trackingState'] | null = null
   private mainWindow: () => BrowserWindow | null
@@ -118,17 +140,59 @@ export class NotchHelper {
     void this.start()
   }
 
-  show(): void { this.send({ version: protocolVersion, type: 'show' }) }
-  hide(): void { this.send({ version: protocolVersion, type: 'hide' }) }
-  refreshGeometry(): void { this.send({ version: protocolVersion, type: 'refreshGeometry' }) }
+  show(): void {
+    this.send({ version: protocolVersion, type: 'show' })
+  }
+  hide(): void {
+    this.send({ version: protocolVersion, type: 'hide' })
+  }
+  refreshGeometry(): void {
+    this.send({ version: protocolVersion, type: 'refreshGeometry' })
+  }
 
   updateStatus(status: FloatingStatusUpdate): void {
     this.lastStatus = status
-    this.send({ version: protocolVersion, type: 'status', payload: status })
+    const noticeId = status.transitionNotice?.id
+    const shouldSuppressNotice = Boolean(
+      noticeId && this.deliveredTransitionNoticeIds.has(noticeId)
+    )
+    const shouldSuppressChime = Boolean(
+      noticeId && this.externallyChimedTransitionNoticeIds.has(noticeId)
+    )
+    if (noticeId && this.availability === 'ready' && !shouldSuppressNotice) {
+      this.deliveredTransitionNoticeIds.add(noticeId)
+      if (this.deliveredTransitionNoticeIds.size > 64) {
+        const oldest = this.deliveredTransitionNoticeIds.values().next().value
+        if (oldest) this.deliveredTransitionNoticeIds.delete(oldest)
+      }
+    }
+    this.send({
+      version: protocolVersion,
+      type: 'status',
+      payload: {
+        ...status,
+        ...(shouldSuppressNotice ? { transitionNotice: null } : {}),
+        ...(shouldSuppressChime ? { playSessionTransitionChime: false } : {})
+      }
+    })
+  }
+
+  /** Ensures an Electron fallback beep cannot be followed by a helper chime. */
+  markTransitionChimeDeliveredElsewhere(noticeId: string): void {
+    if (!noticeId) return
+    this.externallyChimedTransitionNoticeIds.add(noticeId)
+    if (this.externallyChimedTransitionNoticeIds.size > 64) {
+      const oldest = this.externallyChimedTransitionNoticeIds.values().next().value
+      if (oldest) this.externallyChimedTransitionNoticeIds.delete(oldest)
+    }
   }
 
   /** Freeze immediately from main-process system events; renderer/server state can lag. */
-  setSystemSuspension(state: { locked: boolean; sleeping: boolean; suspendedAtMs: number | null }): void {
+  setSystemSuspension(state: {
+    locked: boolean
+    sleeping: boolean
+    suspendedAtMs: number | null
+  }): void {
     if (!this.lastStatus) return
     const systemReasons = [
       ...(state.locked ? ['screen_locked'] : []),
@@ -183,7 +247,14 @@ export class NotchHelper {
         'Tempo Notch Helper'
       )
     }
-    return join(app.getAppPath(), 'build-resources', 'Tempo Notch Helper.app', 'Contents', 'MacOS', 'Tempo Notch Helper')
+    return join(
+      app.getAppPath(),
+      'build-resources',
+      'Tempo Notch Helper.app',
+      'Contents',
+      'MacOS',
+      'Tempo Notch Helper'
+    )
   }
 
   private send(message: Record<string, unknown>): void {
@@ -222,6 +293,13 @@ export class NotchHelper {
       const window = this.mainWindow()
       window?.show()
       window?.focus()
+      return
+    }
+    if (event.type === 'openFocusGoal') {
+      const window = this.mainWindow()
+      window?.show()
+      window?.focus()
+      window?.webContents.send('tempo-desktop-command', 'start-focus')
       return
     }
     if (event.type === 'recategorize') {
