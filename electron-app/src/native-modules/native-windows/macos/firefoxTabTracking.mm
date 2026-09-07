@@ -158,6 +158,7 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
             if (!self.isFirefoxActive || generation != self.captureGeneration || ![self matchesCurrentFirefoxWindow:windowInfo]) return;
             NSMutableDictionary *event = [windowInfo mutableCopy];
             event[@"navigationFingerprint"] = fingerprint;
+            if (navigation[@"pageCorrectionKey"]) event[@"pageCorrectionKey"] = navigation[@"pageCorrectionKey"];
             event[@"contentCaptureStatus"] = @"navigation_pending";
             if (self.delegate && [self.delegate respondsToSelector:@selector(firefoxTabDidCapture:reason:)]) {
                 [self.delegate firefoxTabDidCapture:event reason:reason];
@@ -180,8 +181,13 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
 - (void)setNavigationState:(NSDictionary *)navigationState {
     NSString *title = navigationState[@"title"];
     NSString *fingerprint = navigationState[@"navigationFingerprint"];
-    if (!title || !fingerprint) return;
-    NSDictionary *navigation = @{ @"title": title, @"fingerprint": fingerprint };
+    NSString *pageCorrectionKey = navigationState[@"pageCorrectionKey"];
+    if (!title || !fingerprint || !pageCorrectionKey) return;
+    NSDictionary *navigation = @{
+        @"title": title,
+        @"fingerprint": fingerprint,
+        @"pageCorrectionKey": pageCorrectionKey,
+    };
     self.navigationByTitle[title] = navigation;
     NSDictionary *current = [self frontmostFirefoxWindowInfo];
     if (self.isFirefoxActive && current && [current[@"title"] isEqualToString:title]) {
@@ -235,6 +241,7 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
             event[@"contentCaptureStatus"] = status;
             NSDictionary *navigation = [self navigationForWindowInfo:windowInfo];
             if (navigation[@"fingerprint"]) event[@"navigationFingerprint"] = navigation[@"fingerprint"];
+            if (navigation[@"pageCorrectionKey"]) event[@"pageCorrectionKey"] = navigation[@"pageCorrectionKey"];
             if (text.length > 0) event[@"content"] = text;
             [self.delegate firefoxTabDidCapture:event reason:reason];
             [event release];

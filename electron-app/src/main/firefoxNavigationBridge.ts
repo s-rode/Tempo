@@ -11,6 +11,7 @@ export interface FirefoxNavigationState {
   navigationGeneration: number
   title: string
   navigationFingerprint: string
+  pageCorrectionKey: string
   reason: 'activation' | 'navigation' | 'reload' | 'title_change'
 }
 
@@ -34,6 +35,19 @@ function navigationSecret(): string {
   return value
 }
 
+function canonicalPageIdentity(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    const pathname = parsed.pathname.replace(/\/+$/, '') || '/'
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return `${parsed.protocol}//${parsed.host.toLocaleLowerCase()}${pathname}`
+    }
+    return `${parsed.protocol}${pathname}`
+  } catch {
+    return null
+  }
+}
+
 function hostExecutablePath(): string {
   if (app.isPackaged) {
     return join(process.resourcesPath, 'firefox-host', 'tempo-firefox-native-host')
@@ -42,7 +56,13 @@ function hostExecutablePath(): string {
 }
 
 function installNativeManifest(): void {
-  const parent = join(app.getPath('home'), 'Library', 'Application Support', 'Mozilla', 'NativeMessagingHosts')
+  const parent = join(
+    app.getPath('home'),
+    'Library',
+    'Application Support',
+    'Mozilla',
+    'NativeMessagingHosts'
+  )
   mkdirSync(parent, { recursive: true, mode: 0o700 })
   const manifest = {
     name: 'com.tempo.local.firefox',
@@ -61,14 +81,24 @@ function parseNavigation(value: unknown): FirefoxNavigationState | null {
   if (message.type !== 'navigation' || message.private === true) return null
   const { tabId, windowId, documentId, navigationGeneration, title, url, reason } = message
   if (
-    !Number.isInteger(tabId) || !Number.isInteger(windowId) ||
-    typeof documentId !== 'string' || !documentId ||
+    !Number.isInteger(tabId) ||
+    !Number.isInteger(windowId) ||
+    typeof documentId !== 'string' ||
+    !documentId ||
     !Number.isInteger(navigationGeneration) ||
-    typeof title !== 'string' || typeof url !== 'string' || !url ||
+    typeof title !== 'string' ||
+    typeof url !== 'string' ||
+    !url ||
     !['activation', 'navigation', 'reload', 'title_change'].includes(String(reason))
-  ) return null
+  )
+    return null
   const fingerprint = createHmac('sha256', navigationSecret())
     .update(`${url}\u0000${documentId}\u0000${navigationGeneration}`)
+    .digest('hex')
+  const pageIdentity = canonicalPageIdentity(url)
+  if (!pageIdentity) return null
+  const pageCorrectionKey = createHmac('sha256', navigationSecret())
+    .update(`tempo-page-correction-v1\u0000${pageIdentity}`)
     .digest('hex')
   return {
     tabId: tabId as number,
@@ -77,6 +107,7 @@ function parseNavigation(value: unknown): FirefoxNavigationState | null {
     navigationGeneration: navigationGeneration as number,
     title,
     navigationFingerprint: fingerprint,
+    pageCorrectionKey,
     reason: reason as FirefoxNavigationState['reason']
   }
 }
@@ -87,7 +118,10 @@ export class FirefoxNavigationBridge {
   private mainWindow: () => BrowserWindow | null
   private onNavigation: (state: FirefoxNavigationState) => void
 
-  constructor(mainWindow: () => BrowserWindow | null, onNavigation: (state: FirefoxNavigationState) => void) {
+  constructor(
+    mainWindow: () => BrowserWindow | null,
+    onNavigation: (state: FirefoxNavigationState) => void
+  ) {
     this.mainWindow = mainWindow
     this.onNavigation = onNavigation
   }
