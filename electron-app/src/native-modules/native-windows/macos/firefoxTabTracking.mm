@@ -44,9 +44,15 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
 // a title fallback for messages that arrive while Firefox is backgrounded.
 - (NSDictionary *)navigationForWindowInfo:(NSDictionary *)windowInfo {
     NSString *nativeWindowKey = [windowInfo[@"id"] stringValue];
-    NSDictionary *navigation = self.navigationByWindowId[nativeWindowKey];
-    if (navigation) return navigation;
     NSString *title = windowInfo[@"title"] ?: @"";
+    NSDictionary *navigation = self.navigationByWindowId[nativeWindowKey];
+    // A macOS window keeps its CGWindowID while Firefox changes tabs. Do not
+    // reuse navigation metadata merely because it was previously bound to the
+    // same native window: during a tab switch it can describe the old page.
+    // Returning it would make the server's exact-document cache apply that
+    // page's category to the newly visible title.
+    if (navigation && [navigation[@"title"] isEqualToString:title]) return navigation;
+    if (navigation) [self.navigationByWindowId removeObjectForKey:nativeWindowKey];
     navigation = self.navigationByTitle[title];
     if (navigation) self.navigationByWindowId[nativeWindowKey] = navigation;
     return navigation;
