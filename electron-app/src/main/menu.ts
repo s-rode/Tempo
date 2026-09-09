@@ -7,6 +7,8 @@ export type TempoDesktopCommand =
   | 'toggle-sidebar'
   | 'start-focus'
   | 'pause-or-resume'
+  | 'set-today-plan'
+  | 'set-weekly-focus'
 
 function showMainWindow(getWindow: () => BrowserWindow | null) {
   const window = getWindow()
@@ -69,6 +71,9 @@ export function installTempoMenu(getWindow: () => BrowserWindow | null) {
       label: 'Focus',
       submenu: [
         command('Start Focus Session…', 'Command+N', 'start-focus'),
+        command('Set Today’s Plan…', 'Command+Alt+T', 'set-today-plan'),
+        command('Set This Week’s Focus…', 'Command+Alt+W', 'set-weekly-focus'),
+        { type: 'separator' },
         command('Pause or Resume', 'Command+Shift+P', 'pause-or-resume')
       ]
     },

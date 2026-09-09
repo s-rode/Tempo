@@ -27,6 +27,11 @@ export interface FocusTransitionNotice {
   breakDurationMs: number | null;
 }
 
+export interface TodayPlanTaskSource {
+  taskId: string;
+  dateKey: string;
+}
+
 type RuntimeDocument = any;
 
 const minute = 60_000;
@@ -34,11 +39,13 @@ const phase = (
   kind: 'work' | 'short_break' | 'long_break',
   durationMinutes: number,
   state: string,
-  goal: string | null = null
+  goal: string | null = null,
+  todayPlanTask: TodayPlanTaskSource | null = null
 ) => ({
   id: crypto.randomUUID(),
   kind,
   goal,
+  todayPlanTask,
   startedAtMs: state === 'running' ? Date.now() : null,
   completedAtMs: null,
   plannedDurationMs: durationMinutes * minute,
@@ -389,25 +396,42 @@ export async function acknowledgeTransitionNotice(userId: string, noticeId: stri
   return runtimeSnapshot(runtime);
 }
 
-export const createCustomRun = (goal: string, durationMinutes: number, now = Date.now()) => ({
+export const createCustomRun = (
+  goal: string,
+  durationMinutes: number,
+  now = Date.now(),
+  todayPlanTask: TodayPlanTaskSource | null = null
+) => ({
   id: crypto.randomUUID(),
   kind: 'custom',
   state: 'active',
   currentPhaseIndex: 0,
   phases: [
-    { ...phase('work', durationMinutes, 'running', goal), runningSinceMs: now, startedAtMs: now },
+    {
+      ...phase('work', durationMinutes, 'running', goal, todayPlanTask),
+      runningSinceMs: now,
+      startedAtMs: now,
+    },
   ],
   startedAtMs: now,
   completedAtMs: null,
 });
 
-export const createPomodoroRun = (firstGoal: string, now = Date.now()) => ({
+export const createPomodoroRun = (
+  firstGoal: string,
+  now = Date.now(),
+  todayPlanTask: TodayPlanTaskSource | null = null
+) => ({
   id: crypto.randomUUID(),
   kind: 'pomodoro',
   state: 'active',
   currentPhaseIndex: 0,
   phases: [
-    { ...phase('work', 30, 'running', firstGoal), runningSinceMs: now, startedAtMs: now },
+    {
+      ...phase('work', 30, 'running', firstGoal, todayPlanTask),
+      runningSinceMs: now,
+      startedAtMs: now,
+    },
     phase('short_break', 5, 'suspended'),
     phase('work', 30, 'awaiting_goal'),
     phase('short_break', 5, 'suspended'),

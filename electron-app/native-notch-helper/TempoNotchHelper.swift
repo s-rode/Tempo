@@ -4,7 +4,7 @@ import CoreGraphics
 import Foundation
 import SwiftUI
 
-private let protocolVersion = 4
+private let protocolVersion = 5
 private let panelWidth: CGFloat = 520
 // The native panel stays large enough to animate in place, but the visible
 // shape and hit region use the exact current content height below.
@@ -14,6 +14,10 @@ private let maximumExpandedPanelHeight: CGFloat = 192
 // additional macOS spacing unit beneath it so its native 22-point controls
 // are never clipped by the shape or hit-testing region.
 private let normalExpandedPanelHeight: CGFloat = 152
+// A personal distraction reminder includes two readable lines of local copy
+// plus compact actions. It remains below the fixed host maximum, while the
+// visible notch shape and hit region match this exact content height.
+private let distractionNoticeExpandedPanelHeight: CGFloat = 170
 private let normalChooserExpandedPanelHeight: CGFloat = 166
 private let sessionExpandedPanelHeight: CGFloat = 192
 // Keep the compact companion visually quieter than ordinary menu-bar items.
@@ -46,6 +50,18 @@ struct FocusTransitionNotice: Codable, Equatable {
   let occurredAtMs: Double
   let goal: String?
   let breakDurationMs: Double?
+}
+
+/**
+ A live-only reminder mirrored from the same event as Notification Center.
+ The helper never persists this message or any browser/activity content.
+ */
+struct DistractionAttentionNotice: Codable, Equatable {
+  let id: String
+  let eventId: String
+  let title: String
+  let body: String
+  let occurredAtMs: Double
 }
 
 struct StatusPayload: Codable {
@@ -85,6 +101,7 @@ struct StatusPayload: Codable {
   let phaseIndex: Int?
   let sessionTransitionAlertsEnabled: Bool?
   let playSessionTransitionChime: Bool?
+  let showDistractionNotchAlerts: Bool?
   let transitionNotice: FocusTransitionNotice?
 }
 
@@ -97,6 +114,7 @@ struct CommandEnvelope: Codable {
   let message: String?
   let action: String?
   let durationMinutes: Int?
+  let distractionNotice: DistractionAttentionNotice?
 }
 
 final class TempoNotchPanel: NSPanel {
@@ -193,7 +211,8 @@ final class NotchController: NSObject, ObservableObject {
     runtimeMode: "normal", trackingState: "normal", suspensionReasons: [], suspendedAtMs: nil, pausedUntilMs: nil,
     phaseRemainingMs: nil, phaseRemainingSampledAtMs: nil,
     phaseDurationMs: nil, phaseGoal: nil, phaseKind: nil, phaseIndex: nil,
-    sessionTransitionAlertsEnabled: true, playSessionTransitionChime: true, transitionNotice: nil
+    sessionTransitionAlertsEnabled: true, playSessionTransitionChime: true,
+    showDistractionNotchAlerts: true, transitionNotice: nil
   )
   @Published var expanded = false
   @Published var now = Date()
@@ -201,6 +220,7 @@ final class NotchController: NSObject, ObservableObject {
   @Published var pausePickerOpen = false
   @Published var recategorizeMessage: String?
   @Published var presentedTransitionNotice: FocusTransitionNotice?
+  @Published var presentedDistractionNotice: DistractionAttentionNotice?
   @Published var geometry: NotchGeometry
 
   private let panel: TempoNotchPanel
@@ -209,6 +229,8 @@ final class NotchController: NSObject, ObservableObject {
   private var previousStatus: String?
   private var displayClock: DispatchSourceTimer?
   private var transitionAlertWork: DispatchWorkItem?
+  private var distractionAlertWork: DispatchWorkItem?
+  private var queuedDistractionNotice: DistractionAttentionNotice?
   private var isHovering = false
   private weak var host: PassthroughHostingView?
 
@@ -243,6 +265,9 @@ final class NotchController: NSObject, ObservableObject {
     if presentedTransitionNotice != nil {
       return normalExpandedPanelHeight
     }
+    if presentedDistractionNotice != nil {
+      return distractionNoticeExpandedPanelHeight
+    }
     let presentsSession = status.runtimeMode != "normal" || status.trackingState == "paused"
     if chooserOpen || pausePickerOpen {
       return presentsSession ? sessionExpandedPanelHeight : normalChooserExpandedPanelHeight
@@ -276,6 +301,17 @@ final class NotchController: NSObject, ObservableObject {
     // waiting for the next one-second display tick.
     now = Date()
     if next.trackingState == "paused" { pausePickerOpen = false }
+    if next.showDistractionNotchAlerts == false {
+      clearDistractionNotice()
+      queuedDistractionNotice = nil
+    } else {
+      if let notice = presentedDistractionNotice, !isCurrentDistractionNotice(notice) {
+        clearDistractionNotice()
+      }
+      if let notice = queuedDistractionNotice, !isCurrentDistractionNotice(notice) {
+        queuedDistractionNotice = nil
+      }
+    }
     if next.sessionTransitionAlertsEnabled == false {
       transitionAlertWork?.cancel()
       presentedTransitionNotice = nil
@@ -284,7 +320,7 @@ final class NotchController: NSObject, ObservableObject {
       presentTransitionNotice(notice, playChime: next.playSessionTransitionChime != false)
     }
     host?.refreshInteractionRegions()
-    if presentedTransitionNotice != nil { return }
+    if presentedTransitionNotice != nil || presentedDistractionNotice != nil { return }
     if previous == "productive" && next.latestStatus == "unproductive" {
       setExpanded(true)
       DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
@@ -296,6 +332,10 @@ final class NotchController: NSObject, ObservableObject {
 
   private func presentTransitionNotice(_ notice: FocusTransitionNotice, playChime: Bool) {
     transitionAlertWork?.cancel()
+    // Session boundaries are the higher-priority attention state. A stale
+    // distraction reminder must never cover a scheduled break or completion.
+    clearDistractionNotice()
+    queuedDistractionNotice = nil
     presentedTransitionNotice = notice
     chooserOpen = false
     pausePickerOpen = false
@@ -306,12 +346,75 @@ final class NotchController: NSObject, ObservableObject {
     let work = DispatchWorkItem { [weak self] in
       guard let self else { return }
       self.presentedTransitionNotice = nil
-      self.panel.acceptsKeyboardControls = self.chooserOpen || self.pausePickerOpen
+      self.panel.acceptsKeyboardControls = self.chooserOpen || self.pausePickerOpen || self.presentedDistractionNotice != nil
       self.host?.refreshInteractionRegions()
-      if !self.isHovering { self.setExpanded(false) }
+      if let queued = self.queuedDistractionNotice, self.isCurrentDistractionNotice(queued) {
+        self.queuedDistractionNotice = nil
+        self.showDistractionNotice(queued)
+      } else if !self.isHovering { self.setExpanded(false) }
     }
     transitionAlertWork = work
     DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: work)
+  }
+
+  /** Shows a reminder only for the still-current distracting event. */
+  func presentDistractionNotice(_ notice: DistractionAttentionNotice) {
+    guard status.showDistractionNotchAlerts != false, isCurrentDistractionNotice(notice) else { return }
+    if presentedTransitionNotice != nil {
+      // At most one lower-priority reminder may wait behind a session alert.
+      queuedDistractionNotice = notice
+      return
+    }
+    showDistractionNotice(notice)
+  }
+
+  private func showDistractionNotice(_ notice: DistractionAttentionNotice) {
+    distractionAlertWork?.cancel()
+    presentedDistractionNotice = notice
+    chooserOpen = false
+    pausePickerOpen = false
+    setExpanded(true)
+    let work = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      self.presentedDistractionNotice = nil
+      self.panel.acceptsKeyboardControls = self.chooserOpen || self.pausePickerOpen || self.presentedTransitionNotice != nil
+      self.host?.refreshInteractionRegions()
+      if !self.isHovering && self.presentedTransitionNotice == nil { self.setExpanded(false) }
+    }
+    distractionAlertWork = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: work)
+  }
+
+  private func clearDistractionNotice() {
+    distractionAlertWork?.cancel()
+    distractionAlertWork = nil
+    presentedDistractionNotice = nil
+  }
+
+  func dismissDistractionNotice() {
+    clearDistractionNotice()
+    queuedDistractionNotice = nil
+    panel.acceptsKeyboardControls = chooserOpen || pausePickerOpen || presentedTransitionNotice != nil
+    host?.refreshInteractionRegions()
+    if !isHovering && presentedTransitionNotice == nil { setExpanded(false) }
+  }
+
+  func openCategoryChooserFromDistractionNotice() {
+    guard presentedDistractionNotice != nil, !(status.eventIds ?? []).isEmpty else { return }
+    clearDistractionNotice()
+    queuedDistractionNotice = nil
+    chooserOpen = true
+    pausePickerOpen = false
+    setExpanded(true)
+    panel.acceptsKeyboardControls = true
+    host?.refreshInteractionRegions()
+  }
+
+  private func isCurrentDistractionNotice(_ notice: DistractionAttentionNotice) -> Bool {
+    guard status.latestStatus == "unproductive",
+          status.trackingState == "normal" || status.trackingState == "active",
+          (status.suspensionReasons ?? []).isEmpty else { return false }
+    return status.eventIds?.contains(notice.eventId) == true
   }
 
   /**
@@ -346,7 +449,7 @@ final class NotchController: NSObject, ObservableObject {
       ? .easeOut(duration: 0.12)
       : .spring(response: 0.32, dampingFraction: 0.88)
     withAnimation(animation) { expanded = value }
-    panel.acceptsKeyboardControls = value && (chooserOpen || pausePickerOpen || presentedTransitionNotice != nil)
+    panel.acceptsKeyboardControls = value && (chooserOpen || pausePickerOpen || presentedTransitionNotice != nil || presentedDistractionNotice != nil)
     host?.refreshInteractionRegions()
   }
 
@@ -358,7 +461,7 @@ final class NotchController: NSObject, ObservableObject {
       let work = DispatchWorkItem { [weak self] in self?.setExpanded(true) }
       hoverOpenWork = work
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
-    } else if !chooserOpen && !pausePickerOpen && presentedTransitionNotice == nil {
+    } else if !chooserOpen && !pausePickerOpen && presentedTransitionNotice == nil && presentedDistractionNotice == nil {
       let work = DispatchWorkItem { [weak self] in self?.setExpanded(false) }
       hoverCloseWork = work
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
@@ -417,6 +520,8 @@ final class NotchController: NSObject, ObservableObject {
     chooserOpen = false
     pausePickerOpen = false
     transitionAlertWork?.cancel()
+    clearDistractionNotice()
+    queuedDistractionNotice = nil
     presentedTransitionNotice = nil
     panel.acceptsKeyboardControls = false
     host?.refreshInteractionRegions()
@@ -750,6 +855,48 @@ private struct FocusTransitionCard: View {
   }
 }
 
+/**
+ A compact native attention card for a reminder that has already been approved
+ for Notification Center. The only semantic accent is the warning glyph; the
+ message itself remains the hierarchy, not a loud colored panel.
+ */
+private struct DistractionAttentionCard: View {
+  let title: String
+  let message: String
+  let context: String
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack(alignment: .firstTextBaseline, spacing: 6) {
+        Image(systemName: "exclamationmark.circle.fill")
+          .font(.system(size: 12, weight: .semibold))
+          .foregroundStyle(.red.opacity(0.88))
+          .accessibilityHidden(true)
+        Text("Focus check")
+          .font(.system(size: 11, weight: .semibold))
+          .foregroundStyle(.white.opacity(0.82))
+        Spacer(minLength: 6)
+        Text(context)
+          .font(.system(size: 10, weight: .regular))
+          .foregroundStyle(.white.opacity(0.58))
+          .lineLimit(1)
+      }
+      Text(title)
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(.white.opacity(0.96))
+        .lineLimit(1)
+      Text(message)
+        .font(.system(size: 10, weight: .regular))
+        .foregroundStyle(.white.opacity(0.72))
+        .lineLimit(2)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .frame(height: 76, alignment: .topLeading)
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("Focus check. \(title). \(message). \(context).")
+  }
+}
+
 private enum NotchActionTone: Equatable {
   case neutral
   case productive
@@ -912,6 +1059,9 @@ struct NotchRootView: View {
   private var transitionNotice: FocusTransitionNotice? {
     controller.presentedTransitionNotice
   }
+  private var distractionNotice: DistractionAttentionNotice? {
+    controller.presentedDistractionNotice
+  }
   private var transitionTitle: String {
     switch transitionNotice?.kind {
     case "focus_complete": return "Focus session complete"
@@ -942,6 +1092,10 @@ struct NotchRootView: View {
   }
   private var transitionTint: Color {
     transitionNotice?.kind == "break_started" ? .orange : .green
+  }
+  private var distractionContext: String {
+    let source = activitySource ?? "Current activity"
+    return "\(source) · \(format(distractedTime)) distracted"
   }
   private var expandedContentHeight: CGFloat { controller.expandedContentHeight }
   private var activitySource: String? {
@@ -1036,6 +1190,26 @@ struct NotchRootView: View {
           Spacer(minLength: 0)
           Button("Hide") { controller.hide() }
             .buttonStyle(NotchActionStyle(tone: .neutral))
+        }
+      } else if let notice = distractionNotice {
+        DistractionAttentionCard(
+          title: notice.title,
+          message: notice.body,
+          context: distractionContext
+        )
+        Rectangle().fill(.white.opacity(0.10)).frame(height: 1 / (NSScreen.main?.backingScaleFactor ?? 2))
+        HStack(spacing: 7) {
+          Button("Open Tempo") { controller.emit(type: "openMain") }
+            .buttonStyle(NotchActionStyle(tone: .neutral))
+            .accessibilityLabel("Open Tempo")
+          Button("Change category…") { controller.openCategoryChooserFromDistractionNotice() }
+            .buttonStyle(NotchActionStyle(tone: .neutral))
+            .disabled((controller.status.eventIds ?? []).isEmpty)
+            .accessibilityLabel("Change the category for this activity")
+          Spacer(minLength: 0)
+          Button("Dismiss") { controller.dismissDistractionNotice() }
+            .buttonStyle(NotchActionStyle(tone: .neutral))
+            .accessibilityLabel("Dismiss this distraction reminder")
         }
       } else {
       if !hasActiveSessionPresentation {
@@ -1284,6 +1458,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     guard let controller else { return }
     switch command.type {
     case "status": if let payload = command.payload { controller.apply(status: payload) }
+    case "distractionNotice":
+      if let notice = command.distractionNotice { controller.presentDistractionNotice(notice) }
     case "show": controller.show()
     case "hide": controller.hide()
     case "refreshGeometry": controller.positionPanel()

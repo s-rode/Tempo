@@ -43,6 +43,7 @@ export interface FloatingStatusUpdate {
   phaseIndex?: number | null
   sessionTransitionAlertsEnabled?: boolean
   playSessionTransitionChime?: boolean
+  showDistractionNotchAlerts?: boolean
   transitionNotice?: {
     id: string
     kind: 'focus_complete' | 'break_started' | 'break_complete' | 'pomodoro_complete'
@@ -55,23 +56,31 @@ export interface FloatingStatusUpdate {
   } | null
 }
 
+export interface DistractionAttentionNotice {
+  id: string
+  eventId: string
+  title: string
+  body: string
+  occurredAtMs: number
+}
+
 type NotchEvent =
-  | { version: 4; type: 'ready' }
-  | { version: 4; type: 'visibilityChanged'; visible: boolean }
-  | { version: 4; type: 'openMain' }
-  | { version: 4; type: 'openFocusGoal' }
-  | { version: 4; type: 'recategorize'; requestId: string; categoryId: string; eventIds: string[] }
+  | { version: 5; type: 'ready' }
+  | { version: 5; type: 'visibilityChanged'; visible: boolean }
+  | { version: 5; type: 'openMain' }
+  | { version: 5; type: 'openFocusGoal' }
+  | { version: 5; type: 'recategorize'; requestId: string; categoryId: string; eventIds: string[] }
   | {
-      version: 4
+      version: 5
       type: 'focusCommand'
       action: 'pause' | 'resume' | 'skipBreak' | 'endRun'
       durationMinutes?: number
     }
-  | { version: 4; type: 'error'; code: string }
+  | { version: 5; type: 'error'; code: string }
 
 type HelperAvailability = 'starting' | 'ready' | 'unavailable'
 
-const protocolVersion = 4
+const protocolVersion = 5
 
 export class NotchHelper {
   private child: ChildProcessWithoutNullStreams | null = null
@@ -148,6 +157,16 @@ export class NotchHelper {
   }
   refreshGeometry(): void {
     this.send({ version: protocolVersion, type: 'refreshGeometry' })
+  }
+
+  /**
+   * A distraction card is transient by design. The main process calls this
+   * only when it has accepted the same scheduled reminder for Notification
+   * Center, and the helper independently verifies the current activity.
+   */
+  presentDistractionNotice(notice: DistractionAttentionNotice): void {
+    if (!this.canPresentDistractionNotice(notice)) return
+    this.send({ version: protocolVersion, type: 'distractionNotice', distractionNotice: notice })
   }
 
   updateStatus(status: FloatingStatusUpdate): void {
@@ -233,6 +252,15 @@ export class NotchHelper {
 
   sendRecategorizeResult(result: { requestId: string; ok: boolean; message?: string }): void {
     this.send({ version: protocolVersion, type: 'recategorizeResult', ...result })
+  }
+
+  private canPresentDistractionNotice(notice: DistractionAttentionNotice): boolean {
+    const status = this.lastStatus
+    if (this.availability !== 'ready' || !status || status.showDistractionNotchAlerts === false) return false
+    if (status.latestStatus !== 'unproductive') return false
+    if (status.trackingState !== 'normal' && status.trackingState !== 'active') return false
+    if ((status.suspensionReasons || []).length > 0) return false
+    return Boolean(notice.eventId && status.eventIds?.includes(notice.eventId))
   }
 
   private helperExecutablePath(): string {

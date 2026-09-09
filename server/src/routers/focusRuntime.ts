@@ -19,6 +19,7 @@ import {
 } from '../services/focusRuntime';
 import { cancelPendingEnrichment } from '../services/categorization/enrichmentScheduler';
 import { FocusRunHistoryModel } from '../models/focusRuntime';
+import { getCurrentDailyPlanTask } from '../services/goalPlans';
 
 const tokenInput = z.object({ token: z.string() });
 const durations = z.union([
@@ -38,6 +39,28 @@ const pauseDurations = z.union([
   z.literal(120),
 ]);
 const goal = z.string().trim().min(1).max(500);
+const goalSource = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('custom'), goal }),
+  z.object({ kind: z.literal('today_plan_task'), taskId: z.string().uuid() }),
+]);
+
+const resolveGoalSource = async (
+  userId: string,
+  source: z.infer<typeof goalSource>
+): Promise<{ goal: string; todayPlanTask: { taskId: string; dateKey: string } | null }> => {
+  if (source.kind === 'custom') return { goal: source.goal, todayPlanTask: null };
+  const plannedTask = await getCurrentDailyPlanTask(userId, source.taskId);
+  if (!plannedTask) {
+    throw new TRPCError({
+      code: 'PRECONDITION_FAILED',
+      message: 'That task is no longer an unfinished item in Today’s Plan.',
+    });
+  }
+  return {
+    goal: plannedTask.task.text.trim(),
+    todayPlanTask: { taskId: plannedTask.task.id, dateKey: plannedTask.dateKey },
+  };
+};
 
 const runtimeFor = async (token: string, heartbeat = true) => {
   const decoded = verifyToken(token);
@@ -131,16 +154,23 @@ export const focusRuntimeRouter = router({
   }),
 
   startCustom: publicProcedure
-    .input(tokenInput.extend({ goal, durationMinutes: durations }))
+    .input(tokenInput.extend({ goalSource, durationMinutes: durations }))
     .mutation(async ({ input }) => {
+      const userId = verifyToken(input.token).userId;
       const runtime = await runtimeFor(input.token);
-      cancelPendingEnrichment(verifyToken(input.token).userId);
+      cancelPendingEnrichment(userId);
       if (runtime.run?.state === 'active')
         throw new TRPCError({
           code: 'CONFLICT',
           message: 'Finish the current focus session first.',
         });
-      runtime.run = createCustomRun(input.goal, input.durationMinutes);
+      const resolvedGoal = await resolveGoalSource(userId, input.goalSource);
+      runtime.run = createCustomRun(
+        resolvedGoal.goal,
+        input.durationMinutes,
+        Date.now(),
+        resolvedGoal.todayPlanTask
+      );
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
       await saveRuntime(runtime);
@@ -148,16 +178,22 @@ export const focusRuntimeRouter = router({
     }),
 
   startPomodoro: publicProcedure
-    .input(tokenInput.extend({ firstGoal: goal }))
+    .input(tokenInput.extend({ firstGoalSource: goalSource }))
     .mutation(async ({ input }) => {
+      const userId = verifyToken(input.token).userId;
       const runtime = await runtimeFor(input.token);
-      cancelPendingEnrichment(verifyToken(input.token).userId);
+      cancelPendingEnrichment(userId);
       if (runtime.run?.state === 'active')
         throw new TRPCError({
           code: 'CONFLICT',
           message: 'Finish the current focus session first.',
         });
-      runtime.run = createPomodoroRun(input.firstGoal);
+      const resolvedGoal = await resolveGoalSource(userId, input.firstGoalSource);
+      runtime.run = createPomodoroRun(
+        resolvedGoal.goal,
+        Date.now(),
+        resolvedGoal.todayPlanTask
+      );
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
       await saveRuntime(runtime);
@@ -165,7 +201,7 @@ export const focusRuntimeRouter = router({
     }),
 
   confirmWorkGoal: publicProcedure
-    .input(tokenInput.extend({ goal }))
+    .input(tokenInput.extend({ goalSource }))
     .mutation(async ({ input }) => {
       const runtime = await runtimeFor(input.token);
       cancelPendingEnrichment(verifyToken(input.token).userId);
@@ -181,7 +217,9 @@ export const focusRuntimeRouter = router({
           message: 'Tempo is not waiting for a Pomodoro work goal.',
         });
       }
-      phase.goal = input.goal;
+      const resolvedGoal = await resolveGoalSource(verifyToken(input.token).userId, input.goalSource);
+      phase.goal = resolvedGoal.goal;
+      phase.todayPlanTask = resolvedGoal.todayPlanTask;
       phase.state = 'running';
       phase.runningSinceMs = Date.now();
       phase.startedAtMs = phase.runningSinceMs;

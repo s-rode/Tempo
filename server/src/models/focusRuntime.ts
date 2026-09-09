@@ -1,10 +1,21 @@
 import mongoose, { Schema } from 'mongoose';
 
+const todayPlanTaskSchema = new Schema(
+  {
+    taskId: { type: String, required: true },
+    dateKey: { type: String, required: true },
+  },
+  { _id: false }
+);
+
 const focusPhaseSchema = new Schema(
   {
     id: { type: String, required: true },
     kind: { type: String, required: true, enum: ['work', 'short_break', 'long_break'] },
     goal: { type: String, default: null },
+    // The task identity is a provenance hint only. `goal` remains the immutable
+    // session snapshot so later plan edits cannot rewrite focus history.
+    todayPlanTask: { type: todayPlanTaskSchema, default: null },
     startedAtMs: { type: Number, default: null },
     completedAtMs: { type: Number, default: null },
     plannedDurationMs: { type: Number, required: true },

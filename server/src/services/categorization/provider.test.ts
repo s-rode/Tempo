@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
+import { buildCoreClassificationPromptInput } from './llm';
 import { OllamaClassificationProvider } from './provider';
 
 const originalFetch = globalThis.fetch;
@@ -10,7 +11,11 @@ afterEach(() => {
   else process.env.OLLAMA_BASE_URL = originalBaseUrl;
 });
 
-const goals = { dailyGoal: 'Study Gaussian Processes', weeklyGoal: '', lifeGoal: '' };
+const goals = {
+  scope: 'daily' as const,
+  primaryGoal: 'Study Gaussian Processes',
+  dailyTasks: ['Study Gaussian Processes'],
+};
 const categories = [
   { name: 'Work', description: 'Goal-related study', isProductive: true },
   { name: 'Distraction', description: 'Unrelated entertainment', isProductive: false },
@@ -25,6 +30,33 @@ const activity = {
 };
 
 describe('OllamaClassificationProvider', () => {
+  test('sends ordered unchecked tasks only and never a longer-term direction', () => {
+    const prompt = buildCoreClassificationPromptInput(
+      {
+        scope: 'daily',
+        primaryGoal: 'Solve the exercise',
+        dailyTasks: ['Solve the exercise', 'Read the paper'],
+      },
+      categories,
+      activity
+    )[1].content;
+    expect(prompt).toContain('1. "Solve the exercise"');
+    expect(prompt).toContain('2. "Read the paper"');
+    expect(prompt).toContain('completed task is intentionally absent');
+    expect(prompt).not.toContain('Life:');
+    expect(prompt).not.toContain('longer-term');
+  });
+
+  test('does not permit generic productivity when there is no effective goal', () => {
+    const prompt = buildCoreClassificationPromptInput(
+      { scope: 'none', primaryGoal: null, dailyTasks: [] },
+      categories,
+      activity
+    )[1].content;
+    expect(prompt).toContain('There is no active goal');
+    expect(prompt).toContain('matchedGoalType must be null');
+  });
+
   test('uses bounded local structured output without thinking', async () => {
     process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
     globalThis.fetch = (async (_url: unknown, init: RequestInit | undefined) => {
@@ -40,7 +72,7 @@ describe('OllamaClassificationProvider', () => {
         'confidence',
         'goalAlignment',
         'matchedGoalType',
-        'goalEvidence'
+        'goalEvidence',
       ]);
       return new Response(
         JSON.stringify({
@@ -55,7 +87,7 @@ describe('OllamaClassificationProvider', () => {
               activitySummary: 'Studying Gaussian Process regression.',
               reasoning: 'a a a a a a a a a a a a a a a a a a a a a a a a a a',
               nudgeTitle: null,
-              nudgeBody: null
+              nudgeBody: null,
             }),
           },
         }),
@@ -77,20 +109,21 @@ describe('OllamaClassificationProvider', () => {
 
   test('accepts a minimal valid decision', async () => {
     process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
-    globalThis.fetch = (async () => new Response(
-      JSON.stringify({
-        message: {
-          content: JSON.stringify({
-            chosenCategoryName: 'Distraction',
-            confidence: '0.82',
-            goalAlignment: 'none',
-            matchedGoalType: null,
-            goalEvidence: null,
-          }),
-        },
-      }),
-      { status: 200 }
-    )) as unknown as typeof fetch;
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              chosenCategoryName: 'Distraction',
+              confidence: '0.82',
+              goalAlignment: 'none',
+              matchedGoalType: null,
+              goalEvidence: null,
+            }),
+          },
+        }),
+        { status: 200 }
+      )) as unknown as typeof fetch;
 
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result.status).toBe('ollama');
@@ -103,14 +136,16 @@ describe('OllamaClassificationProvider', () => {
 
   test('accepts a JSON response wrapped in a markdown fence', async () => {
     process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
-    globalThis.fetch = (async () => new Response(
-      JSON.stringify({
-        message: {
-          content: '```json\n{"chosenCategoryName":"Work","confidence":0.9,"goalAlignment":"explicit","matchedGoalType":"daily","goalEvidence":"Directly supports the stated study goal."}\n```',
-        },
-      }),
-      { status: 200 }
-    )) as unknown as typeof fetch;
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          message: {
+            content:
+              '```json\n{"chosenCategoryName":"Work","confidence":0.9,"goalAlignment":"explicit","matchedGoalType":"daily","goalEvidence":"Directly supports the stated study goal."}\n```',
+          },
+        }),
+        { status: 200 }
+      )) as unknown as typeof fetch;
 
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result.choice?.chosenCategoryName).toBe('Work');
@@ -121,11 +156,31 @@ describe('OllamaClassificationProvider', () => {
     let calls = 0;
     globalThis.fetch = (async () => {
       calls += 1;
-      return new Response(JSON.stringify({ message: { content: calls === 1 ? '{bad' : JSON.stringify({ chosenCategoryName: 'Work', confidence: 0.9, goalAlignment: 'explicit', matchedGoalType: 'daily', goalEvidence: 'Directly supports the stated study goal.' }) } }), { status: 200 });
+      return new Response(
+        JSON.stringify({
+          message: {
+            content:
+              calls === 1
+                ? '{bad'
+                : JSON.stringify({
+                    chosenCategoryName: 'Work',
+                    confidence: 0.9,
+                    goalAlignment: 'explicit',
+                    matchedGoalType: 'daily',
+                    goalEvidence: 'Directly supports the stated study goal.',
+                  }),
+          },
+        }),
+        { status: 200 }
+      );
     }) as unknown as typeof fetch;
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(calls).toBe(2);
-    expect(result).toMatchObject({ status: 'ollama', attemptCount: 2, choice: { chosenCategoryName: 'Work' } });
+    expect(result).toMatchObject({
+      status: 'ollama',
+      attemptCount: 2,
+      choice: { chosenCategoryName: 'Work' },
+    });
   });
 
   test('creates a direct local distraction nudge only in the deferred enrichment request', async () => {
@@ -135,13 +190,21 @@ describe('OllamaClassificationProvider', () => {
       expect(request.options.num_predict).toBe(96);
       expect(request.messages[1].content).toContain('direct interruption notification');
       expect(request.messages[1].content).toContain('Both nudge fields must be non-null');
-      return new Response(JSON.stringify({ message: { content: JSON.stringify({
-        activityLabel: 'Instagram',
-        activitySummary: 'Off goal: scrolling social posts.',
-        reasoning: 'The visible content does not advance the supplied study goal.',
-        nudgeTitle: 'Close Instagram',
-        nudgeBody: 'Scrolling is borrowing time from your exam prep. Close it and open your notes now.'
-      }) } }), { status: 200 });
+      return new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              activityLabel: 'Instagram',
+              activitySummary: 'Off goal: scrolling social posts.',
+              reasoning: 'The visible content does not advance the supplied study goal.',
+              nudgeTitle: 'Close Instagram',
+              nudgeBody:
+                'Scrolling is borrowing time from your exam prep. Close it and open your notes now.',
+            }),
+          },
+        }),
+        { status: 200 }
+      );
     }) as unknown as typeof fetch;
 
     const result = await new OllamaClassificationProvider().enrich(
@@ -151,7 +214,8 @@ describe('OllamaClassificationProvider', () => {
     );
     expect(result).toMatchObject({
       nudgeTitle: 'Close Instagram',
-      nudgeBody: 'Scrolling is borrowing time from your exam prep. Close it and open your notes now.'
+      nudgeBody:
+        'Scrolling is borrowing time from your exam prep. Close it and open your notes now.',
     });
   });
 });

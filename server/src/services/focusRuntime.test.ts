@@ -28,6 +28,17 @@ describe('focus transition notices', () => {
     });
   });
 
+  test('retains the Today’s Plan source only on the chosen work phase', () => {
+    const taskSource = { taskId: 'task-123', dateKey: '2026-09-09' };
+    const custom = createCustomRun('Review the lecture notes', 30, 1_000, taskSource);
+    const pomodoro = createPomodoroRun('Solve exercise 4', 1_000, taskSource);
+
+    expect(custom.phases[0].goal).toBe('Review the lecture notes');
+    expect(custom.phases[0].todayPlanTask).toEqual(taskSource);
+    expect(pomodoro.phases[0].todayPlanTask).toEqual(taskSource);
+    expect(pomodoro.phases[2].todayPlanTask).toBeNull();
+  });
+
   test('announces a Pomodoro break after each naturally completed work phase', () => {
     const run = createPomodoroRun('Solve practice problems', 1_000);
     run.phases[0].plannedDurationMs = 1_000;
