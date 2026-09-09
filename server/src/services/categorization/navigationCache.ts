@@ -6,7 +6,11 @@ import { ClassificationStatus } from './provider';
  * later cache hit: if an old navigation identity is ever stale, recursively
  * reusing it would keep the wrong category alive indefinitely.
  */
-const cacheSeedStatuses = new Set<ClassificationStatus>(['ollama', 'policy_override']);
+const cacheSeedStatuses = new Set<ClassificationStatus>([
+  'deterministic_direct',
+  'ollama',
+  'policy_override',
+]);
 
 type FirefoxNavigationCacheSource = {
   title?: string | null;

@@ -52,16 +52,28 @@ describe('OllamaClassificationProvider', () => {
         primaryGoal: 'Solve the exercise',
         dailyTasks: ['Solve the exercise', 'Read the paper'],
         targets: [
-          { ref: 'daily:one', scope: 'daily', text: 'Solve the exercise', textFingerprint: 'one', supportProfile: null },
-          { ref: 'daily:two', scope: 'daily', text: 'Read the paper', textFingerprint: 'two', supportProfile: null },
+          {
+            ref: 'daily:one',
+            scope: 'daily',
+            text: 'Solve the exercise',
+            textFingerprint: 'one',
+            supportProfile: null,
+          },
+          {
+            ref: 'daily:two',
+            scope: 'daily',
+            text: 'Read the paper',
+            textFingerprint: 'two',
+            supportProfile: null,
+          },
         ],
         attentionGuardrail: null,
       },
       categories,
       activity
     )[1].content;
-    expect(prompt).toContain('[daily:one] daily target: "Solve the exercise"');
-    expect(prompt).toContain('[daily:two] daily target: "Read the paper"');
+    expect(prompt).toContain('[T1] daily target: "Solve the exercise"');
+    expect(prompt).toContain('[T2] daily target: "Read the paper"');
     expect(prompt).not.toContain('Life:');
     expect(prompt).not.toContain('longer-term');
   });
@@ -73,7 +85,7 @@ describe('OllamaClassificationProvider', () => {
       activity
     )[1].content;
     expect(prompt).toContain('No active productive target');
-    expect(prompt).toContain('matchedGoalRef and supportingMode must be null');
+    expect(prompt).toContain('For none/insufficient, t and m are null');
   });
 
   test('uses bounded local structured output without thinking', async () => {
@@ -85,32 +97,19 @@ describe('OllamaClassificationProvider', () => {
       expect(request.keep_alive).toBe('10m');
       expect(request.options.temperature).toBe(0);
       expect(request.options.num_ctx).toBe(4096);
-      expect(request.options.num_predict).toBe(64);
-      expect(request.format.required).toEqual([
-        'chosenCategoryName',
-        'confidence',
-        'goalRelation',
-        'matchedGoalRef',
-        'supportingMode',
-        'goalEvidence',
-        'activityEvidence',
-      ]);
+      expect(request.options.num_predict).toBe(96);
+      expect(request.format.required).toEqual(['c', 'p', 'r', 't', 'm', 'g', 'a']);
       return new Response(
         JSON.stringify({
           message: {
             content: JSON.stringify({
-              chosenCategoryName: 'Work',
-              confidence: 0.9,
-              goalRelation: 'direct',
-              matchedGoalRef: 'daily:today:gp',
-              supportingMode: null,
-              goalEvidence: 'The tutorial directly supports the daily Gaussian Processes goal.',
-              activityEvidence: 'Gaussian Process tutorial content',
-              activityLabel: 'Gaussian Process tutorial',
-              activitySummary: 'Studying Gaussian Process regression.',
-              reasoning: 'a a a a a a a a a a a a a a a a a a a a a a a a a a',
-              nudgeTitle: null,
-              nudgeBody: null,
+              c: 'Work',
+              p: 0.9,
+              r: 'direct',
+              t: 'T1',
+              m: null,
+              g: 'Directly supports the study target',
+              a: 'Gaussian Process tutorial',
             }),
           },
         }),
@@ -159,6 +158,39 @@ describe('OllamaClassificationProvider', () => {
     });
   });
 
+  test('expands a compact target alias to the internal target reference', async () => {
+    process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
+    const longTargetRef = 'daily:2026-09-09:89c90344-57a4-40fa-9c47-ce84bcd92b92';
+    const longGoals: EffectiveGoalContext = {
+      ...goals,
+      targets: [{ ...goals.targets![0], ref: longTargetRef }],
+    };
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              c: 'Work',
+              p: 0.98,
+              r: 'direct',
+              t: 'T1',
+              m: null,
+              g: 'Quant interview target',
+              a: 'Quant interview questions',
+            }),
+          },
+        }),
+        { status: 200 }
+      )) as unknown as typeof fetch;
+
+    const result = await new OllamaClassificationProvider().classify(
+      longGoals,
+      categories,
+      activity
+    );
+    expect(result.choice?.matchedGoalRef).toBe(longTargetRef);
+  });
+
   test('accepts a JSON response wrapped in a markdown fence', async () => {
     process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
     globalThis.fetch = (async () =>
@@ -166,7 +198,7 @@ describe('OllamaClassificationProvider', () => {
         JSON.stringify({
           message: {
             content:
-              '```json\n{"chosenCategoryName":"Work","confidence":0.9,"goalRelation":"direct","matchedGoalRef":"daily:today:gp","supportingMode":null,"goalEvidence":"Directly supports the stated study goal.","activityEvidence":"Visible Gaussian Process tutorial"}\n```',
+              '```json\n{"c":"Work","p":0.9,"r":"direct","t":"T1","m":null,"g":"Directly supports the study goal","a":"Gaussian Process tutorial"}\n```',
           },
         }),
         { status: 200 }
@@ -188,13 +220,13 @@ describe('OllamaClassificationProvider', () => {
               calls === 1
                 ? '{bad'
                 : JSON.stringify({
-                    chosenCategoryName: 'Work',
-                    confidence: 0.9,
-                    goalRelation: 'direct',
-                    matchedGoalRef: 'daily:today:gp',
-                    supportingMode: null,
-                    goalEvidence: 'Directly supports the stated study goal.',
-                    activityEvidence: 'Visible Gaussian Process tutorial',
+                    c: 'Work',
+                    p: 0.9,
+                    r: 'direct',
+                    t: 'T1',
+                    m: null,
+                    g: 'Directly supports the study goal',
+                    a: 'Gaussian Process tutorial',
                   }),
           },
         }),
@@ -266,7 +298,9 @@ describe('OllamaClassificationProvider', () => {
       );
     }) as unknown as typeof fetch;
 
-    await expect(new OllamaClassificationProvider().profileGoal('Solve machine learning exercise sheet')).resolves.toMatchObject({
+    await expect(
+      new OllamaClassificationProvider().profileGoal('Solve machine learning exercise sheet')
+    ).resolves.toMatchObject({
       subjectCues: ['machine learning', 'exercise problems'],
       supportingModes: ['calculation_or_visualization', 'study_notes_or_retrieval'],
     });

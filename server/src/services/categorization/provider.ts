@@ -14,6 +14,7 @@ import { GoalSupportProfileData, isSupportingMode } from './goalSupportTypes';
 export type ClassificationStatus =
   | 'history'
   | 'navigation_cache'
+  | 'deterministic_direct'
   | 'ollama'
   | 'manual'
   | 'manual_rule'
@@ -74,11 +75,15 @@ const coreResponseSchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    chosenCategoryName: { type: 'string', maxLength: 64 },
-    confidence: { type: 'number', minimum: 0, maximum: 1 },
-    goalRelation: { type: 'string', enum: ['direct', 'supporting', 'none', 'insufficient'] },
-    matchedGoalRef: { type: ['string', 'null'], maxLength: 120 },
-    supportingMode: {
+    // Keep the wire protocol deliberately tiny. The public TypeScript
+    // decision remains descriptive below; aliases only exist between Tempo
+    // and its local model so a small model cannot run out of output while
+    // reproducing a long internal target reference.
+    c: { type: 'string', maxLength: 64 },
+    p: { type: 'number', minimum: 0, maximum: 1 },
+    r: { type: 'string', enum: ['direct', 'supporting', 'none', 'insufficient'] },
+    t: { type: ['string', 'null'], maxLength: 4 },
+    m: {
       type: ['string', 'null'],
       enum: [
         'calculation_or_visualization',
@@ -89,18 +94,10 @@ const coreResponseSchema = {
         null,
       ],
     },
-    goalEvidence: { type: ['string', 'null'], maxLength: 100 },
-    activityEvidence: { type: ['string', 'null'], maxLength: 100 },
+    g: { type: ['string', 'null'], maxLength: 60 },
+    a: { type: ['string', 'null'], maxLength: 60 },
   },
-  required: [
-    'chosenCategoryName',
-    'confidence',
-    'goalRelation',
-    'matchedGoalRef',
-    'supportingMode',
-    'goalEvidence',
-    'activityEvidence',
-  ],
+  required: ['c', 'p', 'r', 't', 'm', 'g', 'a'],
 };
 
 const goalSupportProfileResponseSchema = {
@@ -182,16 +179,24 @@ function normalizeCoreDecision(
   if (!value || typeof value !== 'object' || Array.isArray(value))
     return { decision: null, failure: 'invalid_decision_shape' };
   const raw = value as Record<string, unknown>;
+  // Accept the former verbose shape too. It lets a locally running model
+  // finish an in-flight request during an app upgrade, but all new requests
+  // receive the compact schema above.
   const name =
-    typeof raw.chosenCategoryName === 'string'
-      ? raw.chosenCategoryName.trim().replace(/^['"`]+|['"`]+$/g, '')
+    typeof (raw.c ?? raw.chosenCategoryName) === 'string'
+      ? String(raw.c ?? raw.chosenCategoryName)
+          .trim()
+          .replace(/^['"`]+|['"`]+$/g, '')
       : '';
   const chosenCategoryName = categories.find(
     (category) => category.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase()
   )?.name;
   if (!chosenCategoryName) return { decision: null, failure: 'unknown_category' };
+  const rawConfidenceValue = raw.p ?? raw.confidence;
   const rawConfidence =
-    typeof raw.confidence === 'string' ? Number(raw.confidence.replace('%', '')) : raw.confidence;
+    typeof rawConfidenceValue === 'string'
+      ? Number(rawConfidenceValue.replace('%', ''))
+      : rawConfidenceValue;
   const confidence =
     typeof rawConfidence === 'number' && Number.isFinite(rawConfidence)
       ? rawConfidence > 1 && rawConfidence <= 100
@@ -200,8 +205,9 @@ function normalizeCoreDecision(
       : Number.NaN;
   if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1)
     return { decision: null, failure: 'invalid_decision_shape' };
+  const rawRelationValue = raw.r ?? raw.goalRelation;
   const rawRelation =
-    typeof raw.goalRelation === 'string' ? raw.goalRelation.trim().toLowerCase() : '';
+    typeof rawRelationValue === 'string' ? rawRelationValue.trim().toLowerCase() : '';
   const goalRelation =
     rawRelation === 'direct' ||
     rawRelation === 'supporting' ||
@@ -209,22 +215,33 @@ function normalizeCoreDecision(
     rawRelation === 'insufficient'
       ? rawRelation
       : 'insufficient';
+  const rawGoalRefValue = raw.t ?? raw.matchedGoalRef;
   const rawGoalRef =
-    typeof raw.matchedGoalRef === 'string'
-      ? raw.matchedGoalRef.trim().replace(/^['"`]+|['"`]+$/g, '')
+    typeof rawGoalRefValue === 'string'
+      ? rawGoalRefValue.trim().replace(/^['"`]+|['"`]+$/g, '')
       : null;
+  const goalRefsByAlias = new Map(
+    (goals.targets || []).map((target, index) => [`T${index + 1}`, target.ref])
+  );
   const matchedGoalRef =
-    rawGoalRef && (goals.targets || []).some((target) => target.ref === rawGoalRef)
-      ? rawGoalRef
+    rawGoalRef &&
+    (goalRefsByAlias.get(rawGoalRef.toUpperCase()) ||
+      (goals.targets || []).find((target) => target.ref === rawGoalRef)?.ref)
+      ? goalRefsByAlias.get(rawGoalRef.toUpperCase()) ||
+        (goals.targets || []).find((target) => target.ref === rawGoalRef)?.ref ||
+        null
       : null;
-  const supportingMode = isSupportingMode(raw.supportingMode) ? raw.supportingMode : null;
+  const rawSupportingMode = raw.m ?? raw.supportingMode;
+  const supportingMode = isSupportingMode(rawSupportingMode) ? rawSupportingMode : null;
+  const rawGoalEvidence = raw.g ?? raw.goalEvidence;
   const goalEvidence =
-    typeof raw.goalEvidence === 'string' && raw.goalEvidence.trim()
-      ? raw.goalEvidence.trim().slice(0, 100)
+    typeof rawGoalEvidence === 'string' && rawGoalEvidence.trim()
+      ? rawGoalEvidence.trim().slice(0, 100)
       : null;
+  const rawActivityEvidence = raw.a ?? raw.activityEvidence;
   const activityEvidence =
-    typeof raw.activityEvidence === 'string' && raw.activityEvidence.trim()
-      ? raw.activityEvidence.trim().slice(0, 100)
+    typeof rawActivityEvidence === 'string' && rawActivityEvidence.trim()
+      ? rawActivityEvidence.trim().slice(0, 100)
       : null;
   if (
     (goalRelation === 'direct' || goalRelation === 'supporting') &&
@@ -359,7 +376,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       await chat(
         buildCoreClassificationPromptInput(goals, categories, activity),
         coreResponseSchema,
-        Math.min(64, ollamaConfig().numPredict),
+        Math.min(96, ollamaConfig().numPredict),
         Math.min(22000, totalTimeoutMs)
       )
     );
@@ -384,7 +401,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         index === 1
           ? {
               ...message,
-              content: `${message.content}\nRETRY: Return only the required decision fields. Do not add prose.`,
+              content: `${message.content}\nRETRY: Return only c, p, r, t, m, g, a JSON fields. Do not add prose.`,
             }
           : message
     );
@@ -392,7 +409,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       await chat(
         retryPrompt,
         coreResponseSchema,
-        Math.min(48, ollamaConfig().numPredict),
+        Math.min(72, ollamaConfig().numPredict),
         Math.min(8000, remainingMs)
       )
     );
