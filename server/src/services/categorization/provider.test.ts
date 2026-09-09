@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { buildCoreClassificationPromptInput } from './llm';
 import { OllamaClassificationProvider } from './provider';
+import type { EffectiveGoalContext } from '../goalPlans';
 
 const originalFetch = globalThis.fetch;
 const originalBaseUrl = process.env.OLLAMA_BASE_URL;
@@ -11,10 +12,24 @@ afterEach(() => {
   else process.env.OLLAMA_BASE_URL = originalBaseUrl;
 });
 
-const goals = {
+const goals: EffectiveGoalContext = {
   scope: 'daily' as const,
   primaryGoal: 'Study Gaussian Processes',
   dailyTasks: ['Study Gaussian Processes'],
+  targets: [
+    {
+      ref: 'daily:today:gp',
+      scope: 'daily' as const,
+      text: 'Study Gaussian Processes',
+      textFingerprint: 'goal-fingerprint',
+      supportProfile: {
+        subjectCues: ['Gaussian Processes'],
+        supportingModes: ['study_notes_or_retrieval', 'read_reference'],
+        revision: 'profile-revision',
+      },
+    },
+  ],
+  attentionGuardrail: null,
 };
 const categories = [
   { name: 'Work', description: 'Goal-related study', isProductive: true },
@@ -36,25 +51,29 @@ describe('OllamaClassificationProvider', () => {
         scope: 'daily',
         primaryGoal: 'Solve the exercise',
         dailyTasks: ['Solve the exercise', 'Read the paper'],
+        targets: [
+          { ref: 'daily:one', scope: 'daily', text: 'Solve the exercise', textFingerprint: 'one', supportProfile: null },
+          { ref: 'daily:two', scope: 'daily', text: 'Read the paper', textFingerprint: 'two', supportProfile: null },
+        ],
+        attentionGuardrail: null,
       },
       categories,
       activity
     )[1].content;
-    expect(prompt).toContain('1. "Solve the exercise"');
-    expect(prompt).toContain('2. "Read the paper"');
-    expect(prompt).toContain('completed task is intentionally absent');
+    expect(prompt).toContain('[daily:one] daily target: "Solve the exercise"');
+    expect(prompt).toContain('[daily:two] daily target: "Read the paper"');
     expect(prompt).not.toContain('Life:');
     expect(prompt).not.toContain('longer-term');
   });
 
   test('does not permit generic productivity when there is no effective goal', () => {
     const prompt = buildCoreClassificationPromptInput(
-      { scope: 'none', primaryGoal: null, dailyTasks: [] },
+      { scope: 'none', primaryGoal: null, dailyTasks: [], targets: [], attentionGuardrail: null },
       categories,
       activity
     )[1].content;
-    expect(prompt).toContain('There is no active goal');
-    expect(prompt).toContain('matchedGoalType must be null');
+    expect(prompt).toContain('No active productive target');
+    expect(prompt).toContain('matchedGoalRef and supportingMode must be null');
   });
 
   test('uses bounded local structured output without thinking', async () => {
@@ -70,9 +89,11 @@ describe('OllamaClassificationProvider', () => {
       expect(request.format.required).toEqual([
         'chosenCategoryName',
         'confidence',
-        'goalAlignment',
-        'matchedGoalType',
+        'goalRelation',
+        'matchedGoalRef',
+        'supportingMode',
         'goalEvidence',
+        'activityEvidence',
       ]);
       return new Response(
         JSON.stringify({
@@ -80,9 +101,11 @@ describe('OllamaClassificationProvider', () => {
             content: JSON.stringify({
               chosenCategoryName: 'Work',
               confidence: 0.9,
-              goalAlignment: 'explicit',
-              matchedGoalType: 'daily',
+              goalRelation: 'direct',
+              matchedGoalRef: 'daily:today:gp',
+              supportingMode: null,
               goalEvidence: 'The tutorial directly supports the daily Gaussian Processes goal.',
+              activityEvidence: 'Gaussian Process tutorial content',
               activityLabel: 'Gaussian Process tutorial',
               activitySummary: 'Studying Gaussian Process regression.',
               reasoning: 'a a a a a a a a a a a a a a a a a a a a a a a a a a',
@@ -116,9 +139,11 @@ describe('OllamaClassificationProvider', () => {
             content: JSON.stringify({
               chosenCategoryName: 'Distraction',
               confidence: '0.82',
-              goalAlignment: 'none',
-              matchedGoalType: null,
+              goalRelation: 'none',
+              matchedGoalRef: null,
+              supportingMode: null,
               goalEvidence: null,
+              activityEvidence: null,
             }),
           },
         }),
@@ -130,7 +155,7 @@ describe('OllamaClassificationProvider', () => {
     expect(result.choice).toMatchObject({
       chosenCategoryName: 'Distraction',
       confidence: 0.82,
-      matchedGoalType: null,
+      matchedGoalRef: null,
     });
   });
 
@@ -141,7 +166,7 @@ describe('OllamaClassificationProvider', () => {
         JSON.stringify({
           message: {
             content:
-              '```json\n{"chosenCategoryName":"Work","confidence":0.9,"goalAlignment":"explicit","matchedGoalType":"daily","goalEvidence":"Directly supports the stated study goal."}\n```',
+              '```json\n{"chosenCategoryName":"Work","confidence":0.9,"goalRelation":"direct","matchedGoalRef":"daily:today:gp","supportingMode":null,"goalEvidence":"Directly supports the stated study goal.","activityEvidence":"Visible Gaussian Process tutorial"}\n```',
           },
         }),
         { status: 200 }
@@ -165,9 +190,11 @@ describe('OllamaClassificationProvider', () => {
                 : JSON.stringify({
                     chosenCategoryName: 'Work',
                     confidence: 0.9,
-                    goalAlignment: 'explicit',
-                    matchedGoalType: 'daily',
+                    goalRelation: 'direct',
+                    matchedGoalRef: 'daily:today:gp',
+                    supportingMode: null,
                     goalEvidence: 'Directly supports the stated study goal.',
+                    activityEvidence: 'Visible Gaussian Process tutorial',
                   }),
           },
         }),
@@ -216,6 +243,32 @@ describe('OllamaClassificationProvider', () => {
       nudgeTitle: 'Close Instagram',
       nudgeBody:
         'Scrolling is borrowing time from your exam prep. Close it and open your notes now.',
+    });
+  });
+
+  test('derives a bounded local profile from the goal alone', async () => {
+    process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
+    globalThis.fetch = (async (_url: unknown, init: RequestInit | undefined) => {
+      const request = JSON.parse(String(init?.body));
+      expect(request.messages[1].content).toContain('Solve machine learning exercise sheet');
+      expect(request.messages[1].content).not.toContain('Firefox');
+      expect(request.options.num_predict).toBe(64);
+      return new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              subjectCues: ['machine learning', 'exercise problems'],
+              supportingModes: ['calculation_or_visualization', 'study_notes_or_retrieval'],
+            }),
+          },
+        }),
+        { status: 200 }
+      );
+    }) as unknown as typeof fetch;
+
+    await expect(new OllamaClassificationProvider().profileGoal('Solve machine learning exercise sheet')).resolves.toMatchObject({
+      subjectCues: ['machine learning', 'exercise problems'],
+      supportingModes: ['calculation_or_visualization', 'study_notes_or_retrieval'],
     });
   });
 });

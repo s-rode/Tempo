@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, jest, mock, test } from 'bun:test';
 
 const users = { findById: jest.fn(), findByIdAndUpdate: jest.fn() };
-const goalPlans = { findOne: jest.fn(), updateOne: jest.fn() };
+const goalPlans = { findOne: jest.fn(), updateOne: jest.fn(), updateMany: jest.fn() };
 const focusRuntime = { findOne: jest.fn() };
 const corrections = { updateMany: jest.fn() };
+const supportProfiles = { find: jest.fn() };
 
 mock.module('../models/user', () => ({ User: users }));
 mock.module('../models/goalPlan', () => ({ GoalPlanModel: goalPlans }));
@@ -17,10 +18,12 @@ mock.module('../models/focusRuntime', () => ({
 mock.module('../models/activityCorrectionRule', () => ({
   ActivityCorrectionRuleModel: corrections,
 }));
+mock.module('../models/goalSupportProfile', () => ({ GoalSupportProfileModel: supportProfiles }));
 
 const {
   ensureGoalPlanMigration,
   fingerprintEffectiveGoalContext,
+  fingerprintClassificationContext,
   getCurrentDailyPlanTask,
   goalPeriodFor,
   resolveEffectiveGoalContext,
@@ -40,6 +43,8 @@ describe('Tempo goal plans', () => {
       lean: jest.fn().mockResolvedValue(null),
     });
     goalPlans.findOne.mockReturnValue(findChain(null));
+    goalPlans.updateMany.mockResolvedValue({});
+    supportProfiles.find.mockReturnValue(findChain([]));
   });
 
   test('uses a running work-phase goal ahead of every persisted plan', async () => {
@@ -54,7 +59,7 @@ describe('Tempo goal plans', () => {
       }),
     });
 
-    expect(await resolveEffectiveGoalContext('user')).toEqual({
+    expect(await resolveEffectiveGoalContext('user')).toMatchObject({
       scope: 'session',
       primaryGoal: 'Finish the ML exercise set',
       dailyTasks: [],
@@ -75,7 +80,7 @@ describe('Tempo goal plans', () => {
       )
       .mockReturnValueOnce(findChain({ text: 'Prepare for the exam' }));
 
-    expect(await resolveEffectiveGoalContext('user')).toEqual({
+    expect(await resolveEffectiveGoalContext('user')).toMatchObject({
       scope: 'daily',
       primaryGoal: 'Solve the exercise',
       dailyTasks: ['Solve the exercise', 'Read the paper'],
@@ -107,7 +112,7 @@ describe('Tempo goal plans', () => {
       )
       .mockReturnValueOnce(findChain({ text: 'Prepare for the exam' }));
 
-    expect(await resolveEffectiveGoalContext('user')).toEqual({
+    expect(await resolveEffectiveGoalContext('user')).toMatchObject({
       scope: 'weekly',
       primaryGoal: 'Prepare for the exam',
       dailyTasks: [],
@@ -115,7 +120,7 @@ describe('Tempo goal plans', () => {
   });
 
   test('returns no classification goal without session, remaining task, or weekly focus', async () => {
-    expect(await resolveEffectiveGoalContext('user')).toEqual({
+    expect(await resolveEffectiveGoalContext('user')).toMatchObject({
       scope: 'none',
       primaryGoal: null,
       dailyTasks: [],
@@ -136,6 +141,23 @@ describe('Tempo goal plans', () => {
     expect(first).not.toBe(reordered);
   });
 
+  test('keeps manual-correction scope stable while guardrails invalidate model history', () => {
+    const withoutGuardrail = {
+      scope: 'weekly' as const,
+      primaryGoal: 'Prepare for the exam',
+      dailyTasks: [],
+      targets: [],
+      attentionGuardrail: null,
+    };
+    const withGuardrail = { ...withoutGuardrail, attentionGuardrail: 'Avoid mindless browsing.' };
+    expect(fingerprintEffectiveGoalContext(withoutGuardrail)).toBe(
+      fingerprintEffectiveGoalContext(withGuardrail)
+    );
+    expect(fingerprintClassificationContext(withoutGuardrail)).not.toBe(
+      fingerprintClassificationContext(withGuardrail)
+    );
+  });
+
   test('migrates inherited goal strings once without discarding their backup', async () => {
     let version = 0;
     users.findById.mockReturnValue({
@@ -150,7 +172,7 @@ describe('Tempo goal plans', () => {
       })),
     });
     users.findByIdAndUpdate.mockImplementation(async () => {
-      version = 1;
+      version = 2;
     });
     goalPlans.updateOne.mockResolvedValue({});
     corrections.updateMany.mockResolvedValue({});
@@ -164,7 +186,7 @@ describe('Tempo goal plans', () => {
     await ensureGoalPlanMigration('user');
     expect(goalPlans.updateOne).toHaveBeenCalledTimes(3);
     expect(users.findByIdAndUpdate).toHaveBeenCalledWith('user', {
-      $set: { goalPlanMigrationVersion: 1 },
+      $set: { goalPlanMigrationVersion: 2 },
     });
   });
 

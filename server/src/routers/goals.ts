@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { GoalPlanModel, GoalTask } from '../models/goalPlan';
 import {
   DailyPlanSnapshot,
+  fingerprintClassificationContext,
   fingerprintEffectiveGoalContext,
   getCurrentPlanning,
   getDailyPlan,
@@ -12,6 +13,10 @@ import {
   resolveEffectiveGoalContext,
 } from '../services/goalPlans';
 import { cancelPendingEnrichment } from '../services/categorization/enrichmentScheduler';
+import {
+  cancelPendingGoalSupportProfiles,
+  ensureGoalSupportProfiles,
+} from '../services/categorization/goalSupportProfileScheduler';
 import { publicProcedure, router } from '../trpc';
 import { verifyToken } from './auth';
 
@@ -27,9 +32,12 @@ const persistedTask = z.object({
 const changed = async (userId: string, beforeFingerprint: string) => {
   cancelPendingEnrichment(userId);
   const context = await resolveEffectiveGoalContext(userId);
+  ensureGoalSupportProfiles(userId, context);
   return {
     context,
     effectiveContextChanged: fingerprintEffectiveGoalContext(context) !== beforeFingerprint,
+    classificationContextFingerprint: fingerprintClassificationContext(context),
+    profilePending: Boolean(context.targets?.some((target) => !target.supportProfile)),
   };
 };
 
@@ -38,6 +46,7 @@ const changed = async (userId: string, beforeFingerprint: string) => {
 // the tiny interval in which a new capture could arrive.
 const prepareGoalMutation = async (userId: string): Promise<string> => {
   cancelPendingEnrichment(userId);
+  cancelPendingGoalSupportProfiles(userId);
   return fingerprintEffectiveGoalContext(await resolveEffectiveGoalContext(userId));
 };
 
@@ -72,7 +81,12 @@ export const goalsRouter = router({
   }),
   getActiveContext: publicProcedure.input(tokenInput).query(async ({ input }) => {
     const userId = verifyToken(input.token).userId;
-    return resolveEffectiveGoalContext(userId);
+    const context = await resolveEffectiveGoalContext(userId);
+    return {
+      ...context,
+      classificationContextFingerprint: fingerprintClassificationContext(context),
+      profilePending: Boolean(context.targets?.some((target) => !target.supportProfile)),
+    };
   }),
   addDailyTask: publicProcedure
     .input(tokenInput.extend({ text: taskText }))
@@ -219,7 +233,12 @@ export const goalsRouter = router({
       };
     }),
   setWeeklyFocus: publicProcedure
-    .input(tokenInput.extend({ text: z.string().trim().max(1000) }))
+    .input(
+      tokenInput.extend({
+        focusText: z.string().trim().max(1000),
+        attentionGuardrail: z.string().trim().max(1000).optional().default(''),
+      })
+    )
     .mutation(async ({ input }) => {
       const userId = verifyToken(input.token).userId;
       const before = await prepareGoalMutation(userId);
@@ -231,7 +250,12 @@ export const goalsRouter = router({
             scope: 'weekly',
             periodKey: goalPeriodFor.weekKey(),
             timeZone: localTimeZone(),
-            text: input.text,
+            // Retain text for older local builds that may still read it, but
+            // use the split values for every current classification path.
+            text: input.focusText,
+            focusText: input.focusText,
+            attentionGuardrail: input.attentionGuardrail,
+            focusReviewPending: false,
             tasks: [],
           },
         },

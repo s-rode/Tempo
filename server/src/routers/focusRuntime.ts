@@ -19,7 +19,11 @@ import {
 } from '../services/focusRuntime';
 import { cancelPendingEnrichment } from '../services/categorization/enrichmentScheduler';
 import { FocusRunHistoryModel } from '../models/focusRuntime';
-import { getCurrentDailyPlanTask } from '../services/goalPlans';
+import { getCurrentDailyPlanTask, resolveEffectiveGoalContext } from '../services/goalPlans';
+import {
+  cancelPendingGoalSupportProfiles,
+  ensureGoalSupportProfiles,
+} from '../services/categorization/goalSupportProfileScheduler';
 
 const tokenInput = z.object({ token: z.string() });
 const durations = z.union([
@@ -80,6 +84,10 @@ const runtimeFor = async (token: string, heartbeat = true) => {
   if (heartbeat) runtime.lastHeartbeatAtMs = now;
   await saveRuntime(runtime);
   return runtime;
+};
+
+const scheduleActiveGoalProfile = async (userId: string): Promise<void> => {
+  ensureGoalSupportProfiles(userId, await resolveEffectiveGoalContext(userId));
 };
 
 export const focusRuntimeRouter = router({
@@ -150,6 +158,7 @@ export const focusRuntimeRouter = router({
   resumeSystemSuspension: publicProcedure.input(tokenInput).mutation(async ({ input }) => {
     const userId = verifyToken(input.token).userId;
     cancelPendingEnrichment(userId);
+    cancelPendingGoalSupportProfiles(userId);
     return resumeFromStaleSystemSuspension(userId);
   }),
 
@@ -159,6 +168,7 @@ export const focusRuntimeRouter = router({
       const userId = verifyToken(input.token).userId;
       const runtime = await runtimeFor(input.token);
       cancelPendingEnrichment(userId);
+      cancelPendingGoalSupportProfiles(userId);
       if (runtime.run?.state === 'active')
         throw new TRPCError({
           code: 'CONFLICT',
@@ -174,6 +184,7 @@ export const focusRuntimeRouter = router({
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
       await saveRuntime(runtime);
+      await scheduleActiveGoalProfile(userId);
       return runtimeSnapshot(runtime);
     }),
 
@@ -183,28 +194,28 @@ export const focusRuntimeRouter = router({
       const userId = verifyToken(input.token).userId;
       const runtime = await runtimeFor(input.token);
       cancelPendingEnrichment(userId);
+      cancelPendingGoalSupportProfiles(userId);
       if (runtime.run?.state === 'active')
         throw new TRPCError({
           code: 'CONFLICT',
           message: 'Finish the current focus session first.',
         });
       const resolvedGoal = await resolveGoalSource(userId, input.firstGoalSource);
-      runtime.run = createPomodoroRun(
-        resolvedGoal.goal,
-        Date.now(),
-        resolvedGoal.todayPlanTask
-      );
+      runtime.run = createPomodoroRun(resolvedGoal.goal, Date.now(), resolvedGoal.todayPlanTask);
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
       await saveRuntime(runtime);
+      await scheduleActiveGoalProfile(userId);
       return runtimeSnapshot(runtime);
     }),
 
   confirmWorkGoal: publicProcedure
     .input(tokenInput.extend({ goalSource }))
     .mutation(async ({ input }) => {
+      const userId = verifyToken(input.token).userId;
       const runtime = await runtimeFor(input.token);
-      cancelPendingEnrichment(verifyToken(input.token).userId);
+      cancelPendingEnrichment(userId);
+      cancelPendingGoalSupportProfiles(userId);
       const phase = currentPhase(runtime);
       if (
         runtime.run?.kind !== 'pomodoro' ||
@@ -217,7 +228,7 @@ export const focusRuntimeRouter = router({
           message: 'Tempo is not waiting for a Pomodoro work goal.',
         });
       }
-      const resolvedGoal = await resolveGoalSource(verifyToken(input.token).userId, input.goalSource);
+      const resolvedGoal = await resolveGoalSource(userId, input.goalSource);
       phase.goal = resolvedGoal.goal;
       phase.todayPlanTask = resolvedGoal.todayPlanTask;
       phase.state = 'running';
@@ -225,14 +236,17 @@ export const focusRuntimeRouter = router({
       phase.startedAtMs = phase.runningSinceMs;
       phase.completedAtMs = null;
       await saveRuntime(runtime);
+      await scheduleActiveGoalProfile(userId);
       return runtimeSnapshot(runtime);
     }),
 
   pause: publicProcedure
     .input(tokenInput.extend({ durationMinutes: pauseDurations }))
     .mutation(async ({ input }) => {
+      const userId = verifyToken(input.token).userId;
       const runtime = await runtimeFor(input.token);
-      cancelPendingEnrichment(verifyToken(input.token).userId);
+      cancelPendingEnrichment(userId);
+      cancelPendingGoalSupportProfiles(userId);
       const now = Date.now();
       freezePhase(runtime, now);
       runtime.manualPauseUntilMs = now + input.durationMinutes * 60_000;
@@ -242,18 +256,23 @@ export const focusRuntimeRouter = router({
     }),
 
   resume: publicProcedure.input(tokenInput).mutation(async ({ input }) => {
+    const userId = verifyToken(input.token).userId;
     const runtime = await runtimeFor(input.token);
-    cancelPendingEnrichment(verifyToken(input.token).userId);
+    cancelPendingEnrichment(userId);
+    cancelPendingGoalSupportProfiles(userId);
     runtime.manualPauseUntilMs = null;
     runtime.manualPausedAtMs = null;
     resumePhase(runtime, Date.now());
     await saveRuntime(runtime);
+    await scheduleActiveGoalProfile(userId);
     return runtimeSnapshot(runtime);
   }),
 
   skipBreak: publicProcedure.input(tokenInput).mutation(async ({ input }) => {
+    const userId = verifyToken(input.token).userId;
     const runtime = await runtimeFor(input.token);
-    cancelPendingEnrichment(verifyToken(input.token).userId);
+    cancelPendingEnrichment(userId);
+    cancelPendingGoalSupportProfiles(userId);
     const phase = currentPhase(runtime);
     if (!runtime.run || !phase || (phase.kind !== 'short_break' && phase.kind !== 'long_break')) {
       throw new TRPCError({
@@ -278,8 +297,10 @@ export const focusRuntimeRouter = router({
   }),
 
   endRun: publicProcedure.input(tokenInput).mutation(async ({ input }) => {
+    const userId = verifyToken(input.token).userId;
     const runtime = await runtimeFor(input.token);
-    cancelPendingEnrichment(verifyToken(input.token).userId);
+    cancelPendingEnrichment(userId);
+    cancelPendingGoalSupportProfiles(userId);
     if (runtime.run?.state === 'active') {
       completeRun(runtime, Date.now(), 'cancelled');
       await archiveFinishedRun(runtime);

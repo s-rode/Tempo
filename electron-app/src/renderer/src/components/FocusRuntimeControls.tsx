@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from '../hooks/use-toast'
 import { trpc } from '../utils/trpc'
+import { scheduleGoalProfileRefresh } from '../lib/goalProfileRefresh'
 import { Button } from './ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
@@ -54,7 +55,8 @@ export function FocusRuntimeControls({
     { enabled: !!token && open }
   )
   const activePlanTasks = useMemo(
-    () => ((dailyPlan?.tasks || []) as PlanTaskOption[]).filter((task) => task.completedAtMs === null),
+    () =>
+      ((dailyPlan?.tasks || []) as PlanTaskOption[]).filter((task) => task.completedAtMs === null),
     [dailyPlan]
   )
   const selectedTask = activePlanTasks.find((task) => task.id === selectedTaskId) || null
@@ -64,6 +66,12 @@ export function FocusRuntimeControls({
     setSelectedTaskId('')
     setOpen(false)
     invalidate()
+    void utils.goals.getActiveContext.fetch({ token: token || '' }).then((context) => {
+      void window.api?.refreshCurrentActivity()
+      scheduleGoalProfileRefresh(context, () =>
+        utils.goals.getActiveContext.fetch({ token: token || '' })
+      )
+    })
   }
   const showError = (error: { message: string }) =>
     toast({ title: 'Could not start focus', description: error.message, variant: 'destructive' })
@@ -215,9 +223,7 @@ export function FocusRuntimeControls({
                 <select
                   className="tempo-field w-full"
                   value={duration}
-                  onChange={(event) =>
-                    setDuration(Number(event.target.value) as typeof duration)
-                  }
+                  onChange={(event) => setDuration(Number(event.target.value) as typeof duration)}
                   aria-label="Custom focus duration"
                 >
                   {customDurations.map((minutes) => (
@@ -248,7 +254,11 @@ export function FocusRuntimeControls({
                     <Focus size={15} />
                     Pomodoro
                   </Button>
-                  <Button size="sm" disabled={!hasGoal || busy} onClick={() => submitGoal('custom')}>
+                  <Button
+                    size="sm"
+                    disabled={!hasGoal || busy}
+                    onClick={() => submitGoal('custom')}
+                  >
                     <Play size={15} />
                     Start Focus
                   </Button>
@@ -296,7 +306,12 @@ export function FocusRuntimeControls({
                 />
               ) : null}
               {isBreak ? (
-                <Button variant="outline" size="sm" disabled={busy} onClick={() => skipBreak.mutate({ token })}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => skipBreak.mutate({ token })}
+                >
                   Skip break
                 </Button>
               ) : null}

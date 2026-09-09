@@ -1,9 +1,15 @@
 import crypto from 'crypto';
 import { randomUUID } from 'crypto';
 import { ActivityCorrectionRuleModel } from '../models/activityCorrectionRule';
+import { GoalSupportProfileModel } from '../models/goalSupportProfile';
 import { GoalPlanModel, GoalTask } from '../models/goalPlan';
 import { FocusRuntimeModel } from '../models/focusRuntime';
 import { User as UserModel } from '../models/user';
+import {
+  GOAL_SUPPORT_PROFILE_POLICY_VERSION,
+  GoalSupportProfileData,
+  isSupportingMode,
+} from './categorization/goalSupportTypes';
 
 export type EffectiveGoalScope = 'session' | 'daily' | 'weekly' | 'none';
 
@@ -13,6 +19,18 @@ export interface EffectiveGoalContext {
   primaryGoal: string | null;
   /** All remaining tasks, ordered by the user's explicit priority. */
   dailyTasks: string[];
+  /** Individually addressable active targets for model validation. */
+  targets?: EffectiveGoalTarget[];
+  /** An optional weekly ambiguity guardrail; it is never a productive target. */
+  attentionGuardrail?: string | null;
+}
+
+export interface EffectiveGoalTarget {
+  ref: string;
+  scope: Exclude<EffectiveGoalScope, 'none'>;
+  text: string;
+  textFingerprint: string;
+  supportProfile: GoalSupportProfileData | null;
 }
 
 export interface DailyPlanSnapshot {
@@ -27,7 +45,7 @@ export interface CurrentDailyPlanTask {
   dateKey: string;
 }
 
-const migrationVersion = 1;
+const migrationVersion = 2;
 
 export const localTimeZone = (): string =>
   Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -93,6 +111,33 @@ export const fingerprintEffectiveGoalContext = (context: EffectiveGoalContext): 
     .digest('hex');
 
 /**
+ * History/cache reuse must include the policy and profile revisions. Manual
+ * correction rules intentionally continue to use fingerprintEffectiveGoalContext.
+ */
+export const fingerprintClassificationContext = (context: EffectiveGoalContext): string =>
+  crypto
+    .createHash('sha256')
+    .update(
+      JSON.stringify({
+        // Unlike manual corrections, reusable model/history decisions must be
+        // invalidated whenever the relation policy, an active support profile,
+        // or the ambiguity-only weekly guardrail changes.
+        version: 'goal-relation-v1',
+        effective: fingerprintEffectiveGoalContext(context),
+        attentionGuardrail: context.attentionGuardrail?.trim() || '',
+        profiles: (context.targets || []).map((target) => ({
+          ref: target.ref,
+          textFingerprint: target.textFingerprint,
+          revision: target.supportProfile?.revision || 'pending',
+        })),
+      })
+    )
+    .digest('hex');
+
+export const fingerprintGoalText = (text: string): string =>
+  crypto.createHash('sha256').update(text.trim()).digest('hex');
+
+/**
  * Moves only the currently active legacy goal context onto the v2 fingerprint.
  * Older, unmatched rules remain stored rather than becoming accidentally broad.
  */
@@ -132,7 +177,7 @@ export async function ensureGoalPlanMigration(userId: string): Promise<void> {
   const dateKey = localDateKey(now);
   const currentWeekKey = weekStartKey(now);
 
-  if (legacyGoals.dailyGoal?.trim()) {
+  if (user.goalPlanMigrationVersion < 1 && legacyGoals.dailyGoal?.trim()) {
     await GoalPlanModel.updateOne(
       { userId, scope: 'daily', periodKey: dateKey },
       {
@@ -150,12 +195,14 @@ export async function ensureGoalPlanMigration(userId: string): Promise<void> {
             },
           ],
           text: '',
+          focusText: '',
+          attentionGuardrail: '',
         },
       },
       { upsert: true }
     );
   }
-  if (legacyGoals.weeklyGoal?.trim()) {
+  if (user.goalPlanMigrationVersion < 1 && legacyGoals.weeklyGoal?.trim()) {
     await GoalPlanModel.updateOne(
       { userId, scope: 'weekly', periodKey: currentWeekKey },
       {
@@ -166,12 +213,15 @@ export async function ensureGoalPlanMigration(userId: string): Promise<void> {
           timeZone: zone,
           tasks: [],
           text: legacyGoals.weeklyGoal.trim(),
+          focusText: legacyGoals.weeklyGoal.trim(),
+          attentionGuardrail: '',
+          focusReviewPending: true,
         },
       },
       { upsert: true }
     );
   }
-  if (legacyGoals.lifeGoal?.trim()) {
+  if (user.goalPlanMigrationVersion < 1 && legacyGoals.lifeGoal?.trim()) {
     await GoalPlanModel.updateOne(
       { userId, scope: 'direction', periodKey: 'current' },
       {
@@ -193,11 +243,48 @@ export async function ensureGoalPlanMigration(userId: string): Promise<void> {
         scope: 'daily' as const,
         primaryGoal: legacyGoals.dailyGoal.trim(),
         dailyTasks: [legacyGoals.dailyGoal.trim()],
+        targets: [],
+        attentionGuardrail: null,
       }
     : legacyGoals.weeklyGoal?.trim()
-      ? { scope: 'weekly' as const, primaryGoal: legacyGoals.weeklyGoal.trim(), dailyTasks: [] }
-      : { scope: 'none' as const, primaryGoal: null, dailyTasks: [] };
-  await migrateMatchingCorrectionContext(userId, legacyGoals, daily);
+      ? {
+          scope: 'weekly' as const,
+          primaryGoal: legacyGoals.weeklyGoal.trim(),
+          dailyTasks: [],
+          targets: [],
+          attentionGuardrail: null,
+        }
+      : {
+          scope: 'none' as const,
+          primaryGoal: null,
+          dailyTasks: [],
+          targets: [],
+          attentionGuardrail: null,
+        };
+  if (user.goalPlanMigrationVersion < 1)
+    await migrateMatchingCorrectionContext(userId, legacyGoals, daily);
+
+  // Version 2 splits previously persisted weekly free-form text into a
+  // positive classification target and an optional empty guardrail. This is
+  // an idempotent database-side migration, so it neither rewrites user text
+  // nor loads it into logs or a model.
+  await GoalPlanModel.updateMany(
+    {
+      userId,
+      scope: 'weekly',
+      text: { $type: 'string', $ne: '' },
+      $or: [{ focusText: { $exists: false } }, { focusText: '' }, { focusText: null }],
+    },
+    [
+      {
+        $set: {
+          focusText: '$text',
+          attentionGuardrail: { $ifNull: ['$attentionGuardrail', ''] },
+          focusReviewPending: true,
+        },
+      },
+    ]
+  );
   await UserModel.findByIdAndUpdate(userId, {
     $set: { goalPlanMigrationVersion: migrationVersion },
   });
@@ -238,6 +325,8 @@ export async function getCurrentPlanning(
   weekStartKey: string;
   timeZone: string;
   weeklyFocus: string;
+  attentionGuardrail: string;
+  needsWeeklyFocusReview: boolean;
   longTermDirection: string;
 }> {
   await ensureGoalPlanMigration(userId);
@@ -249,8 +338,58 @@ export async function getCurrentPlanning(
   return {
     weekStartKey: currentWeekKey,
     timeZone: weekly?.timeZone || direction?.timeZone || localTimeZone(),
-    weeklyFocus: weekly?.text || '',
+    weeklyFocus: weekly?.focusText || weekly?.text || '',
+    attentionGuardrail: weekly?.attentionGuardrail || '',
+    needsWeeklyFocusReview: Boolean(
+      weekly?.focusReviewPending || (weekly?.text?.trim() && !weekly?.focusText?.trim())
+    ),
     longTermDirection: direction?.text || '',
+  };
+}
+
+const target = (
+  ref: string,
+  scope: Exclude<EffectiveGoalScope, 'none'>,
+  text: string
+): EffectiveGoalTarget => ({
+  ref,
+  scope,
+  text,
+  textFingerprint: fingerprintGoalText(text),
+  supportProfile: null,
+});
+
+async function attachSupportProfiles(
+  userId: string,
+  context: EffectiveGoalContext
+): Promise<EffectiveGoalContext> {
+  if (!context.targets?.length) return context;
+  const profiles = await GoalSupportProfileModel.find({
+    userId,
+    policyVersion: GOAL_SUPPORT_PROFILE_POLICY_VERSION,
+    $or: context.targets.map((item) => ({
+      goalRef: item.ref,
+      goalTextFingerprint: item.textFingerprint,
+    })),
+  }).lean();
+  const byTarget = new Map(
+    profiles.map((profile) => [
+      `${profile.goalRef}:${profile.goalTextFingerprint}`,
+      {
+        subjectCues: (profile.subjectCues || [])
+          .filter((value): value is string => typeof value === 'string')
+          .slice(0, 6),
+        supportingModes: (profile.supportingModes || []).filter(isSupportingMode).slice(0, 5),
+        revision: profile.revision,
+      } satisfies GoalSupportProfileData,
+    ])
+  );
+  return {
+    ...context,
+    targets: context.targets.map((item) => ({
+      ...item,
+      supportProfile: byTarget.get(`${item.ref}:${item.textFingerprint}`) || null,
+    })),
   };
 }
 
@@ -260,7 +399,13 @@ export async function resolveEffectiveGoalContext(userId: string): Promise<Effec
   const phase =
     runtime?.run?.state === 'active' ? runtime.run.phases?.[runtime.run.currentPhaseIndex] : null;
   if (phase?.kind === 'work' && phase?.state === 'running' && phase.goal?.trim()) {
-    return { scope: 'session', primaryGoal: phase.goal.trim(), dailyTasks: [] };
+    return attachSupportProfiles(userId, {
+      scope: 'session',
+      primaryGoal: phase.goal.trim(),
+      dailyTasks: [],
+      targets: [target(`session:${runtime.run.id}:${phase.id}`, 'session', phase.goal.trim())],
+      attentionGuardrail: null,
+    });
   }
 
   const now = Date.now();
@@ -268,14 +413,38 @@ export async function resolveEffectiveGoalContext(userId: string): Promise<Effec
     GoalPlanModel.findOne({ userId, scope: 'daily', periodKey: localDateKey(now) }).lean(),
     GoalPlanModel.findOne({ userId, scope: 'weekly', periodKey: weekStartKey(now) }).lean(),
   ]);
-  const remaining = activeTasks((daily?.tasks || []) as GoalTask[]).map((task) => task.text.trim());
+  const remainingTasks = activeTasks((daily?.tasks || []) as GoalTask[]);
+  const remaining = remainingTasks.map((item) => item.text.trim());
   if (remaining.length) {
-    return { scope: 'daily', primaryGoal: remaining[0], dailyTasks: remaining };
+    const dayKey = localDateKey(now);
+    return attachSupportProfiles(userId, {
+      scope: 'daily',
+      primaryGoal: remaining[0],
+      dailyTasks: remaining,
+      targets: remainingTasks.map((item) =>
+        target(`daily:${dayKey}:${item.id}`, 'daily', item.text.trim())
+      ),
+      attentionGuardrail: null,
+    });
   }
-  if (weekly?.text?.trim()) {
-    return { scope: 'weekly', primaryGoal: weekly.text.trim(), dailyTasks: [] };
+  const weeklyFocus = weekly?.focusText?.trim() || weekly?.text?.trim() || '';
+  if (weeklyFocus) {
+    const key = weekStartKey(now);
+    return attachSupportProfiles(userId, {
+      scope: 'weekly',
+      primaryGoal: weeklyFocus,
+      dailyTasks: [],
+      targets: [target(`weekly:${key}`, 'weekly', weeklyFocus)],
+      attentionGuardrail: weekly?.attentionGuardrail?.trim() || null,
+    });
   }
-  return { scope: 'none', primaryGoal: null, dailyTasks: [] };
+  return {
+    scope: 'none',
+    primaryGoal: null,
+    dailyTasks: [],
+    targets: [],
+    attentionGuardrail: null,
+  };
 }
 
 export const goalPeriodFor = {

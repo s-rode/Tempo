@@ -23,6 +23,12 @@ const goalPlanSchema = new mongoose.Schema(
     periodKey: { type: String, required: true },
     timeZone: { type: String, required: true },
     tasks: { type: [goalTaskSchema], default: [] },
+    // `text` is retained for historical/migration compatibility. New weekly
+    // plans use a positive focus plus an optional ambiguity-only guardrail.
+    focusText: { type: String, default: '', trim: true, maxlength: 1000 },
+    attentionGuardrail: { type: String, default: '', trim: true, maxlength: 1000 },
+    /** A quiet one-time prompt to review a weekly goal imported from legacy text. */
+    focusReviewPending: { type: Boolean, default: false },
     text: { type: String, default: '', trim: true, maxlength: 1000 },
   },
   { timestamps: true }

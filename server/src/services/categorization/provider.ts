@@ -3,10 +3,13 @@ import { ActiveWindowDetails, Category as CategoryType } from '../../../../share
 import {
   buildCoreClassificationPromptInput,
   buildEnrichmentPromptInput,
+  buildGoalSupportProfilePromptInput,
   CoreClassificationDecisionSchema,
   EnrichmentSchema,
   EffectiveGoalContext,
+  GoalSupportProfileSchema,
 } from './llm';
+import { GoalSupportProfileData, isSupportingMode } from './goalSupportTypes';
 
 export type ClassificationStatus =
   | 'history'
@@ -57,6 +60,7 @@ export interface ClassificationProvider {
     activity: ActivityContext,
     signal?: AbortSignal
   ): Promise<ClassificationEnrichment | null>;
+  profileGoal(goal: string, signal?: AbortSignal): Promise<GoalSupportProfileData | null>;
 }
 
 function getLoopbackOllamaUrl(): URL {
@@ -72,17 +76,54 @@ const coreResponseSchema = {
   properties: {
     chosenCategoryName: { type: 'string', maxLength: 64 },
     confidence: { type: 'number', minimum: 0, maximum: 1 },
-    goalAlignment: { type: 'string', enum: ['explicit', 'none', 'insufficient'] },
-    matchedGoalType: { type: ['string', 'null'], enum: ['daily', 'weekly', 'session', null] },
+    goalRelation: { type: 'string', enum: ['direct', 'supporting', 'none', 'insufficient'] },
+    matchedGoalRef: { type: ['string', 'null'], maxLength: 120 },
+    supportingMode: {
+      type: ['string', 'null'],
+      enum: [
+        'calculation_or_visualization',
+        'study_notes_or_retrieval',
+        'read_reference',
+        'coding_or_analysis',
+        'drafting_or_problem_solving',
+        null,
+      ],
+    },
     goalEvidence: { type: ['string', 'null'], maxLength: 100 },
+    activityEvidence: { type: ['string', 'null'], maxLength: 100 },
   },
   required: [
     'chosenCategoryName',
     'confidence',
-    'goalAlignment',
-    'matchedGoalType',
+    'goalRelation',
+    'matchedGoalRef',
+    'supportingMode',
     'goalEvidence',
+    'activityEvidence',
   ],
+};
+
+const goalSupportProfileResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    subjectCues: { type: 'array', items: { type: 'string', maxLength: 32 }, maxItems: 6 },
+    supportingModes: {
+      type: 'array',
+      items: {
+        type: 'string',
+        enum: [
+          'calculation_or_visualization',
+          'study_notes_or_retrieval',
+          'read_reference',
+          'coding_or_analysis',
+          'drafting_or_problem_solving',
+        ],
+      },
+      maxItems: 5,
+    },
+  },
+  required: ['subjectCues', 'supportingModes'],
 };
 
 const enrichmentResponseSchema = {
@@ -135,7 +176,8 @@ function parseStructuredResponse(raw: string): unknown | null {
 
 function normalizeCoreDecision(
   value: unknown,
-  categories: PromptCategory[]
+  categories: PromptCategory[],
+  goals: EffectiveGoalContext
 ): { decision: CoreClassificationDecision | null; failure?: ClassificationFailureCode } {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     return { decision: null, failure: 'invalid_decision_shape' };
@@ -158,21 +200,56 @@ function normalizeCoreDecision(
       : Number.NaN;
   if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1)
     return { decision: null, failure: 'invalid_decision_shape' };
-  const alignment =
-    typeof raw.goalAlignment === 'string' ? raw.goalAlignment.trim().toLowerCase() : '';
-  const goalAlignment =
-    alignment === 'explicit' || alignment === 'none' || alignment === 'insufficient'
-      ? alignment
+  const rawRelation =
+    typeof raw.goalRelation === 'string' ? raw.goalRelation.trim().toLowerCase() : '';
+  const goalRelation =
+    rawRelation === 'direct' ||
+    rawRelation === 'supporting' ||
+    rawRelation === 'none' ||
+    rawRelation === 'insufficient'
+      ? rawRelation
       : 'insufficient';
-  const goalType = raw.matchedGoalType;
-  const matchedGoalType =
-    goalType === 'daily' || goalType === 'weekly' || goalType === 'session' ? goalType : null;
+  const rawGoalRef =
+    typeof raw.matchedGoalRef === 'string'
+      ? raw.matchedGoalRef.trim().replace(/^['"`]+|['"`]+$/g, '')
+      : null;
+  const matchedGoalRef =
+    rawGoalRef && (goals.targets || []).some((target) => target.ref === rawGoalRef)
+      ? rawGoalRef
+      : null;
+  const supportingMode = isSupportingMode(raw.supportingMode) ? raw.supportingMode : null;
   const goalEvidence =
     typeof raw.goalEvidence === 'string' && raw.goalEvidence.trim()
       ? raw.goalEvidence.trim().slice(0, 100)
       : null;
+  const activityEvidence =
+    typeof raw.activityEvidence === 'string' && raw.activityEvidence.trim()
+      ? raw.activityEvidence.trim().slice(0, 100)
+      : null;
+  if (
+    (goalRelation === 'direct' || goalRelation === 'supporting') &&
+    (!matchedGoalRef || !goalEvidence || !activityEvidence)
+  )
+    return { decision: null, failure: 'invalid_decision_shape' };
+  if (
+    (goalRelation === 'none' || goalRelation === 'insufficient') &&
+    (matchedGoalRef || supportingMode)
+  )
+    return { decision: null, failure: 'invalid_decision_shape' };
+  if (goalRelation === 'supporting' && !supportingMode)
+    return { decision: null, failure: 'invalid_decision_shape' };
+  if (goalRelation === 'direct' && supportingMode)
+    return { decision: null, failure: 'invalid_decision_shape' };
   return {
-    decision: { chosenCategoryName, confidence, goalAlignment, matchedGoalType, goalEvidence },
+    decision: {
+      chosenCategoryName,
+      confidence,
+      goalRelation,
+      matchedGoalRef,
+      supportingMode,
+      goalEvidence,
+      activityEvidence,
+    },
   };
 }
 
@@ -276,7 +353,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       const json = parseStructuredResponse(response.content);
       return json === null
         ? { decision: null, failure: 'invalid_json' as const }
-        : normalizeCoreDecision(json, categories);
+        : normalizeCoreDecision(json, categories, goals);
     };
     const first = resolve(
       await chat(
@@ -307,7 +384,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         index === 1
           ? {
               ...message,
-              content: `${message.content}\nRETRY: Return only the five required decision fields. Do not add prose.`,
+              content: `${message.content}\nRETRY: Return only the required decision fields. Do not add prose.`,
             }
           : message
     );
@@ -359,6 +436,28 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       nudgeTitle: parsed.data.nudgeTitle ? clip(parsed.data.nudgeTitle, 60) : null,
       nudgeBody: parsed.data.nudgeBody ? clip(parsed.data.nudgeBody, 120) : null,
     };
+  }
+
+  async profileGoal(goal: string, signal?: AbortSignal): Promise<GoalSupportProfileData | null> {
+    const result = await chat(
+      buildGoalSupportProfilePromptInput(goal),
+      goalSupportProfileResponseSchema,
+      Math.min(64, ollamaConfig().numPredict),
+      10000,
+      signal
+    );
+    if (!result.content || signal?.aborted) return null;
+    const parsed = GoalSupportProfileSchema.safeParse(parseStructuredResponse(result.content));
+    if (!parsed.success) return null;
+    const subjectCues = [
+      ...new Set(parsed.data.subjectCues.map((cue) => cue.trim()).filter(Boolean)),
+    ]
+      .slice(0, 6)
+      .map((cue) => cue.slice(0, 32));
+    const supportingModes = [...new Set(parsed.data.supportingModes)].slice(0, 5);
+    // The scheduler computes the stable persisted revision. It is blank here
+    // so provider callers never need to retain the goal text or raw response.
+    return { subjectCues, supportingModes, revision: '' };
   }
 }
 

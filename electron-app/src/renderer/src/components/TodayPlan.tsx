@@ -18,6 +18,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { toast } from '../hooks/use-toast'
 import { cn } from '../lib/utils'
 import { trpc } from '../utils/trpc'
+import { scheduleGoalProfileRefresh } from '../lib/goalProfileRefresh'
 import { Button } from './ui/button'
 import {
   DropdownMenu,
@@ -76,9 +77,16 @@ export function TodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): Re
     void utils.activeWindowEvents.getLatestEvent.invalidate()
     void utils.activeWindowEvents.getEventsForDateRange.invalidate()
   }
-  const refreshIfChanged = (result: { effectiveContextChanged: boolean }) => {
+  const refreshIfChanged = (result: {
+    effectiveContextChanged: boolean
+    classificationContextFingerprint: string
+    profilePending: boolean
+  }) => {
     invalidate()
     if (result.effectiveContextChanged) void window.api?.refreshCurrentActivity()
+    scheduleGoalProfileRefresh(result, () =>
+      utils.goals.getActiveContext.fetch({ token: token || '' })
+    )
   }
   const add = trpc.goals.addDailyTask.useMutation({ onSuccess: refreshIfChanged })
   const update = trpc.goals.updateDailyTask.useMutation({ onSuccess: refreshIfChanged })
@@ -506,29 +514,48 @@ function PlanTaskStartPopover({
   onStarted: () => void
 }): ReactElement {
   const { token } = useAuth()
+  const utils = trpc.useContext()
   const [duration, setDuration] = useState<15 | 30 | 45 | 60 | 90 | 120>(30)
   const isWaitingForGoal = Boolean(runtime?.run && runtime.currentPhase?.state === 'awaiting_goal')
+  const afterStarted = () => {
+    onStarted()
+    void utils.goals.getActiveContext.fetch({ token: token || '' }).then((context) => {
+      void window.api?.refreshCurrentActivity()
+      scheduleGoalProfileRefresh(context, () =>
+        utils.goals.getActiveContext.fetch({ token: token || '' })
+      )
+    })
+  }
   const startCustom = trpc.focusRuntime.startCustom.useMutation({
-    onSuccess: onStarted,
+    onSuccess: afterStarted,
     onError: (error) =>
       toast({ title: 'Could not start focus', description: error.message, variant: 'destructive' })
   })
   const startPomodoro = trpc.focusRuntime.startPomodoro.useMutation({
-    onSuccess: onStarted,
+    onSuccess: afterStarted,
     onError: (error) =>
-      toast({ title: 'Could not start Pomodoro', description: error.message, variant: 'destructive' })
+      toast({
+        title: 'Could not start Pomodoro',
+        description: error.message,
+        variant: 'destructive'
+      })
   })
   const confirmGoal = trpc.focusRuntime.confirmWorkGoal.useMutation({
-    onSuccess: onStarted,
+    onSuccess: afterStarted,
     onError: (error) =>
-      toast({ title: 'Could not begin the next block', description: error.message, variant: 'destructive' })
+      toast({
+        title: 'Could not begin the next block',
+        description: error.message,
+        variant: 'destructive'
+      })
   })
   const busy = startCustom.isLoading || startPomodoro.isLoading || confirmGoal.isLoading
   const source = { kind: 'today_plan_task' as const, taskId: task.id }
 
   const start = (kind: 'custom' | 'pomodoro' | 'next') => {
     if (!token) return
-    if (kind === 'custom') startCustom.mutate({ token, goalSource: source, durationMinutes: duration })
+    if (kind === 'custom')
+      startCustom.mutate({ token, goalSource: source, durationMinutes: duration })
     if (kind === 'pomodoro') startPomodoro.mutate({ token, firstGoalSource: source })
     if (kind === 'next') confirmGoal.mutate({ token, goalSource: source })
   }
@@ -566,9 +593,7 @@ function PlanTaskStartPopover({
               <select
                 className="tempo-field w-full"
                 value={duration}
-                onChange={(event) =>
-                  setDuration(Number(event.target.value) as typeof duration)
-                }
+                onChange={(event) => setDuration(Number(event.target.value) as typeof duration)}
                 aria-label="Custom focus duration"
               >
                 {[15, 30, 45, 60, 90, 120].map((minutes) => (
@@ -590,7 +615,12 @@ function PlanTaskStartPopover({
               </Button>
             ) : (
               <>
-                <Button variant="outline" size="sm" disabled={busy || !token} onClick={() => start('pomodoro')}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy || !token}
+                  onClick={() => start('pomodoro')}
+                >
                   <Focus size={15} />
                   Pomodoro
                 </Button>
