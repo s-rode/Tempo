@@ -19,7 +19,7 @@ const failedEvent: ActiveWindowEvent = {
 describe('current activity status', () => {
   test('shows a persisted failure instead of pretending the same activity is still classifying', () => {
     expect(getStatusText(failedEvent, activity, null, false, false, null)).toBe(
-      'Local AI could not decide this activity'
+      'Local AI needs another try'
     )
   })
 
@@ -39,6 +39,6 @@ describe('current activity status', () => {
         false,
         null
       )
-    ).toBe('Not enough evidence to decide')
+    ).toBe('Needs more context')
   })
 })

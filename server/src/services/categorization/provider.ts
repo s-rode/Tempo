@@ -75,17 +75,16 @@ const coreResponseSchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    // Keep the wire protocol deliberately tiny. The public TypeScript
-    // decision remains descriptive below; aliases only exist between Tempo
-    // and its local model so a small model cannot run out of output while
-    // reproducing a long internal target reference.
-    c: { type: 'string', maxLength: 64 },
-    p: { type: 'number', minimum: 0, maximum: 1 },
-    r: { type: 'string', enum: ['direct', 'supporting', 'none', 'insufficient'] },
+    // Keep the wire protocol deliberately tiny. `c` is the useful semantic
+    // decision; target/method fields merely qualify productive work and must
+    // never make a clear distraction reply invalid.
+    v: { type: 'string', enum: ['productive', 'distracting', 'uncertain'] },
+    c: { type: ['string', 'null'], maxLength: 64 },
     t: { type: ['string', 'null'], maxLength: 4 },
     m: {
       type: ['string', 'null'],
       enum: [
+        'direct',
         'calculation_or_visualization',
         'study_notes_or_retrieval',
         'read_reference',
@@ -94,10 +93,8 @@ const coreResponseSchema = {
         null,
       ],
     },
-    g: { type: ['string', 'null'], maxLength: 60 },
-    a: { type: ['string', 'null'], maxLength: 60 },
   },
-  required: ['c', 'p', 'r', 't', 'm', 'g', 'a'],
+  required: ['v', 'c', 't', 'm'],
 };
 
 const goalSupportProfileResponseSchema = {
@@ -188,10 +185,51 @@ function normalizeCoreDecision(
           .trim()
           .replace(/^['"`]+|['"`]+$/g, '')
       : '';
-  const chosenCategoryName = categories.find(
+  let categoryFromName = categories.find(
     (category) => category.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase()
-  )?.name;
-  if (!chosenCategoryName) return { decision: null, failure: 'unknown_category' };
+  );
+  const rawVerdict = raw.v ?? raw.verdict;
+  const requestedVerdict =
+    rawVerdict === 'productive' || rawVerdict === 'distracting' || rawVerdict === 'uncertain'
+      ? rawVerdict
+      : null;
+  const rawGoalRefValue = raw.t ?? raw.matchedGoalRef;
+  const rawGoalRef =
+    typeof rawGoalRefValue === 'string'
+      ? rawGoalRefValue.trim().replace(/^['"`]+|['"`]+$/g, '')
+      : null;
+  const rawSupportingMode = raw.m ?? raw.supportingMode;
+  const supportsDirectWork = rawSupportingMode === 'direct';
+  const supportingMode = isSupportingMode(rawSupportingMode) ? rawSupportingMode : null;
+  // Qwen occasionally places an otherwise valid work method in `c` while
+  // also providing the correct target/method fields. Recover only that exact
+  // structural mix-up; do not treat arbitrary unknown category strings as
+  // productive work.
+  if (
+    !categoryFromName &&
+    requestedVerdict === 'productive' &&
+    rawGoalRef &&
+    (supportsDirectWork || supportingMode) &&
+    (supportsDirectWork || isSupportingMode(name))
+  ) {
+    categoryFromName =
+      categories.find(
+        (category) => category.isProductive && category.name.trim().toLowerCase() === 'work'
+      ) || categories.find((category) => category.isProductive);
+  }
+  // A recognized local category is the model's actual semantic decision.
+  // Prefer it over contradictory optional fields; only an absent category is
+  // genuinely uncertain. This is what lets ordinary messaging stay useful
+  // when a small model is sloppy about its explanatory relation.
+  const verdict = categoryFromName
+    ? categoryFromName.isProductive
+      ? 'productive'
+      : 'distracting'
+    : requestedVerdict === 'uncertain'
+      ? 'uncertain'
+      : null;
+  if (!verdict) return { decision: null, failure: 'unknown_category' };
+  const chosenCategoryName = categoryFromName?.name || null;
   const rawConfidenceValue = raw.p ?? raw.confidence;
   const rawConfidence =
     typeof rawConfidenceValue === 'string'
@@ -202,23 +240,13 @@ function normalizeCoreDecision(
       ? rawConfidence > 1 && rawConfidence <= 100
         ? rawConfidence / 100
         : rawConfidence
-      : Number.NaN;
-  if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1)
-    return { decision: null, failure: 'invalid_decision_shape' };
-  const rawRelationValue = raw.r ?? raw.goalRelation;
-  const rawRelation =
-    typeof rawRelationValue === 'string' ? rawRelationValue.trim().toLowerCase() : '';
-  const goalRelation =
-    rawRelation === 'direct' ||
-    rawRelation === 'supporting' ||
-    rawRelation === 'none' ||
-    rawRelation === 'insufficient'
-      ? rawRelation
-      : 'insufficient';
-  const rawGoalRefValue = raw.t ?? raw.matchedGoalRef;
-  const rawGoalRef =
-    typeof rawGoalRefValue === 'string'
-      ? rawGoalRefValue.trim().replace(/^['"`]+|['"`]+$/g, '')
+      : null;
+  const normalizedConfidence =
+    typeof confidence === 'number' &&
+    Number.isFinite(confidence) &&
+    confidence >= 0 &&
+    confidence <= 1
+      ? confidence
       : null;
   const goalRefsByAlias = new Map(
     (goals.targets || []).map((target, index) => [`T${index + 1}`, target.ref])
@@ -231,8 +259,14 @@ function normalizeCoreDecision(
         (goals.targets || []).find((target) => target.ref === rawGoalRef)?.ref ||
         null
       : null;
-  const rawSupportingMode = raw.m ?? raw.supportingMode;
-  const supportingMode = isSupportingMode(rawSupportingMode) ? rawSupportingMode : null;
+  const goalRelation =
+    verdict === 'distracting'
+      ? 'none'
+      : verdict === 'productive' && supportsDirectWork
+        ? 'direct'
+        : verdict === 'productive' && supportingMode
+          ? 'supporting'
+          : 'insufficient';
   const rawGoalEvidence = raw.g ?? raw.goalEvidence;
   const goalEvidence =
     typeof rawGoalEvidence === 'string' && rawGoalEvidence.trim()
@@ -243,29 +277,16 @@ function normalizeCoreDecision(
     typeof rawActivityEvidence === 'string' && rawActivityEvidence.trim()
       ? rawActivityEvidence.trim().slice(0, 100)
       : null;
-  if (
-    (goalRelation === 'direct' || goalRelation === 'supporting') &&
-    (!matchedGoalRef || !goalEvidence || !activityEvidence)
-  )
-    return { decision: null, failure: 'invalid_decision_shape' };
-  if (
-    (goalRelation === 'none' || goalRelation === 'insufficient') &&
-    (matchedGoalRef || supportingMode)
-  )
-    return { decision: null, failure: 'invalid_decision_shape' };
-  if (goalRelation === 'supporting' && !supportingMode)
-    return { decision: null, failure: 'invalid_decision_shape' };
-  if (goalRelation === 'direct' && supportingMode)
-    return { decision: null, failure: 'invalid_decision_shape' };
   return {
     decision: {
       chosenCategoryName,
-      confidence,
+      verdict,
+      confidence: normalizedConfidence,
       goalRelation,
-      matchedGoalRef,
-      supportingMode,
-      goalEvidence,
-      activityEvidence,
+      matchedGoalRef: verdict === 'productive' ? matchedGoalRef : null,
+      supportingMode: verdict === 'productive' ? supportingMode : null,
+      goalEvidence: verdict === 'productive' ? goalEvidence : null,
+      activityEvidence: verdict === 'productive' ? activityEvidence : null,
     },
   };
 }
@@ -376,7 +397,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       await chat(
         buildCoreClassificationPromptInput(goals, categories, activity),
         coreResponseSchema,
-        Math.min(96, ollamaConfig().numPredict),
+        Math.min(56, ollamaConfig().numPredict),
         Math.min(22000, totalTimeoutMs)
       )
     );
@@ -401,7 +422,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         index === 1
           ? {
               ...message,
-              content: `${message.content}\nRETRY: Return only c, p, r, t, m, g, a JSON fields. Do not add prose.`,
+              content: `${message.content}\nRETRY: Return only v, c, t, m JSON fields. Do not add prose.`,
             }
           : message
     );
@@ -409,7 +430,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       await chat(
         retryPrompt,
         coreResponseSchema,
-        Math.min(72, ollamaConfig().numPredict),
+        Math.min(40, ollamaConfig().numPredict),
         Math.min(8000, remainingMs)
       )
     );

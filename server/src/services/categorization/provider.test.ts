@@ -85,7 +85,7 @@ describe('OllamaClassificationProvider', () => {
       activity
     )[1].content;
     expect(prompt).toContain('No active productive target');
-    expect(prompt).toContain('For none/insufficient, t and m are null');
+    expect(prompt).toContain('For uncertain, set c/t/m to null');
   });
 
   test('uses bounded local structured output without thinking', async () => {
@@ -97,19 +97,16 @@ describe('OllamaClassificationProvider', () => {
       expect(request.keep_alive).toBe('10m');
       expect(request.options.temperature).toBe(0);
       expect(request.options.num_ctx).toBe(4096);
-      expect(request.options.num_predict).toBe(96);
-      expect(request.format.required).toEqual(['c', 'p', 'r', 't', 'm', 'g', 'a']);
+      expect(request.options.num_predict).toBe(56);
+      expect(request.format.required).toEqual(['v', 'c', 't', 'm']);
       return new Response(
         JSON.stringify({
           message: {
             content: JSON.stringify({
+              v: 'productive',
               c: 'Work',
-              p: 0.9,
-              r: 'direct',
               t: 'T1',
-              m: null,
-              g: 'Directly supports the study target',
-              a: 'Gaussian Process tutorial',
+              m: 'direct',
             }),
           },
         }),
@@ -120,6 +117,7 @@ describe('OllamaClassificationProvider', () => {
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result.status).toBe('ollama');
     expect(result.choice?.chosenCategoryName).toBe('Work');
+    expect(result.choice?.goalRelation).toBe('direct');
     expect(result.attemptCount).toBe(1);
   });
 
@@ -171,12 +169,9 @@ describe('OllamaClassificationProvider', () => {
           message: {
             content: JSON.stringify({
               c: 'Work',
-              p: 0.98,
-              r: 'direct',
+              v: 'productive',
               t: 'T1',
-              m: null,
-              g: 'Quant interview target',
-              a: 'Quant interview questions',
+              m: 'direct',
             }),
           },
         }),
@@ -197,8 +192,7 @@ describe('OllamaClassificationProvider', () => {
       new Response(
         JSON.stringify({
           message: {
-            content:
-              '```json\n{"c":"Work","p":0.9,"r":"direct","t":"T1","m":null,"g":"Directly supports the study goal","a":"Gaussian Process tutorial"}\n```',
+            content: '```json\n{"v":"productive","c":"Work","t":"T1","m":"direct"}\n```',
           },
         }),
         { status: 200 }
@@ -221,12 +215,9 @@ describe('OllamaClassificationProvider', () => {
                 ? '{bad'
                 : JSON.stringify({
                     c: 'Work',
-                    p: 0.9,
-                    r: 'direct',
+                    v: 'productive',
                     t: 'T1',
-                    m: null,
-                    g: 'Directly supports the study goal',
-                    a: 'Gaussian Process tutorial',
+                    m: 'direct',
                   }),
           },
         }),
@@ -239,6 +230,80 @@ describe('OllamaClassificationProvider', () => {
       status: 'ollama',
       attemptCount: 2,
       choice: { chosenCategoryName: 'Work' },
+    });
+  });
+
+  test('keeps a recognizable distracting category when optional relation metadata conflicts', async () => {
+    process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              v: 'productive',
+              c: 'Distraction',
+              t: 'T1',
+              m: 'study_notes_or_retrieval',
+            }),
+          },
+        }),
+        { status: 200 }
+      )) as unknown as typeof fetch;
+
+    const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
+    expect(result.choice).toMatchObject({
+      chosenCategoryName: 'Distraction',
+      verdict: 'distracting',
+      goalRelation: 'none',
+      matchedGoalRef: null,
+    });
+  });
+
+  test('keeps truly opaque activity neutral without retrying a valid response', async () => {
+    process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          message: { content: JSON.stringify({ v: 'uncertain', c: null, t: null, m: null }) },
+        }),
+        { status: 200 }
+      )) as unknown as typeof fetch;
+
+    const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
+    expect(result).toMatchObject({
+      status: 'ollama',
+      attemptCount: 1,
+      choice: { verdict: 'uncertain', chosenCategoryName: null },
+    });
+  });
+
+  test('recovers a productive method accidentally emitted as the category', async () => {
+    process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              v: 'productive',
+              c: 'study_notes_or_retrieval',
+              t: 'T1',
+              m: 'study_notes_or_retrieval',
+            }),
+          },
+        }),
+        { status: 200 }
+      )) as unknown as typeof fetch;
+
+    const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
+    expect(result).toMatchObject({
+      status: 'ollama',
+      attemptCount: 1,
+      choice: {
+        chosenCategoryName: 'Work',
+        verdict: 'productive',
+        goalRelation: 'supporting',
+        supportingMode: 'study_notes_or_retrieval',
+      },
     });
   });
 
