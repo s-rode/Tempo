@@ -46,7 +46,7 @@ const activity = {
 
 describe('OllamaClassificationProvider', () => {
   test('sends ordered unchecked tasks only and never a longer-term direction', () => {
-    const prompt = buildCoreClassificationPromptInput(
+    const promptInput = buildCoreClassificationPromptInput(
       {
         scope: 'daily',
         primaryGoal: 'Solve the exercise',
@@ -71,11 +71,13 @@ describe('OllamaClassificationProvider', () => {
       },
       categories,
       activity
-    )[1].content;
+    );
+    const prompt = promptInput[1].content;
     expect(prompt).toContain('[T1] daily target: "Solve the exercise"');
     expect(prompt).toContain('[T2] daily target: "Read the paper"');
     expect(prompt).not.toContain('Life:');
     expect(prompt).not.toContain('longer-term');
+    expect(promptInput[0].content).toContain('Never invent hidden work context');
   });
 
   test('does not permit generic productivity when there is no effective goal', () => {
