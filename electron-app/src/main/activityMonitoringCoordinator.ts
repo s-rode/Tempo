@@ -41,6 +41,8 @@ export interface ManualSystemResumeResult {
 export class ActivityMonitoringCoordinator {
   private sequence = 0
   private latestCapture: ActivityCaptureEnvelope | null = null
+  private deliveryRetryTimer: ReturnType<typeof setTimeout> | null = null
+  private deliveryAttempts = 0
   private rendererReady = false
   private paused = false
   private started = false
@@ -68,11 +70,13 @@ export class ActivityMonitoringCoordinator {
     nativeWindows.stopActiveWindowObserver()
     this.started = false
     this.rendererReady = false
+    this.clearDeliveryRetry()
     this.health = { state: 'starting' }
   }
 
   setPaused(paused: boolean): void {
     this.paused = paused
+    if (paused) this.clearDeliveryRetry()
     nativeWindows.setActivityCapturePaused(paused)
     this.health = { ...this.health, state: paused ? 'paused' : 'active' }
   }
@@ -84,6 +88,8 @@ export class ActivityMonitoringCoordinator {
 
   acknowledge(captureId: string): void {
     if (this.latestCapture?.captureId === captureId) {
+      this.clearDeliveryRetry()
+      this.deliveryAttempts = 0
       this.health = { ...this.health, pendingCaptureId: undefined }
     }
   }
@@ -147,6 +153,8 @@ export class ActivityMonitoringCoordinator {
       details
     }
     this.latestCapture = envelope
+    this.clearDeliveryRetry()
+    this.deliveryAttempts = 0
     this.health = {
       state:
         this.paused || this.systemSuspension.locked || this.systemSuspension.sleeping
@@ -178,5 +186,25 @@ export class ActivityMonitoringCoordinator {
     if (!this.rendererReady || !this.latestCapture || !window || window.isDestroyed()) return
     window.webContents.send('activity-capture', this.latestCapture)
     this.health = { ...this.health, lastDeliveredAtMs: Date.now() }
+    this.scheduleDeliveryRetry(this.latestCapture.captureId)
+  }
+
+  private scheduleDeliveryRetry(captureId: string): void {
+    this.clearDeliveryRetry()
+    // Rendering/server work can take several seconds. If it never commits,
+    // resend the same opaque capture ID; the server deduplicates it.
+    const delayMs = this.deliveryAttempts === 0 ? 12_000 : 5_000
+    this.deliveryRetryTimer = setTimeout(() => {
+      this.deliveryRetryTimer = null
+      if (!this.latestCapture || this.latestCapture.captureId !== captureId) return
+      if (this.paused || !this.rendererReady) return
+      this.deliveryAttempts += 1
+      this.deliverLatest()
+    }, delayMs)
+  }
+
+  private clearDeliveryRetry(): void {
+    if (this.deliveryRetryTimer !== null) clearTimeout(this.deliveryRetryTimer)
+    this.deliveryRetryTimer = null
   }
 }

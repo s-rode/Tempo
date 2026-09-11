@@ -3,6 +3,8 @@ import type { EffectiveGoalTarget } from '../goalPlans';
 import type { GoalRelationDecision } from './provider';
 import type { PageActivityDescriptorData, PageKind } from './pageDescriptorTypes';
 import type { SupportingMode } from './goalSupportTypes';
+import type { ClassifierStrictness } from '../../../../shared/types';
+import { allowsDirectEvidence, allowsSupportingEvidence } from './classificationPolicy';
 
 const STOP_WORDS = new Set([
   'and',
@@ -94,8 +96,9 @@ export function validateFocusedEvidence(input: {
   target: EffectiveGoalTarget | null;
   activity: ActivityFacts;
   descriptor: Descriptor;
+  strictness?: ClassifierStrictness;
 }): FocusEvidenceResult {
-  const { decision, target, activity, descriptor } = input;
+  const { decision, target, activity, descriptor, strictness = 'strict' } = input;
   if (!target) {
     return {
       accepted: false,
@@ -124,18 +127,22 @@ export function validateFocusedEvidence(input: {
     applicationTokens.length > 0 && applicationTokens.every((token) => goalTextTokens.has(token));
   const strongTopicMatch =
     matchedTokens.length >= 2 || matchedTokens.some((token) => token.length >= 6);
-  const deterministicDirect =
-    descriptor.evidenceQuality !== 'weak' &&
-    (strongTopicMatch ||
-      (explicitApplicationMatch &&
-        new Set<PageKind>([
-          'learning',
-          'note_taking',
-          'problem_solving',
-          'reference',
-          'coding',
-          'writing',
-        ]).has(descriptor.pageKind)));
+  const supportedDirectPageKind = new Set<PageKind>([
+    'learning',
+    'note_taking',
+    'problem_solving',
+    'reference',
+    'coding',
+    'writing',
+  ]).has(descriptor.pageKind);
+  const directEvidence = allowsDirectEvidence({
+    strictness,
+    evidenceQuality: descriptor.evidenceQuality,
+    strongTopicMatch,
+    anyTopicMatch: matchedTokens.length > 0,
+    explicitApplicationMatch: explicitApplicationMatch && supportedDirectPageKind,
+  });
+  const deterministicDirect = directEvidence;
 
   const supportingMode = decision?.supportingMode || null;
   const visibleMethodText = `${descriptor.actionLabel} ${descriptor.topicCues.join(' ')}`;
@@ -153,13 +160,16 @@ export function validateFocusedEvidence(input: {
     decision?.state === 'focused' &&
     decision.relation === 'direct' &&
     decision.confidence !== 'low' &&
-    deterministicDirect;
+    directEvidence;
   const modelSupporting =
     decision?.state === 'focused' &&
     decision.relation === 'supporting' &&
-    decision.confidence === 'high' &&
-    descriptor.evidenceQuality !== 'weak' &&
-    compatibleSupportingMode;
+    allowsSupportingEvidence({
+      strictness,
+      evidenceQuality: descriptor.evidenceQuality,
+      confidence: decision.confidence,
+      compatibleMethod: compatibleSupportingMode,
+    });
 
   return {
     accepted: deterministicDirect || modelDirect || modelSupporting,

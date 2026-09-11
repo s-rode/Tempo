@@ -158,6 +158,19 @@ describe('Tempo goal plans', () => {
     );
   });
 
+  test('invalidates automatic history when classifier strictness changes', () => {
+    const context = {
+      scope: 'weekly' as const,
+      primaryGoal: 'Study probability',
+      dailyTasks: [],
+      targets: [],
+      attentionGuardrail: null,
+    };
+    expect(fingerprintClassificationContext(context, 'flexible')).not.toBe(
+      fingerprintClassificationContext(context, 'strict')
+    );
+  });
+
   test('migrates inherited goal strings once without discarding their backup', async () => {
     let version = 0;
     users.findById.mockReturnValue({

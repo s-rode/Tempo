@@ -10,6 +10,7 @@ import {
   GoalSupportProfileData,
   isSupportingMode,
 } from './categorization/goalSupportTypes';
+import type { ClassifierStrictness } from '../../../shared/types';
 
 export type EffectiveGoalScope = 'session' | 'daily' | 'weekly' | 'none';
 
@@ -114,7 +115,10 @@ export const fingerprintEffectiveGoalContext = (context: EffectiveGoalContext): 
  * History/cache reuse must include the policy and profile revisions. Manual
  * correction rules intentionally continue to use fingerprintEffectiveGoalContext.
  */
-export const fingerprintClassificationContext = (context: EffectiveGoalContext): string =>
+export const fingerprintClassificationContext = (
+  context: EffectiveGoalContext,
+  strictness: ClassifierStrictness = 'strict'
+): string =>
   crypto
     .createHash('sha256')
     .update(
@@ -123,6 +127,7 @@ export const fingerprintClassificationContext = (context: EffectiveGoalContext):
         // invalidated whenever the relation policy, an active support profile,
         // or the ambiguity-only weekly guardrail changes.
         version: 'factored-relation-v3',
+        strictness,
         descriptorVersion: 'page-descriptor-v1',
         effective: fingerprintEffectiveGoalContext(context),
         attentionGuardrail: context.attentionGuardrail?.trim() || '',
