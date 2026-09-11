@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import { ActiveWindowEventModel } from '../models/activeWindowEvent';
-import { CategoryModel } from '../models/category';
 import { averageComparableDaysByTime, averageMatchingWeekdayByTime, calculatePeriodAnalytics } from '../services/analytics';
+import { analyticsInputsFor } from '../services/analyticsDataCache';
 import { publicProcedure, router } from '../trpc';
 import { verifyToken } from './auth';
 
@@ -24,17 +23,7 @@ export const analyticsRouter = router({
       return start.getTime();
     })() : input.startDateMs;
     const queryStart = Math.min(input.startDateMs, comparisonStart);
-    const [previous, events, categories] = await Promise.all([
-      ActiveWindowEventModel.findOne({ userId, timestamp: { $lt: queryStart } })
-        .sort({ timestamp: -1 })
-        .select('_id ownerName type categoryId timestamp')
-        .lean(),
-      ActiveWindowEventModel.find({ userId, timestamp: { $gte: queryStart, $lt: input.endDateMs } })
-        .sort({ timestamp: 1 })
-        .select('_id ownerName type categoryId timestamp')
-        .lean(),
-      CategoryModel.find({ userId }).select('_id name color isProductive').lean()
-    ]);
+    const { previous, events, categories } = await analyticsInputsFor(userId, queryStart, input.endDateMs);
     const allEvents = (previous ? [previous, ...events] : events) as any[];
     const analytics = calculatePeriodAnalytics(allEvents, categories as any[], input.startDateMs, input.endDateMs);
     const usualByNow = input.comparisonAtMs

@@ -34,7 +34,7 @@ func connectToTempo() -> Bool {
   var address = sockaddr_un()
   address.sun_family = sa_family_t(AF_UNIX)
   let maxPathLength = MemoryLayout.size(ofValue: address.sun_path) - 1
-  socketPath.withCString { source in
+  _ = socketPath.withCString { source in
     withUnsafeMutablePointer(to: &address.sun_path) { target in
       strncpy(UnsafeMutableRawPointer(target).assumingMemoryBound(to: CChar.self), source, maxPathLength)
     }
