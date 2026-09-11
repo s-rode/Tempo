@@ -3,28 +3,35 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
 export type FirefoxCompanionState = 'not_detected' | 'connected' | 'cache_hit' | 'cache_miss'
 
-const copy: Record<FirefoxCompanionState, { label: string; detail: string; tone: string; Icon: typeof CheckCircle2 }> = {
+const copy: Record<
+  FirefoxCompanionState,
+  { label: string; detail: string; tone: string; Icon: typeof CheckCircle2 }
+> = {
   cache_hit: {
     label: 'Firefox companion · reused',
-    detail: 'Tempo recognized the unchanged Firefox page and reused its local classification. No new OCR or Ollama request was needed.',
+    detail:
+      'Tempo recognized the same page and goal and reused its local decision. No OCR or Ollama request was needed.',
     tone: 'text-emerald-700 dark:text-emerald-300',
     Icon: Sparkles
   },
   cache_miss: {
     label: 'Firefox companion · new page',
-    detail: 'Firefox reported a new or changed page, so Tempo performed its one in-memory OCR capture and local classification.',
+    detail:
+      'Firefox supplied bounded visible page context for local interpretation. Tempo falls back to one in-memory OCR capture when page text is unavailable.',
     tone: 'text-sky-700 dark:text-sky-300',
     Icon: CheckCircle2
   },
   connected: {
     label: 'Firefox companion connected',
-    detail: 'Tempo is receiving Firefox navigation events. It can reuse local classifications when you return to an unchanged tab.',
+    detail:
+      'Tempo is receiving Firefox navigation events and ephemeral visible context. It can reuse local decisions when you return to the same page and goal.',
     tone: 'text-sky-700 dark:text-sky-300',
     Icon: CheckCircle2
   },
   not_detected: {
     label: 'Firefox companion unavailable',
-    detail: 'Tempo has not received a navigation event yet. Enable the Tempo Firefox companion, then activate a non-private Firefox tab. Tempo safely falls back to title-change capture when it is unavailable.',
+    detail:
+      'Tempo has not received a navigation event yet. Enable the Tempo Firefox companion, then activate a non-private Firefox tab. Tempo safely falls back to title-change capture when it is unavailable.',
     tone: 'text-muted-foreground',
     Icon: CircleDashed
   }
@@ -49,7 +56,9 @@ export function FirefoxCompanionStatus({ state }: { state: FirefoxCompanionState
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-3">
         <div className="flex gap-2">
-          <div className={`mt-0.5 ${current.tone}`}><Icon size={16} /></div>
+          <div className={`mt-0.5 ${current.tone}`}>
+            <Icon size={16} />
+          </div>
           <div>
             <p className="text-sm font-semibold">{current.label}</p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{current.detail}</p>
@@ -64,7 +73,10 @@ export function FirefoxCompanionStatus({ state }: { state: FirefoxCompanionState
                 <ExternalLink size={12} aria-hidden="true" />
               </button>
             )}
-            <p className="mt-2 text-[11px] text-muted-foreground">Navigation details and URLs remain local. No browser content is retained.</p>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Visible page text is processed on this Mac and discarded after classification. URLs
+              and page text are never stored.
+            </p>
           </div>
         </div>
       </PopoverContent>

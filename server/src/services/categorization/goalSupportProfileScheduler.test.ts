@@ -48,6 +48,7 @@ describe('goal support profile scheduler', () => {
   test('persists only a bounded profile from the goal and releases enrichment priority', async () => {
     provider.profileGoal.mockResolvedValue({
       subjectCues: ['machine learning', 'exercise problems'],
+      expectedOutcome: 'Complete the exercise sheet.',
       supportingModes: ['calculation_or_visualization'],
       revision: '',
     });
@@ -68,12 +69,18 @@ describe('goal support profile scheduler', () => {
       expect.objectContaining({
         $set: expect.objectContaining({
           subjectCues: ['machine learning', 'exercise problems'],
+          expectedOutcome: 'Complete the exercise sheet.',
           supportingModes: ['calculation_or_visualization'],
         }),
       }),
       { upsert: true }
     );
     const persisted = profiles.updateOne.mock.calls[0][1].$set;
-    expect(Object.keys(persisted).sort()).toEqual(['revision', 'subjectCues', 'supportingModes']);
+    expect(Object.keys(persisted).sort()).toEqual([
+      'expectedOutcome',
+      'revision',
+      'subjectCues',
+      'supportingModes',
+    ]);
   });
 });

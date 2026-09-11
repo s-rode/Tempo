@@ -1,6 +1,6 @@
 /*
- * Local-only companion. It sees tab metadata solely to identify navigation;
- * it has no content scripts and never inspects page DOM/text.
+ * Local-only companion. Visible context is sent ephemerally to Tempo and is
+ * never retained by the extension or local server.
  */
 const hostName = 'com.tempo.local.firefox'
 let port = null
@@ -19,10 +19,21 @@ function connect() {
   return port
 }
 
-function send(state, reason) {
+async function send(state, reason) {
   if (!state || state.incognito || !state.url) return
+  // Let the active document settle briefly; this also coalesces the common
+  // navigation/complete burst without introducing recurring page polling.
+  await new Promise((resolve) => setTimeout(resolve, 250))
+  const current = states.get(key(state.id))
+  if (!current || current.navigationGeneration !== state.navigationGeneration) return
   const native = connect()
   if (!native) return
+  let pageContext = null
+  try {
+    pageContext = await browser.tabs.sendMessage(state.id, { type: 'tempo-read-page' })
+  } catch (_) {
+    // Restricted/PDF/loading pages intentionally fall back to title/hostname.
+  }
   native.postMessage({
     type: 'navigation',
     tabId: state.id,
@@ -32,7 +43,8 @@ function send(state, reason) {
     title: state.title || '',
     url: state.url,
     private: false,
-    reason
+    reason,
+    pageContext
   })
 }
 
@@ -62,6 +74,8 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     previous.title = changeInfo.title
     previous.navigationGeneration += 1
     send(previous, 'title_change')
+  } else if (changeInfo.status === 'complete') {
+    void rememberTab(tabId, 'navigation', previous?.documentId, false)
   }
 })
 browser.tabs.onRemoved.addListener((tabId) => states.delete(key(tabId)))

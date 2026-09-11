@@ -12,6 +12,7 @@ export interface IGoalSupportProfile extends Document {
   goalTextFingerprint: string;
   policyVersion: number;
   subjectCues: string[];
+  expectedOutcome: string;
   supportingModes: string[];
   revision: string;
   createdAt: Date;
@@ -25,6 +26,7 @@ const goalSupportProfileSchema = new Schema<IGoalSupportProfile>(
     goalTextFingerprint: { type: String, required: true, index: true },
     policyVersion: { type: Number, required: true },
     subjectCues: { type: [String], default: [] },
+    expectedOutcome: { type: String, maxlength: 120, default: '' },
     supportingModes: { type: [String], enum: SUPPORTING_MODES, default: [] },
     revision: { type: String, required: true },
   },

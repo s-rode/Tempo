@@ -4,12 +4,17 @@ import {
   buildCoreClassificationPromptInput,
   buildEnrichmentPromptInput,
   buildGoalSupportProfilePromptInput,
+  buildGoalRelationPromptInput,
+  buildPageInterpretationPromptInput,
   CoreClassificationDecisionSchema,
   EnrichmentSchema,
   EffectiveGoalContext,
   GoalSupportProfileSchema,
+  GoalRelationDecisionSchema,
+  PageActivityDescriptorSchema,
 } from './llm';
-import { GoalSupportProfileData, isSupportingMode } from './goalSupportTypes';
+import { GoalSupportProfileData, SUPPORTING_MODES, isSupportingMode } from './goalSupportTypes';
+import type { PageActivityDescriptorData } from './pageDescriptorTypes';
 
 export type ClassificationStatus =
   | 'history'
@@ -38,7 +43,7 @@ export type CoreClassificationDecision = z.infer<typeof CoreClassificationDecisi
 export type ClassificationEnrichment = z.infer<typeof EnrichmentSchema>;
 type ActivityContext = Pick<
   ActiveWindowDetails,
-  'ownerName' | 'title' | 'url' | 'content' | 'type' | 'browser'
+  'ownerName' | 'title' | 'url' | 'siteHost' | 'content' | 'contentSource' | 'type' | 'browser'
 >;
 type PromptCategory = Pick<CategoryType, 'name' | 'description' | 'isProductive'>;
 
@@ -49,12 +54,36 @@ export interface ClassificationProviderResult {
   attemptCount: number;
 }
 
+export type GoalRelationDecision = z.infer<typeof GoalRelationDecisionSchema> & {
+  matchedGoalRef: string | null;
+};
+
+export interface GoalRelationProviderResult {
+  decision: GoalRelationDecision | null;
+  failureCode?: ClassificationFailureCode;
+  attemptCount: number;
+}
+
 export interface ClassificationProvider {
   classify(
     goals: EffectiveGoalContext,
     categories: PromptCategory[],
     activity: ActivityContext
   ): Promise<ClassificationProviderResult>;
+  describePage(
+    activity: ActivityContext,
+    source: 'dom' | 'ocr' | 'title',
+    timeoutMs: number
+  ): Promise<{
+    descriptor: Omit<PageActivityDescriptorData, 'revision'> | null;
+    failureCode?: ClassificationFailureCode;
+  }>;
+  decideRelation(
+    goals: EffectiveGoalContext,
+    categories: PromptCategory[],
+    descriptor: Omit<PageActivityDescriptorData, 'revision'>,
+    timeoutMs: number
+  ): Promise<GoalRelationProviderResult>;
   enrich(
     goals: EffectiveGoalContext,
     category: PromptCategory,
@@ -102,6 +131,7 @@ const goalSupportProfileResponseSchema = {
   additionalProperties: false,
   properties: {
     subjectCues: { type: 'array', items: { type: 'string', maxLength: 32 }, maxItems: 6 },
+    expectedOutcome: { type: 'string', maxLength: 120 },
     supportingModes: {
       type: 'array',
       items: {
@@ -117,7 +147,51 @@ const goalSupportProfileResponseSchema = {
       maxItems: 5,
     },
   },
-  required: ['subjectCues', 'supportingModes'],
+  required: ['subjectCues', 'expectedOutcome', 'supportingModes'],
+};
+
+const pageDescriptorResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    k: {
+      type: 'string',
+      enum: [
+        'problem_solving',
+        'learning',
+        'reference',
+        'note_taking',
+        'coding',
+        'writing',
+        'communication',
+        'administration',
+        'social',
+        'entertainment',
+        'shopping',
+        'general_browsing',
+        'other',
+        'unknown',
+      ],
+    },
+    a: { type: 'string', maxLength: 60 },
+    q: { type: 'array', items: { type: 'string', maxLength: 32 }, maxItems: 6 },
+    e: { type: 'string', enum: ['strong', 'partial', 'weak'] },
+  },
+  required: ['k', 'a', 'q', 'e'],
+};
+
+const relationResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    s: { type: 'string', enum: ['focused', 'distracted'] },
+    r: { type: 'string', enum: ['direct', 'supporting', 'none'] },
+    t: { type: ['string', 'null'], maxLength: 4 },
+    m: { type: ['string', 'null'], enum: [...SUPPORTING_MODES, null] },
+    p: { type: 'string', enum: ['high', 'medium', 'low'] },
+    c: { type: ['string', 'null'], maxLength: 64 },
+  },
+  required: ['s', 'r', 't', 'm', 'p', 'c'],
 };
 
 const enrichmentResponseSchema = {
@@ -379,6 +453,109 @@ export async function warmLocalClassificationModel(): Promise<void> {
 }
 
 export class OllamaClassificationProvider implements ClassificationProvider {
+  async describePage(
+    activity: ActivityContext,
+    source: 'dom' | 'ocr' | 'title',
+    timeoutMs: number
+  ): Promise<{
+    descriptor: Omit<PageActivityDescriptorData, 'revision'> | null;
+    failureCode?: ClassificationFailureCode;
+  }> {
+    const result = await chat(
+      buildPageInterpretationPromptInput(activity),
+      pageDescriptorResponseSchema,
+      Math.min(72, ollamaConfig().numPredict),
+      Math.max(500, timeoutMs)
+    );
+    if (!result.content) return { descriptor: null, failureCode: result.failure };
+    const parsed = parseStructuredResponse(result.content);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+      return { descriptor: null, failureCode: 'invalid_json' };
+    const raw = parsed as Record<string, unknown>;
+    const checked = PageActivityDescriptorSchema.safeParse({
+      pageKind: raw.k ?? raw.pageKind,
+      actionLabel: raw.a ?? raw.actionLabel,
+      topicCues: raw.q ?? raw.topicCues,
+      evidenceQuality: raw.e ?? raw.evidenceQuality,
+    });
+    if (!checked.success) return { descriptor: null, failureCode: 'invalid_decision_shape' };
+    return {
+      descriptor: {
+        pageKind: checked.data.pageKind,
+        actionLabel: checked.data.actionLabel.trim().slice(0, 60),
+        topicCues: [
+          ...new Set(checked.data.topicCues.map((cue) => cue.trim()).filter(Boolean)),
+        ].slice(0, 6),
+        evidenceQuality: checked.data.evidenceQuality,
+        source,
+      },
+    };
+  }
+
+  async decideRelation(
+    goals: EffectiveGoalContext,
+    categories: PromptCategory[],
+    descriptor: Omit<PageActivityDescriptorData, 'revision'>,
+    timeoutMs: number
+  ): Promise<GoalRelationProviderResult> {
+    const startedAt = Date.now();
+    const parse = (result: { content: string | null; failure?: ClassificationFailureCode }) => {
+      if (!result.content) return { decision: null, failure: result.failure };
+      const parsed = parseStructuredResponse(result.content);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+        return { decision: null, failure: 'invalid_json' as const };
+      const raw = parsed as Record<string, unknown>;
+      const checked = GoalRelationDecisionSchema.safeParse({
+        state: raw.s ?? raw.state,
+        relation: raw.r ?? raw.relation,
+        targetAlias: raw.t ?? raw.targetAlias ?? null,
+        supportingMode: raw.m ?? raw.supportingMode ?? null,
+        confidence: raw.p ?? raw.confidence,
+        categoryAlias: raw.c ?? raw.categoryAlias ?? null,
+      });
+      if (!checked.success) return { decision: null, failure: 'invalid_decision_shape' as const };
+      const alias = checked.data.targetAlias?.trim().toUpperCase() || null;
+      const target = alias
+        ? (goals.targets || [])[Math.max(0, Number(alias.slice(1)) - 1)] ||
+          (goals.targets || []).find((item) => item.ref === checked.data.targetAlias)
+        : null;
+      return {
+        decision: {
+          ...checked.data,
+          matchedGoalRef: target?.ref || null,
+        } as GoalRelationDecision,
+      };
+    };
+    const prompt = buildGoalRelationPromptInput(goals, descriptor, categories);
+    const first = parse(
+      await chat(prompt, relationResponseSchema, Math.min(56, ollamaConfig().numPredict), timeoutMs)
+    );
+    if (first.decision) return { decision: first.decision, attemptCount: 1 };
+    if (first.failure === 'timeout' || first.failure === 'ollama_http_error')
+      return { decision: null, failureCode: first.failure, attemptCount: 1 };
+    const remaining = timeoutMs - (Date.now() - startedAt);
+    if (remaining < 500)
+      return { decision: null, failureCode: 'core_retry_exhausted', attemptCount: 1 };
+    const retry = prompt.map((message, index) =>
+      index === 1
+        ? { ...message, content: `${message.content}\nRETRY: Return only s,r,t,m,p,c JSON.` }
+        : message
+    );
+    const second = parse(
+      await chat(retry, relationResponseSchema, Math.min(40, ollamaConfig().numPredict), remaining)
+    );
+    return second.decision
+      ? { decision: second.decision, attemptCount: 2 }
+      : {
+          decision: null,
+          failureCode:
+            second.failure === 'timeout' || second.failure === 'ollama_http_error'
+              ? second.failure
+              : 'core_retry_exhausted',
+          attemptCount: 2,
+        };
+  }
+
   async classify(
     goals: EffectiveGoalContext,
     categories: PromptCategory[],
@@ -495,7 +672,12 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     const supportingModes = [...new Set(parsed.data.supportingModes)].slice(0, 5);
     // The scheduler computes the stable persisted revision. It is blank here
     // so provider callers never need to retain the goal text or raw response.
-    return { subjectCues, supportingModes, revision: '' };
+    return {
+      subjectCues,
+      expectedOutcome: parsed.data.expectedOutcome.trim().slice(0, 120),
+      supportingModes,
+      revision: '',
+    };
   }
 }
 

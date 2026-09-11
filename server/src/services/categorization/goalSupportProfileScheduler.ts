@@ -13,13 +13,16 @@ const attemptedByKey = new Set<string>();
 const profileKey = (userId: string, target: Pick<EffectiveGoalTarget, 'ref' | 'textFingerprint'>) =>
   `${userId}:${target.ref}:${target.textFingerprint}:${GOAL_SUPPORT_PROFILE_POLICY_VERSION}`;
 
-const revisionFor = (profile: Pick<GoalSupportProfileData, 'subjectCues' | 'supportingModes'>) =>
+const revisionFor = (
+  profile: Pick<GoalSupportProfileData, 'subjectCues' | 'expectedOutcome' | 'supportingModes'>
+) =>
   crypto
     .createHash('sha256')
     .update(
       JSON.stringify({
         v: GOAL_SUPPORT_PROFILE_POLICY_VERSION,
         cues: profile.subjectCues,
+        outcome: profile.expectedOutcome,
         modes: profile.supportingModes,
       })
     )
@@ -72,6 +75,7 @@ async function createProfile(
     if (!result || pending.controller.signal.aborted) return;
     const normalized = {
       subjectCues: result.subjectCues.slice(0, 6),
+      expectedOutcome: (result.expectedOutcome || '').slice(0, 120),
       supportingModes: result.supportingModes.slice(0, 5),
     };
     await GoalSupportProfileModel.updateOne(
@@ -84,6 +88,7 @@ async function createProfile(
       {
         $set: {
           subjectCues: normalized.subjectCues,
+          expectedOutcome: normalized.expectedOutcome,
           supportingModes: normalized.supportingModes,
           revision: revisionFor(normalized),
         },

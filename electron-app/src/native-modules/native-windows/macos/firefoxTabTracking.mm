@@ -185,21 +185,28 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
 }
 
 - (void)setNavigationState:(NSDictionary *)navigationState {
-    NSString *title = navigationState[@"title"];
-    NSString *fingerprint = navigationState[@"navigationFingerprint"];
-    NSString *pageCorrectionKey = navigationState[@"pageCorrectionKey"];
-    if (!title || !fingerprint || !pageCorrectionKey) return;
-    NSDictionary *navigation = @{
+    id rawTitle = navigationState[@"title"];
+    id rawFingerprint = navigationState[@"navigationFingerprint"];
+    id rawPageCorrectionKey = navigationState[@"pageCorrectionKey"];
+    if (![rawTitle isKindOfClass:[NSString class]] ||
+        ![rawFingerprint isKindOfClass:[NSString class]] ||
+        ![rawPageCorrectionKey isKindOfClass:[NSString class]]) return;
+    NSString *title = (NSString *)rawTitle;
+    NSString *fingerprint = (NSString *)rawFingerprint;
+    NSString *pageCorrectionKey = (NSString *)rawPageCorrectionKey;
+    if (title.length == 0 || fingerprint.length == 0 || pageCorrectionKey.length == 0) return;
+    NSMutableDictionary *navigation = [@{
         @"title": title,
         @"fingerprint": fingerprint,
         @"pageCorrectionKey": pageCorrectionKey,
-    };
+    } mutableCopy];
     self.navigationByTitle[title] = navigation;
     NSDictionary *current = [self frontmostFirefoxWindowInfo];
     if (self.isFirefoxActive && current && [current[@"title"] isEqualToString:title]) {
         self.navigationByWindowId[[current[@"id"] stringValue]] = navigation;
         [self scheduleCaptureForWindowInfo:current reason:@"firefox_activation"];
     }
+    [navigation release];
 }
 
 - (void)captureNavigationForWindowId:(NSNumber *)windowId title:(NSString *)title fingerprint:(NSString *)fingerprint {

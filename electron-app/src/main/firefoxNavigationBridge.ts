@@ -12,6 +12,8 @@ export interface FirefoxNavigationState {
   title: string
   navigationFingerprint: string
   pageCorrectionKey: string
+  siteHost: string
+  pageContent: string | null
   reason: 'activation' | 'navigation' | 'reload' | 'title_change'
 }
 
@@ -97,6 +99,27 @@ function parseNavigation(value: unknown): FirefoxNavigationState | null {
     .digest('hex')
   const pageIdentity = canonicalPageIdentity(url)
   if (!pageIdentity) return null
+  const parsedUrl = new URL(url)
+  const rawContext =
+    message.pageContext && typeof message.pageContext === 'object'
+      ? (message.pageContext as Record<string, unknown>)
+      : null
+  const clean = (value: unknown, limit: number) =>
+    typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, limit) : ''
+  const headings = Array.isArray(rawContext?.headings)
+    ? rawContext.headings
+        .map((value) => clean(value, 180))
+        .filter(Boolean)
+        .slice(0, 16)
+    : []
+  const pageContent = [
+    clean(rawContext?.description, 500),
+    headings.length ? `Headings: ${headings.join(' · ')}` : '',
+    clean(rawContext?.pageText, 6000)
+  ]
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, 6000)
   const pageCorrectionKey = createHmac('sha256', navigationSecret())
     .update(`tempo-page-correction-v1\u0000${pageIdentity}`)
     .digest('hex')
@@ -108,6 +131,8 @@ function parseNavigation(value: unknown): FirefoxNavigationState | null {
     title,
     navigationFingerprint: fingerprint,
     pageCorrectionKey,
+    siteHost: parsedUrl.hostname.toLocaleLowerCase().slice(0, 253),
+    pageContent: pageContent || null,
     reason: reason as FirefoxNavigationState['reason']
   }
 }
@@ -142,7 +167,16 @@ export class FirefoxNavigationBridge {
             const state = parseNavigation(JSON.parse(line))
             if (state) {
               this.onNavigation(state)
-              this.mainWindow()?.webContents.send('firefox-navigation-state', state)
+              // DOM-derived context stays in renderer request memory. Keeping
+              // it out of the Objective-C capture module both narrows the
+              // native trust boundary and prevents optional JSON null values
+              // from reaching Cocoa string APIs.
+              this.mainWindow()?.webContents.send('firefox-navigation-state', {
+                reason: state.reason,
+                navigationFingerprint: state.navigationFingerprint,
+                siteHost: state.siteHost,
+                pageContent: state.pageContent
+              })
             }
           } catch {
             // Untrusted/malformed native-host input is deliberately ignored.

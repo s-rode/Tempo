@@ -652,13 +652,17 @@ private struct NotchSurface<S: Shape>: View {
 }
 
 private struct NativeClockTimerText: View {
+  let identity: String
   let text: String
   let value: Int
   let precision: NotchTimerPrecision
   let isFrozen: Bool
   let animationsEnabled: Bool
 
-  @State private var previousSnapshot: NotchTimerAnimationSnapshot?
+  private final class AnimationMemory {
+    static let shared = AnimationMemory()
+    var snapshots: [String: NotchTimerAnimationSnapshot] = [:]
+  }
 
   private var snapshot: NotchTimerAnimationSnapshot {
     NotchTimerAnimationSnapshot(value: value, precision: precision, isFrozen: isFrozen)
@@ -666,7 +670,7 @@ private struct NativeClockTimerText: View {
 
   private var shouldAnimate: Bool {
     shouldAnimateNotchTimerTransition(
-      from: previousSnapshot,
+      from: AnimationMemory.shared.snapshots[identity],
       to: snapshot,
       reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
       animationsEnabled: animationsEnabled
@@ -684,17 +688,17 @@ private struct NativeClockTimerText: View {
         .transaction { transaction in
           transaction.animation = shouldAnimate ? .easeInOut(duration: 0.24) : nil
         }
-        .onAppear { previousSnapshot = snapshot }
+        .onAppear { AnimationMemory.shared.snapshots[identity] = snapshot }
         .onChange(of: snapshot) { nextSnapshot in
-          previousSnapshot = nextSnapshot
+          AnimationMemory.shared.snapshots[identity] = nextSnapshot
         }
     } else {
       // Tempo supports macOS 13 as well. Keep the existing static number there
       // rather than substituting a custom, less-native animation.
       timerText
-        .onAppear { previousSnapshot = snapshot }
+        .onAppear { AnimationMemory.shared.snapshots[identity] = snapshot }
         .onChange(of: snapshot) { nextSnapshot in
-          previousSnapshot = nextSnapshot
+          AnimationMemory.shared.snapshots[identity] = nextSnapshot
         }
     }
   }
@@ -729,7 +733,7 @@ struct TimerPill: View {
       Circle()
         .fill(paused ? Color.white.opacity(0.28) : active ? color : Color.white.opacity(0.30))
         .frame(width: 6, height: 6)
-      NativeClockTimerText(text: text, value: displayValue, precision: precision, isFrozen: isFrozen, animationsEnabled: animateDigits)
+      NativeClockTimerText(identity: label, text: text, value: displayValue, precision: precision, isFrozen: isFrozen, animationsEnabled: animateDigits)
     }
     .foregroundStyle(paused ? Color.white.opacity(0.50) : active ? .white : Color.white.opacity(0.70))
     .frame(width: pillWidth, height: pillHeight)

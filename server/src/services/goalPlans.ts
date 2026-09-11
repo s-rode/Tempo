@@ -122,13 +122,15 @@ export const fingerprintClassificationContext = (context: EffectiveGoalContext):
         // Unlike manual corrections, reusable model/history decisions must be
         // invalidated whenever the relation policy, an active support profile,
         // or the ambiguity-only weekly guardrail changes.
-        version: 'goal-relation-v1',
+        version: 'factored-relation-v2',
+        descriptorVersion: 'page-descriptor-v1',
         effective: fingerprintEffectiveGoalContext(context),
         attentionGuardrail: context.attentionGuardrail?.trim() || '',
         profiles: (context.targets || []).map((target) => ({
           ref: target.ref,
           textFingerprint: target.textFingerprint,
           revision: target.supportProfile?.revision || 'pending',
+          expectedOutcome: target.supportProfile?.expectedOutcome || '',
         })),
       })
     )
@@ -379,6 +381,8 @@ async function attachSupportProfiles(
         subjectCues: (profile.subjectCues || [])
           .filter((value): value is string => typeof value === 'string')
           .slice(0, 6),
+        expectedOutcome:
+          typeof profile.expectedOutcome === 'string' ? profile.expectedOutcome.slice(0, 120) : '',
         supportingModes: (profile.supportingModes || []).filter(isSupportingMode).slice(0, 5),
         revision: profile.revision,
       } satisfies GoalSupportProfileData,

@@ -7,7 +7,7 @@ import { localClassificationProvider } from './provider';
 
 type ActivityContext = Pick<
   ActiveWindowDetails,
-  'ownerName' | 'title' | 'url' | 'content' | 'type' | 'browser'
+  'ownerName' | 'title' | 'url' | 'siteHost' | 'content' | 'contentSource' | 'type' | 'browser'
 >;
 
 interface PendingEnrichment {
@@ -42,6 +42,8 @@ export function cancelPendingEnrichment(userId: string): void {
   pending.controller.abort();
   // Release browser text rather than retaining it until garbage collection.
   pending.activity.content = null;
+  pending.activity.siteHost = null;
+  pending.activity.url = null;
   pendingByUser.delete(userId);
 }
 
@@ -155,6 +157,8 @@ async function runEnrichment(
     );
   } finally {
     pending.activity.content = null;
+    pending.activity.siteHost = null;
+    pending.activity.url = null;
     if (pendingByUser.get(args.userId) === pending) pendingByUser.delete(args.userId);
   }
 }

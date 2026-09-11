@@ -24,6 +24,7 @@ const goals: EffectiveGoalContext = {
       textFingerprint: 'goal-fingerprint',
       supportProfile: {
         subjectCues: ['Gaussian Processes'],
+        expectedOutcome: 'Understand Gaussian Processes.',
         supportingModes: ['study_notes_or_retrieval', 'read_reference'],
         revision: 'profile-revision',
       },
@@ -370,6 +371,72 @@ describe('OllamaClassificationProvider', () => {
     ).resolves.toMatchObject({
       subjectCues: ['machine learning', 'exercise problems'],
       supportingModes: ['calculation_or_visualization', 'study_notes_or_retrieval'],
+    });
+  });
+
+  test('interprets visible page evidence without including a goal', async () => {
+    globalThis.fetch = (async (_url: unknown, init: RequestInit | undefined) => {
+      const request = JSON.parse(String(init?.body));
+      expect(request.messages[1].content).toContain('Graphing Calculator');
+      expect(request.messages[1].content).not.toContain('Study Gaussian Processes');
+      return new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              k: 'problem_solving',
+              a: 'Graphing equations',
+              q: ['equations'],
+              e: 'strong',
+            }),
+          },
+        }),
+        { status: 200 }
+      );
+    }) as unknown as typeof fetch;
+    await expect(
+      new OllamaClassificationProvider().describePage(
+        { ...activity, title: 'Graphing Calculator', contentSource: 'title' },
+        'title',
+        2000
+      )
+    ).resolves.toMatchObject({
+      descriptor: { pageKind: 'problem_solving', actionLabel: 'Graphing equations' },
+    });
+  });
+
+  test('retains a valid low-confidence distraction decision', async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              s: 'distracted',
+              r: 'none',
+              t: null,
+              m: null,
+              p: 'low',
+              c: 'Distraction',
+            }),
+          },
+        }),
+        { status: 200 }
+      )) as unknown as typeof fetch;
+    const result = await new OllamaClassificationProvider().decideRelation(
+      goals,
+      categories,
+      {
+        pageKind: 'communication',
+        actionLabel: 'Reading inbox',
+        topicCues: [],
+        evidenceQuality: 'partial',
+        source: 'title',
+      },
+      2000
+    );
+    expect(result.decision).toMatchObject({
+      state: 'distracted',
+      relation: 'none',
+      confidence: 'low',
     });
   });
 });

@@ -1,9 +1,15 @@
 {
   "manifest_version": 2,
   "name": "Tempo Local Navigation Companion",
-  "version": "1.0.0",
-  "description": "Supplies local tab navigation identity to the locally installed Tempo app. It never reads page content.",
+  "version": "1.1.0",
+  "description": "Supplies ephemeral visible page context to the locally installed Tempo app for on-device classification.",
   "permissions": ["tabs", "webNavigation", "nativeMessaging"],
+  "content_scripts": [{
+    "matches": ["http://*/*", "https://*/*"],
+    "js": ["content.js"],
+    "all_frames": false,
+    "run_at": "document_idle"
+  }],
   "background": { "scripts": ["background.js"], "persistent": true },
   "browser_specific_settings": {
     "gecko": { "id": "tempo-firefox@local.invalid", "strict_min_version": "109.0" }
