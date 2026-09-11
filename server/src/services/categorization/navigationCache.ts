@@ -16,6 +16,8 @@ type FirefoxNavigationCacheSource = {
   title?: string | null;
   categoryId?: string | null;
   classificationStatus?: ClassificationStatus | null;
+  decisionConfidence?: 'high' | 'medium' | 'low' | null;
+  evidenceQuality?: 'strong' | 'partial' | 'weak' | null;
 };
 
 /**
@@ -32,5 +34,8 @@ export const isReusableFirefoxNavigationSource = (
     source?.categoryId &&
       source.title === currentTitle &&
       source.classificationStatus &&
-      cacheSeedStatuses.has(source.classificationStatus)
+      cacheSeedStatuses.has(source.classificationStatus) &&
+      (source.classificationStatus === 'deterministic_direct' ||
+        ((source.decisionConfidence === 'high' || source.decisionConfidence === 'medium') &&
+          (source.evidenceQuality === 'strong' || source.evidenceQuality === 'partial')))
   );

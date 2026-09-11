@@ -122,7 +122,7 @@ export const fingerprintClassificationContext = (context: EffectiveGoalContext):
         // Unlike manual corrections, reusable model/history decisions must be
         // invalidated whenever the relation policy, an active support profile,
         // or the ambiguity-only weekly guardrail changes.
-        version: 'factored-relation-v2',
+        version: 'factored-relation-v3',
         descriptorVersion: 'page-descriptor-v1',
         effective: fingerprintEffectiveGoalContext(context),
         attentionGuardrail: context.attentionGuardrail?.trim() || '',

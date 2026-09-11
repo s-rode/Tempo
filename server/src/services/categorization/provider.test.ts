@@ -431,6 +431,7 @@ describe('OllamaClassificationProvider', () => {
         evidenceQuality: 'partial',
         source: 'title',
       },
+      { ownerName: 'Mail', title: 'Inbox' },
       2000
     );
     expect(result.decision).toMatchObject({

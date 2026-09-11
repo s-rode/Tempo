@@ -7,7 +7,13 @@ describe('Firefox navigation-cache source guard', () => {
   test('accepts a direct OCR-backed decision for the same title', () => {
     expect(
       isReusableFirefoxNavigationSource(
-        { title, categoryId: 'work', classificationStatus: 'ollama' },
+        {
+          title,
+          categoryId: 'work',
+          classificationStatus: 'ollama',
+          decisionConfidence: 'high',
+          evidenceQuality: 'strong',
+        },
         title
       )
     ).toBe(true);
@@ -16,7 +22,11 @@ describe('Firefox navigation-cache source guard', () => {
   test('rejects a stale navigation identity when the visible tab title changed', () => {
     expect(
       isReusableFirefoxNavigationSource(
-        { title: 'glencore - Google Suche', categoryId: 'distraction', classificationStatus: 'ollama' },
+        {
+          title: 'glencore - Google Suche',
+          categoryId: 'distraction',
+          classificationStatus: 'ollama',
+        },
         title
       )
     ).toBe(false);
@@ -26,6 +36,21 @@ describe('Firefox navigation-cache source guard', () => {
     expect(
       isReusableFirefoxNavigationSource(
         { title, categoryId: 'distraction', classificationStatus: 'navigation_cache' },
+        title
+      )
+    ).toBe(false);
+  });
+
+  test('does not cache a weak or low-confidence automatic decision', () => {
+    expect(
+      isReusableFirefoxNavigationSource(
+        {
+          title,
+          categoryId: 'work',
+          classificationStatus: 'ollama',
+          decisionConfidence: 'low',
+          evidenceQuality: 'strong',
+        },
         title
       )
     ).toBe(false);

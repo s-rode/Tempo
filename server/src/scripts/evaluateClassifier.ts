@@ -10,7 +10,7 @@ const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/tempo_local';
 await mongoose.connect(uri);
 try {
   const [feedback, events] = await Promise.all([
-    ClassifierFeedbackModel.find({ classifierVersion: 'factored-relation-v2' }).lean(),
+    ClassifierFeedbackModel.find({ classifierVersion: 'factored-relation-v3' }).lean(),
     ActiveWindowEventModel.find({ classificationLatencyMs: { $ne: null } })
       .select('classificationStatus classificationLatencyMs')
       .lean(),
@@ -32,7 +32,7 @@ try {
   console.log(
     JSON.stringify(
       {
-        classifierVersion: 'factored-relation-v2',
+        classifierVersion: 'factored-relation-v3',
         labeledCorrections: feedback.length,
         correctionAgreement: feedback.length ? (feedback.length - changed) / feedback.length : null,
         technicalFailures,

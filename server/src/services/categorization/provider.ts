@@ -82,6 +82,7 @@ export interface ClassificationProvider {
     goals: EffectiveGoalContext,
     categories: PromptCategory[],
     descriptor: Omit<PageActivityDescriptorData, 'revision'>,
+    activity: Pick<ActivityContext, 'ownerName' | 'title'>,
     timeoutMs: number
   ): Promise<GoalRelationProviderResult>;
   enrich(
@@ -496,6 +497,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     goals: EffectiveGoalContext,
     categories: PromptCategory[],
     descriptor: Omit<PageActivityDescriptorData, 'revision'>,
+    activity: Pick<ActivityContext, 'ownerName' | 'title'>,
     timeoutMs: number
   ): Promise<GoalRelationProviderResult> {
     const startedAt = Date.now();
@@ -526,7 +528,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         } as GoalRelationDecision,
       };
     };
-    const prompt = buildGoalRelationPromptInput(goals, descriptor, categories);
+    const prompt = buildGoalRelationPromptInput(goals, descriptor, activity, categories);
     const first = parse(
       await chat(prompt, relationResponseSchema, Math.min(56, ollamaConfig().numPredict), timeoutMs)
     );
