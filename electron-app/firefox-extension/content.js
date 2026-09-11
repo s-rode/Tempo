@@ -4,12 +4,23 @@
   const MAX_NODES = 900
   const excluded = 'script,style,noscript,template,input,textarea,select,option,button,[contenteditable="true"],[contenteditable=""],nav,header,footer,aside,[aria-hidden="true"]'
 
-  function visible(element) {
-    if (!(element instanceof Element) || element.matches(excluded) || element.closest(excluded)) return false
+  function visible(element, cache) {
+    if (!(element instanceof Element)) return false
+    const cached = cache.get(element)
+    if (cached !== undefined) return cached
+    if (element.matches(excluded) || element.closest(excluded)) {
+      cache.set(element, false)
+      return false
+    }
     const style = getComputedStyle(element)
-    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {
+      cache.set(element, false)
+      return false
+    }
     const rect = element.getBoundingClientRect()
-    return rect.width > 0 && rect.height > 0
+    const result = rect.width > 0 && rect.height > 0
+    cache.set(element, result)
+    return result
   }
 
   function clean(value, limit) {
@@ -17,9 +28,10 @@
   }
 
   function extract() {
+    const visibilityCache = new WeakMap()
     const description = clean(document.querySelector('meta[name="description"]')?.content, 500)
     const headings = Array.from(document.querySelectorAll('h1,h2,h3'))
-      .filter(visible)
+      .filter((element) => visible(element, visibilityCache))
       .slice(0, 16)
       .map((node) => clean(node.textContent, 180))
       .filter(Boolean)
@@ -33,7 +45,7 @@
       if (!node) break
       seen += 1
       const parent = node.parentElement
-      if (!parent || !visible(parent)) continue
+      if (!parent || !visible(parent, visibilityCache)) continue
       const value = clean(node.nodeValue, 500)
       if (!value) continue
       chunks.push(value)

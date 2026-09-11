@@ -25,9 +25,15 @@ export const analyticsRouter = router({
     })() : input.startDateMs;
     const queryStart = Math.min(input.startDateMs, comparisonStart);
     const [previous, events, categories] = await Promise.all([
-      ActiveWindowEventModel.findOne({ userId, timestamp: { $lt: queryStart } }).sort({ timestamp: -1 }).lean(),
-      ActiveWindowEventModel.find({ userId, timestamp: { $gte: queryStart, $lt: input.endDateMs } }).sort({ timestamp: 1 }).lean(),
-      CategoryModel.find({ userId }).lean()
+      ActiveWindowEventModel.findOne({ userId, timestamp: { $lt: queryStart } })
+        .sort({ timestamp: -1 })
+        .select('_id ownerName type categoryId timestamp')
+        .lean(),
+      ActiveWindowEventModel.find({ userId, timestamp: { $gte: queryStart, $lt: input.endDateMs } })
+        .sort({ timestamp: 1 })
+        .select('_id ownerName type categoryId timestamp')
+        .lean(),
+      CategoryModel.find({ userId }).select('_id name color isProductive').lean()
     ]);
     const allEvents = (previous ? [previous, ...events] : events) as any[];
     const analytics = calculatePeriodAnalytics(allEvents, categories as any[], input.startDateMs, input.endDateMs);

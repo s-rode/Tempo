@@ -14,6 +14,7 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
 @property (nonatomic, assign) NSUInteger captureGeneration;
 @property (nonatomic, retain) NSMutableDictionary *navigationByWindowId;
 @property (nonatomic, retain) NSMutableDictionary *navigationByTitle;
+@property (nonatomic, assign) BOOL companionConnected;
 @end
 
 @implementation FirefoxTabTracking
@@ -91,6 +92,10 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
 }
 
 - (void)startFirefoxTabTimer {
+    // The companion delivers stable navigation/tab changes event-driven. The
+    // CGWindowList timer is retained only as the privacy-preserving fallback
+    // when that local companion is disconnected.
+    if (_companionConnected) return;
     if (_tabCheckTimer) return;
     _tabCheckTimer = [[NSTimer scheduledTimerWithTimeInterval:1.5
                                                         target:self
@@ -136,6 +141,23 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
     _lastKnownWindowInfo = [windowInfo copy];
     [self startFirefoxTabTimer];
     [self scheduleCaptureForWindowInfo:windowInfo reason:@"firefox_activation"];
+}
+
+- (void)setCompanionConnected:(BOOL)connected {
+    if (_companionConnected == connected) return;
+    _companionConnected = connected;
+    if (connected) {
+        [self stopFirefoxTabTimer];
+        // `stopFirefoxTabTimer` resets the active flag as well, but Firefox is
+        // still foreground. Keep the logical state so the next navigation can
+        // immediately schedule its ordinary capture.
+        _isFirefoxActive = YES;
+        return;
+    }
+    if (_isFirefoxActive) {
+        [self startFirefoxTabTimer];
+        [self performFirefoxTabCheck];
+    }
 }
 
 - (void)performFirefoxTabCheck {

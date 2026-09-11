@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import { createHmac, randomBytes } from 'crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
-import net, { Server } from 'net'
+import net, { Server, Socket } from 'net'
 import { join } from 'path'
 
 export interface FirefoxNavigationState {
@@ -142,13 +142,17 @@ export class FirefoxNavigationBridge {
   private server: Server | null = null
   private mainWindow: () => BrowserWindow | null
   private onNavigation: (state: FirefoxNavigationState) => void
+  private onConnectionState: (connected: boolean) => void
+  private connections = new Set<Socket>()
 
   constructor(
     mainWindow: () => BrowserWindow | null,
-    onNavigation: (state: FirefoxNavigationState) => void
+    onNavigation: (state: FirefoxNavigationState) => void,
+    onConnectionState: (connected: boolean) => void
   ) {
     this.mainWindow = mainWindow
     this.onNavigation = onNavigation
+    this.onConnectionState = onConnectionState
   }
 
   start(): void {
@@ -156,6 +160,14 @@ export class FirefoxNavigationBridge {
     if (existsSync(socketPath)) unlinkSync(socketPath)
     installNativeManifest()
     this.server = net.createServer((socket) => {
+      const wasDisconnected = this.connections.size === 0
+      this.connections.add(socket)
+      if (wasDisconnected) this.onConnectionState(true)
+      socket.once('close', () => {
+        this.connections.delete(socket)
+        if (this.connections.size === 0) this.onConnectionState(false)
+      })
+      socket.once('error', () => undefined)
       let input = ''
       socket.setEncoding('utf8')
       socket.on('data', (chunk) => {
@@ -189,6 +201,9 @@ export class FirefoxNavigationBridge {
   }
 
   stop(): void {
+    for (const socket of this.connections) socket.destroy()
+    this.connections.clear()
+    this.onConnectionState(false)
     this.server?.close()
     this.server = null
     if (existsSync(socketPath)) unlinkSync(socketPath)

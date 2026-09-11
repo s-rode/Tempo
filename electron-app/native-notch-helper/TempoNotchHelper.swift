@@ -227,7 +227,7 @@ final class NotchController: NSObject, ObservableObject {
   private var hoverOpenWork: DispatchWorkItem?
   private var hoverCloseWork: DispatchWorkItem?
   private var previousStatus: String?
-  private var displayClock: DispatchSourceTimer?
+  private var displayClockTimer: DispatchSourceTimer?
   private var transitionAlertWork: DispatchWorkItem?
   private var distractionAlertWork: DispatchWorkItem?
   private var queuedDistractionNotice: DistractionAttentionNotice?
@@ -300,6 +300,11 @@ final class NotchController: NSObject, ObservableObject {
     // Status changes must render at the instant they arrive, rather than
     // waiting for the next one-second display tick.
     now = Date()
+    if !panel.isVisible || (next.suspensionReasons ?? []).contains("system_sleep") {
+      stopDisplayClock()
+    } else {
+      startDisplayClock()
+    }
     if next.trackingState == "paused" { pausePickerOpen = false }
     if next.showDistractionNotchAlerts == false {
       clearDistractionNotice()
@@ -423,7 +428,7 @@ final class NotchController: NSObject, ObservableObject {
    * IPC, database query, activity capture, OCR, or model work is introduced.
    */
   private func startDisplayClock() {
-    guard displayClock == nil else { return }
+    guard displayClockTimer == nil else { return }
     let timer = DispatchSource.makeTimerSource(queue: .main)
     let milliseconds = Int(Date().timeIntervalSince1970 * 1_000)
     let delay = max(1, 1_000 - (milliseconds % 1_000))
@@ -433,13 +438,19 @@ final class NotchController: NSObject, ObservableObject {
       leeway: .milliseconds(20)
     )
     timer.setEventHandler { [weak self] in self?.now = Date() }
-    displayClock = timer
+    displayClockTimer = timer
     timer.resume()
   }
 
+  private func stopDisplayClock() {
+    displayClockTimer?.setEventHandler {}
+    displayClockTimer?.cancel()
+    displayClockTimer = nil
+  }
+
   deinit {
-    displayClock?.setEventHandler {}
-    displayClock?.cancel()
+    displayClockTimer?.setEventHandler {}
+    displayClockTimer?.cancel()
   }
 
   func setExpanded(_ value: Bool) {
@@ -487,11 +498,14 @@ final class NotchController: NSObject, ObservableObject {
 
   func show() {
     panel.orderFrontRegardless()
+    now = Date()
+    startDisplayClock()
     emit(type: "visibilityChanged", extra: ["visible": true])
   }
 
   func hide() {
     panel.orderOut(nil)
+    stopDisplayClock()
     emit(type: "visibilityChanged", extra: ["visible": false])
   }
 
@@ -645,7 +659,6 @@ private struct NotchSurface<S: Shape>: View {
       }
       shape.stroke(Color.white.opacity(increaseContrast ? 0.28 : 0.14), lineWidth: increaseContrast ? 1 : 0.75)
     }
-    .compositingGroup()
     .clipShape(shape)
     .shadow(color: Color.black.opacity(expanded ? 0.32 : 0.12), radius: expanded ? 8 : 2, y: expanded ? 3 : 1)
   }

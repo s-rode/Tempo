@@ -206,8 +206,20 @@ export function DashboardFocusCard() {
   const comparisonMode = (settings?.focusComparisonMode || 'all_active_days') as FocusComparisonMode
   const [comparisonAtMs, setComparisonAtMs] = useState(() => Date.now())
   useEffect(() => {
-    const timer = window.setInterval(() => setComparisonAtMs(Date.now()), 30_000)
-    return () => window.clearInterval(timer)
+    // The comparison is rendered to the minute. Align the one local refresh
+    // to that boundary instead of keeping an arbitrary thirty-second poll.
+    let timer: number | undefined
+    const scheduleNextMinute = () => {
+      const delay = 60_000 - (Date.now() % 60_000) + 25
+      timer = window.setTimeout(() => {
+        setComparisonAtMs(Date.now())
+        scheduleNextMinute()
+      }, delay)
+    }
+    scheduleNextMinute()
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer)
+    }
   }, [])
 
   const now = useMemo(() => new Date(comparisonAtMs), [comparisonAtMs])
@@ -224,7 +236,7 @@ export function DashboardFocusCard() {
       comparisonAtMs,
       focusComparisonMode: comparisonMode
     },
-    { enabled: !!token, refetchInterval: 30_000 }
+    { enabled: !!token, refetchOnWindowFocus: true }
   )
   const weekDays = useMemo(
     () =>

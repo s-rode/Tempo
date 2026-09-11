@@ -21,9 +21,6 @@ function connect() {
 
 async function send(state, reason) {
   if (!state || state.incognito || !state.url) return
-  // Let the active document settle briefly; this also coalesces the common
-  // navigation/complete burst without introducing recurring page polling.
-  await new Promise((resolve) => setTimeout(resolve, 250))
   const current = states.get(key(state.id))
   if (!current || current.navigationGeneration !== state.navigationGeneration) return
   const native = connect()
@@ -48,6 +45,21 @@ async function send(state, reason) {
   })
 }
 
+function scheduleSend(state, reason, delay = 250) {
+  if (!state || state.incognito || !state.url) return
+  // webNavigation, tabs.onUpdated, and title changes commonly arrive in one
+  // burst. One cancellable timer per tab/document ensures that burst performs
+  // a single DOM read and native message.
+  if (state.pendingSendTimer) clearTimeout(state.pendingSendTimer)
+  const generation = state.navigationGeneration
+  state.pendingSendTimer = setTimeout(() => {
+    const current = states.get(key(state.id))
+    if (!current || current.navigationGeneration !== generation) return
+    current.pendingSendTimer = null
+    void send(current, reason)
+  }, delay)
+}
+
 async function rememberTab(tabId, reason, documentId, forceInvalidate = false) {
   const tab = await browser.tabs.get(tabId)
   if (tab.incognito) return
@@ -59,9 +71,10 @@ async function rememberTab(tabId, reason, documentId, forceInvalidate = false) {
   const navigationGeneration = !forceInvalidate && previous && previous.url === tab.url && previous.documentId === effectiveDocumentId
     ? previous.navigationGeneration
     : (previous?.navigationGeneration || 0) + 1
+  if (previous?.pendingSendTimer) clearTimeout(previous.pendingSendTimer)
   const state = { ...tab, documentId: effectiveDocumentId, navigationGeneration }
   states.set(key(tabId), state)
-  send(state, reason)
+  scheduleSend(state, reason)
 }
 
 browser.tabs.onActivated.addListener(({ tabId }) => { void rememberTab(tabId, 'activation') })
@@ -73,12 +86,16 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   } else if (changeInfo.title && previous) {
     previous.title = changeInfo.title
     previous.navigationGeneration += 1
-    send(previous, 'title_change')
+    scheduleSend(previous, 'title_change')
   } else if (changeInfo.status === 'complete') {
     void rememberTab(tabId, 'navigation', previous?.documentId, false)
   }
 })
-browser.tabs.onRemoved.addListener((tabId) => states.delete(key(tabId)))
+browser.tabs.onRemoved.addListener((tabId) => {
+  const state = states.get(key(tabId))
+  if (state?.pendingSendTimer) clearTimeout(state.pendingSendTimer)
+  states.delete(key(tabId))
+})
 browser.webNavigation.onCommitted.addListener((details) => {
   if (details.frameId !== 0) return
   void rememberTab(details.tabId, 'navigation', details.documentId || `${details.tabId}:${details.timeStamp}`)
