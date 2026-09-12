@@ -15,6 +15,7 @@ import {
 } from './llm';
 import { GoalSupportProfileData, SUPPORTING_MODES, isSupportingMode } from './goalSupportTypes';
 import type { PageActivityDescriptorData } from './pageDescriptorTypes';
+import type { LearningExampleForPrompt } from './correctionLearning';
 
 export type ClassificationStatus =
   | 'history'
@@ -54,8 +55,13 @@ export interface ClassificationProviderResult {
   attemptCount: number;
 }
 
-export type GoalRelationDecision = z.infer<typeof GoalRelationDecisionSchema> & {
+export type GoalRelationDecision = Omit<
+  z.infer<typeof GoalRelationDecisionSchema>,
+  'learningExampleAlias' | 'learningSimilarity'
+> & {
   matchedGoalRef: string | null;
+  learningExampleAlias?: string | null;
+  learningSimilarity?: 'close' | 'related' | 'none';
 };
 
 export interface GoalRelationProviderResult {
@@ -83,7 +89,8 @@ export interface ClassificationProvider {
     categories: PromptCategory[],
     descriptor: Omit<PageActivityDescriptorData, 'revision'>,
     activity: Pick<ActivityContext, 'ownerName' | 'title'>,
-    timeoutMs: number
+    timeoutMs: number,
+    learningExamples?: LearningExampleForPrompt[]
   ): Promise<GoalRelationProviderResult>;
   enrich(
     goals: EffectiveGoalContext,
@@ -191,7 +198,11 @@ const relationResponseSchema = {
     m: { type: ['string', 'null'], enum: [...SUPPORTING_MODES, null] },
     p: { type: 'string', enum: ['high', 'medium', 'low'] },
     c: { type: ['string', 'null'], maxLength: 64 },
+    l: { type: ['string', 'null'], maxLength: 4 },
+    g: { type: 'string', enum: ['close', 'related', 'none'] },
   },
+  // l/g are optional to keep the bounded retry resilient while users have a
+  // warm local model that predates correction learning.
   required: ['s', 'r', 't', 'm', 'p', 'c'],
 };
 
@@ -498,7 +509,8 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     categories: PromptCategory[],
     descriptor: Omit<PageActivityDescriptorData, 'revision'>,
     activity: Pick<ActivityContext, 'ownerName' | 'title'>,
-    timeoutMs: number
+    timeoutMs: number,
+    learningExamples: LearningExampleForPrompt[] = []
   ): Promise<GoalRelationProviderResult> {
     const startedAt = Date.now();
     const parse = (result: { content: string | null; failure?: ClassificationFailureCode }) => {
@@ -514,6 +526,8 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         supportingMode: raw.m ?? raw.supportingMode ?? null,
         confidence: raw.p ?? raw.confidence,
         categoryAlias: raw.c ?? raw.categoryAlias ?? null,
+        learningExampleAlias: raw.l ?? raw.learningExampleAlias ?? null,
+        learningSimilarity: raw.g ?? raw.learningSimilarity ?? 'none',
       });
       if (!checked.success) return { decision: null, failure: 'invalid_decision_shape' as const };
       const alias = checked.data.targetAlias?.trim().toUpperCase() || null;
@@ -521,14 +535,25 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         ? (goals.targets || [])[Math.max(0, Number(alias.slice(1)) - 1)] ||
           (goals.targets || []).find((item) => item.ref === checked.data.targetAlias)
         : null;
+      const learningAlias = checked.data.learningExampleAlias?.trim().toUpperCase() || null;
+      const learningExample = learningAlias
+        ? learningExamples[Math.max(0, Number(learningAlias.slice(1)) - 1)]
+        : null;
       return {
         decision: {
           ...checked.data,
           matchedGoalRef: target?.ref || null,
+          learningExampleAlias: learningExample?.id || null,
         } as GoalRelationDecision,
       };
     };
-    const prompt = buildGoalRelationPromptInput(goals, descriptor, activity, categories);
+    const prompt = buildGoalRelationPromptInput(
+      goals,
+      descriptor,
+      activity,
+      categories,
+      learningExamples
+    );
     const first = parse(
       await chat(prompt, relationResponseSchema, Math.min(56, ollamaConfig().numPredict), timeoutMs)
     );
@@ -540,7 +565,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       return { decision: null, failureCode: 'core_retry_exhausted', attemptCount: 1 };
     const retry = prompt.map((message, index) =>
       index === 1
-        ? { ...message, content: `${message.content}\nRETRY: Return only s,r,t,m,p,c JSON.` }
+          ? { ...message, content: `${message.content}\nRETRY: Return only s,r,t,m,p,c,l,g JSON.` }
         : message
     );
     const second = parse(

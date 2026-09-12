@@ -54,9 +54,10 @@ export function RememberedCorrectionsSettings() {
   return (
     <section className="tempo-settings-row items-start max-md:flex-col">
       <div>
-        <h2>Remembered corrections</h2>
+        <h2>Exact remembered corrections</h2>
         <p>
           Tempo remembers a corrected browser page only while the same effective goal is active.
+          These exact rules are separate from Classification learning.
           Page addresses and captured text are never shown or stored here.
         </p>
       </div>
@@ -71,7 +72,7 @@ export function RememberedCorrectionsSettings() {
           <>
             <ul
               className="overflow-hidden rounded-md border bg-background"
-              aria-label="Remembered corrections"
+              aria-label="Exact remembered corrections"
             >
               {remembered.map((correction) => (
                 <li
@@ -116,14 +117,14 @@ export function RememberedCorrectionsSettings() {
                 onClick={() => {
                   if (
                     window.confirm(
-                      'Clear all remembered corrections? Future activities will be classified normally.'
+                      'Clear all exact remembered corrections? Learned patterns will remain.'
                     )
                   ) {
                     clear.mutate({ token })
                   }
                 }}
               >
-                Clear remembered corrections
+                Clear exact corrections
               </Button>
             </div>
           </>

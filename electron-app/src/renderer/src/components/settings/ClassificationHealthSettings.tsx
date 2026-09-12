@@ -51,6 +51,10 @@ export function ClassificationHealthSettings() {
                 <span className="text-right tabular-nums">
                   {health.data.technicalFailures} / {health.data.corrections}
                 </span>
+                <span className="text-muted-foreground">Marked Work / marked Distraction</span>
+                <span className="text-right tabular-nums">
+                  {health.data.positiveCorrections} / {health.data.negativeCorrections}
+                </span>
               </>
             ) : (
               <span className="col-span-2 text-muted-foreground">Diagnostics are unavailable.</span>

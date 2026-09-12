@@ -3,6 +3,7 @@ import {
   activityKeyFor,
   canonicalPageIdentity,
   fingerprintCapturedContent,
+  learningToolIdentityFor,
   pageCorrectionKeyFor,
 } from './activityIdentity';
 
@@ -62,5 +63,26 @@ describe('Firefox activity identity', () => {
         pageCorrectionKey,
       })
     ).toBe(pageCorrectionKey);
+  });
+
+  test('scopes browser learning to an opaque site key, not the browser application', () => {
+    const first = learningToolIdentityFor({
+      ownerName: 'Firefox',
+      type: 'browser',
+      browser: 'firefox',
+      siteHost: 'www.desmos.com',
+      url: null,
+    });
+    const second = learningToolIdentityFor({
+      ownerName: 'Firefox',
+      type: 'browser',
+      browser: 'firefox',
+      siteHost: 'news.example',
+      url: null,
+    });
+    expect(first?.kind).toBe('site');
+    expect(first?.key).toMatch(/^[a-f0-9]{64}$/);
+    expect(first?.key).not.toContain('desmos');
+    expect(first?.key).not.toBe(second?.key);
   });
 });

@@ -117,7 +117,8 @@ export const fingerprintEffectiveGoalContext = (context: EffectiveGoalContext): 
  */
 export const fingerprintClassificationContext = (
   context: EffectiveGoalContext,
-  strictness: ClassifierStrictness = 'strict'
+  strictness: ClassifierStrictness = 'strict',
+  learningRevision = 0
 ): string =>
   crypto
     .createHash('sha256')
@@ -126,8 +127,9 @@ export const fingerprintClassificationContext = (
         // Unlike manual corrections, reusable model/history decisions must be
         // invalidated whenever the relation policy, an active support profile,
         // or the ambiguity-only weekly guardrail changes.
-        version: 'factored-relation-v3',
+        version: 'factored-relation-v4-learning',
         strictness,
+        learningRevision,
         descriptorVersion: 'page-descriptor-v1',
         effective: fingerprintEffectiveGoalContext(context),
         attentionGuardrail: context.attentionGuardrail?.trim() || '',
