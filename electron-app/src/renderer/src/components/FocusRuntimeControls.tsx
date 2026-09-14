@@ -90,7 +90,12 @@ export function FocusRuntimeControls({
   const pause = trpc.focusRuntime.pause.useMutation({ onSuccess: invalidate })
   const resume = trpc.focusRuntime.resume.useMutation({ onSuccess: invalidate })
   const skipBreak = trpc.focusRuntime.skipBreak.useMutation({ onSuccess: invalidate })
-  const endRun = trpc.focusRuntime.endRun.useMutation({ onSuccess: invalidate })
+  const endRun = trpc.focusRuntime.endRun.useMutation({
+    onSuccess: () => {
+      setOpen(false)
+      invalidate()
+    }
+  })
   const busy =
     startCustom.isLoading ||
     startPomodoro.isLoading ||
@@ -235,6 +240,22 @@ export function FocusRuntimeControls({
               </label>
             )}
             <div className="flex justify-end gap-2">
+              {isWaitingForGoal ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  className="mr-auto text-destructive hover:text-destructive"
+                  onClick={() => {
+                    if (
+                      window.confirm('End this Pomodoro? Tempo will return to normal monitoring.')
+                    )
+                      endRun.mutate({ token })
+                  }}
+                >
+                  End Pomodoro
+                </Button>
+              ) : null}
               <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
                 Cancel
               </Button>

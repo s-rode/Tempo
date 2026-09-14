@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { advanceRuntime, createCustomRun, createPomodoroRun } from './focusRuntime';
+import {
+  advanceRuntime,
+  createCustomRun,
+  createPomodoroRun,
+  shouldAwaitFreshSystemCapture,
+} from './focusRuntime';
 
 const runtimeWith = (run: any): any => ({
   run,
@@ -13,6 +18,20 @@ const runtimeWith = (run: any): any => ({
 });
 
 describe('focus transition notices', () => {
+  test('does not deadlock wake recovery behind an intentional capture pause', () => {
+    const normal = runtimeWith(null);
+    expect(shouldAwaitFreshSystemCapture(normal, 1_000)).toBe(true);
+
+    const awaitingGoal = runtimeWith(createPomodoroRun('First block', 1_000));
+    awaitingGoal.run.currentPhaseIndex = 2;
+    awaitingGoal.run.phases[2].state = 'awaiting_goal';
+    expect(shouldAwaitFreshSystemCapture(awaitingGoal, 1_000)).toBe(false);
+
+    const manuallyPaused = runtimeWith(createCustomRun('Focused work', 30, 1_000));
+    manuallyPaused.manualPauseUntilMs = 61_000;
+    expect(shouldAwaitFreshSystemCapture(manuallyPaused, 1_000)).toBe(false);
+  });
+
   test('records one notice for a naturally completed custom focus phase', () => {
     const run = createCustomRun('Review probability notes', 15, 1_000);
     run.phases[0].plannedDurationMs = 1_000;

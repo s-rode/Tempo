@@ -64,6 +64,16 @@ const currentPhase = (runtime: RuntimeDocument) =>
     ? runtime.run.phases?.[runtime.run.currentPhaseIndex] || null
     : null;
 
+/**
+ * A Pomodoro waiting for its next goal and an explicit manual pause already
+ * define a safe accounting boundary. Waiting for a capture that those states
+ * intentionally prevent would deadlock the runtime after wake.
+ */
+const shouldAwaitFreshSystemCapture = (runtime: RuntimeDocument, now = Date.now()) => {
+  if (runtime.manualPauseUntilMs && runtime.manualPauseUntilMs > now) return false;
+  return currentPhase(runtime)?.state !== 'awaiting_goal';
+};
+
 const freezePhase = (runtime: RuntimeDocument, now: number) => {
   const current = currentPhase(runtime);
   if (!current || current.state !== 'running' || !current.runningSinceMs) return;
@@ -337,7 +347,7 @@ export async function setSystemSuspension(
   if (kind === 'wake') runtime.systemSleeping = false;
   if (!hasSystemSuspension(runtime)) {
     runtime.systemSuspendedAtMs = null;
-    runtime.awaitingSystemResumeCapture = true;
+    runtime.awaitingSystemResumeCapture = shouldAwaitFreshSystemCapture(runtime, now);
   }
   if (
     !hasSystemSuspension(runtime) &&
@@ -364,7 +374,7 @@ export async function resumeFromStaleSystemSuspension(userId: string) {
   runtime.systemLocked = false;
   runtime.systemSleeping = false;
   runtime.systemSuspendedAtMs = null;
-  runtime.awaitingSystemResumeCapture = true;
+  runtime.awaitingSystemResumeCapture = shouldAwaitFreshSystemCapture(runtime);
   await saveRuntime(runtime);
   return runtimeSnapshot(runtime);
 }
@@ -444,4 +454,4 @@ export const createPomodoroRun = (
   completedAtMs: null,
 });
 
-export { currentPhase, freezePhase, resumePhase, completeRun };
+export { currentPhase, freezePhase, resumePhase, completeRun, shouldAwaitFreshSystemCapture };
