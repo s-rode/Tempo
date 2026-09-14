@@ -53,7 +53,10 @@ const tokens = (values: Array<string | null | undefined>): Set<string> =>
       .normalize('NFKD')
       .toLocaleLowerCase()
       .match(/[\p{L}\p{N}][\p{L}\p{N}+#.-]*/gu)
-      ?.map((value) => value.replace(/(ies|ing|es|s)$/u, ''))
+      // Keep useful internal punctuation (for example C#), but punctuation at
+      // a sentence boundary must not turn `exam.` into a different cue from
+      // `exam`. Goal-support profiles commonly contain complete sentences.
+      ?.map((value) => value.replace(/^[#.-]+|[#.-]+$/gu, '').replace(/(ies|ing|es|s)$/u, ''))
       .filter((value) => value.length >= 3 && !stopWords.has(value)) || []
   );
 
@@ -67,7 +70,8 @@ const boundedStrings = (values: unknown, max: number, length: number): string[] 
     : [];
 
 export const goalProfileSnapshot = (target: EffectiveGoalTarget) => ({
-  subjectCues: target.supportProfile?.subjectCues?.slice(0, 6) || [...tokens([target.text])].slice(0, 6),
+  subjectCues:
+    target.supportProfile?.subjectCues?.slice(0, 6) || [...tokens([target.text])].slice(0, 6),
   expectedOutcome: (target.supportProfile?.expectedOutcome || target.text).slice(0, 120),
   supportingModes: target.supportProfile?.supportingModes?.slice(0, 5) || [],
 });
@@ -172,6 +176,25 @@ export const learningSimilarityScore = (
 export const learnedEvidenceThreshold = (strictness: ClassifierStrictness): number =>
   strictness === 'flexible' ? 0.5 : strictness === 'balanced' ? 0.7 : 0.85;
 
+/**
+ * Explicit feedback is a local, independently validated signal. The model can
+ * still reason about ambiguous activity, but it must not be able to discard a
+ * close correction simply by omitting its alias from a response. These quality
+ * gates keep the three strictness modes meaningfully distinct:
+ *
+ * - Flexible accepts a close, compatible learned pattern.
+ * - Balanced also needs a readable activity description.
+ * - Strict needs strong current evidence in addition to a very close pattern.
+ */
+export const allowsLearnedEvidence = (input: {
+  strictness: ClassifierStrictness;
+  evidenceQuality: PageActivityDescriptorData['evidenceQuality'];
+}): boolean => {
+  if (input.strictness === 'flexible') return true;
+  if (input.strictness === 'balanced') return input.evidenceQuality !== 'weak';
+  return input.evidenceQuality === 'strong';
+};
+
 export const hasConflictingNegativeLearning = (input: {
   examples: LearningExample[];
   target: EffectiveGoalTarget;
@@ -184,3 +207,61 @@ export const hasConflictingNegativeLearning = (input: {
       learningSimilarityScore(example, input.target, input.descriptor) >=
         learnedEvidenceThreshold(input.strictness)
   );
+
+export interface LearnedFocusedMatch {
+  example: LearningExample;
+  target: EffectiveGoalTarget;
+  score: number;
+}
+
+/**
+ * Select the strongest local positive correction before asking the model to
+ * relate the activity to a goal. This is deliberately deterministic: a saved
+ * correction should help precisely when the user taught Tempo the same tool,
+ * compatible activity shape, and a sufficiently similar active goal. A close
+ * negative correction always wins and prevents an unsafe learned-focus reuse.
+ */
+export const selectLearnedFocusedMatch = (input: {
+  examples: LearningExample[];
+  targets: EffectiveGoalTarget[];
+  descriptor: Pick<PageActivityDescriptorData, 'pageKind' | 'topicCues' | 'evidenceQuality'>;
+  strictness: ClassifierStrictness;
+}): LearnedFocusedMatch | null => {
+  if (
+    !allowsLearnedEvidence({
+      strictness: input.strictness,
+      evidenceQuality: input.descriptor.evidenceQuality,
+    })
+  )
+    return null;
+
+  const threshold = learnedEvidenceThreshold(input.strictness);
+  const matches: LearnedFocusedMatch[] = [];
+  for (const target of input.targets) {
+    if (
+      hasConflictingNegativeLearning({
+        examples: input.examples,
+        target,
+        descriptor: input.descriptor,
+        strictness: input.strictness,
+      })
+    ) {
+      continue;
+    }
+    for (const example of input.examples) {
+      if (example.state !== 'focused') continue;
+      const score = learningSimilarityScore(example, target, input.descriptor);
+      if (score >= threshold) matches.push({ example, target, score });
+    }
+  }
+
+  // Stable ordering keeps task priority meaningful when two targets have an
+  // equally strong learned match; recency breaks ties within the same target.
+  matches.sort(
+    (left, right) =>
+      right.score - left.score ||
+      input.targets.indexOf(left.target) - input.targets.indexOf(right.target) ||
+      right.example.updatedAtMs - left.example.updatedAtMs
+  );
+  return matches[0] || null;
+};

@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import type { EffectiveGoalTarget } from '../goalPlans';
 import {
+  allowsLearnedEvidence,
   hasConflictingNegativeLearning,
   learnedEvidenceThreshold,
   learningSimilarityScore,
+  selectLearnedFocusedMatch,
   type LearningExample,
 } from './correctionLearning';
 
@@ -80,5 +82,66 @@ describe('correction learning safety policy', () => {
         topicCues: ['flashcards'],
       })
     ).toBe(0);
+  });
+
+  test('selects a close correction locally without requiring a model nomination', () => {
+    const match = selectLearnedFocusedMatch({
+      examples: [example('focused')],
+      targets: [target('review quant interview flashcards', ['flashcards', 'quant'])],
+      descriptor: { ...descriptor, evidenceQuality: 'partial' },
+      strictness: 'flexible',
+    });
+    expect(match?.example.id).toBe('example-focused');
+    expect(match?.target.text).toBe('review quant interview flashcards');
+  });
+
+  test('keeps learned evidence safety gates distinct across all strictness modes', () => {
+    const flashcardTarget = target('review flashcards for an exam', ['flashcards', 'exam']);
+    expect(
+      selectLearnedFocusedMatch({
+        examples: [example('focused')],
+        targets: [flashcardTarget],
+        descriptor: { ...descriptor, evidenceQuality: 'weak' },
+        strictness: 'flexible',
+      })
+    ).not.toBeNull();
+    expect(
+      selectLearnedFocusedMatch({
+        examples: [example('focused')],
+        targets: [flashcardTarget],
+        descriptor: { ...descriptor, evidenceQuality: 'weak' },
+        strictness: 'balanced',
+      })
+    ).toBeNull();
+    expect(
+      selectLearnedFocusedMatch({
+        examples: [example('focused')],
+        targets: [flashcardTarget],
+        descriptor: { ...descriptor, evidenceQuality: 'partial' },
+        strictness: 'strict',
+      })
+    ).toBeNull();
+    expect(
+      selectLearnedFocusedMatch({
+        examples: [example('focused')],
+        targets: [flashcardTarget],
+        descriptor: { ...descriptor, evidenceQuality: 'strong' },
+        strictness: 'strict',
+      })
+    ).not.toBeNull();
+    expect(allowsLearnedEvidence({ strictness: 'balanced', evidenceQuality: 'partial' })).toBe(
+      true
+    );
+  });
+
+  test('does not let a close positive override an explicit close negative', () => {
+    expect(
+      selectLearnedFocusedMatch({
+        examples: [example('focused'), example('distracted')],
+        targets: [target('review quant interview flashcards', ['flashcards', 'quant'])],
+        descriptor: { ...descriptor, evidenceQuality: 'strong' },
+        strictness: 'flexible',
+      })
+    ).toBeNull();
   });
 });
