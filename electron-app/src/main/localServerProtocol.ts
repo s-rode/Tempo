@@ -1,5 +1,5 @@
 /** Must match the local server's packaged API revision. */
-export const TEMPO_LOCAL_SERVER_API_VERSION = '2026-09-strict-evidence-v3'
+export const TEMPO_LOCAL_SERVER_API_VERSION = '2026-09-semantic-grounded-v1'
 
 export interface LocalServerHealth {
   service?: string

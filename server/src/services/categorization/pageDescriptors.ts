@@ -4,7 +4,7 @@ import { PageActivityDescriptorModel } from '../../models/pageActivityDescriptor
 import type { PageActivityDescriptorData } from './pageDescriptorTypes';
 
 export const PAGE_DESCRIPTOR_POLICY_VERSION = 'page-descriptor-v1';
-export const CLASSIFIER_POLICY_VERSION = 'factored-relation-v3';
+export const CLASSIFIER_POLICY_VERSION = 'semantic-grounded-v1';
 
 export const sanitizeDerivedDescriptorText = (text: string): string =>
   text

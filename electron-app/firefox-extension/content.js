@@ -1,8 +1,9 @@
 /* Ephemeral, local-only page interpretation input. Nothing is stored here. */
-(() => {
+;(() => {
   const MAX_TEXT = 6000
   const MAX_NODES = 900
-  const excluded = 'script,style,noscript,template,input,textarea,select,option,button,[contenteditable="true"],[contenteditable=""],nav,header,footer,aside,[aria-hidden="true"]'
+  const excluded =
+    'script,style,noscript,template,input,textarea,select,option,button,[contenteditable="true"],[contenteditable=""],nav,header,footer,aside,[aria-hidden="true"]'
 
   function visible(element, cache) {
     if (!(element instanceof Element)) return false
@@ -24,7 +25,10 @@
   }
 
   function clean(value, limit) {
-    return String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit)
+    return String(value || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, limit)
   }
 
   function extract() {
@@ -55,7 +59,7 @@
       title: clean(document.title, 300),
       description,
       headings,
-      pageText: clean(chunks.join(' '), MAX_TEXT),
+      pageText: clean(chunks.join(' '), MAX_TEXT)
     }
   }
 
@@ -63,4 +67,37 @@
     if (message?.type !== 'tempo-read-page') return undefined
     return Promise.resolve(extract())
   })
+
+  // Dynamic pages often update their visible result without navigating or
+  // changing the title. Observe only non-editable visible-page mutations and
+  // send a cheap invalidation signal after the page settles. The background
+  // script performs the bounded extraction and fingerprint deduplication.
+  let settledTimer = null
+  let firstMutationAt = 0
+  function announceSettledChange() {
+    settledTimer = null
+    firstMutationAt = 0
+    void browser.runtime.sendMessage({ type: 'tempo-visible-page-changed' }).catch(() => {})
+  }
+  function scheduleSettledChange() {
+    const now = Date.now()
+    if (!firstMutationAt) firstMutationAt = now
+    if (settledTimer) clearTimeout(settledTimer)
+    const elapsed = now - firstMutationAt
+    settledTimer = setTimeout(announceSettledChange, elapsed >= 8000 ? 100 : 1200)
+  }
+  const observer = new MutationObserver((mutations) => {
+    const relevant = mutations.some((mutation) => {
+      const target =
+        mutation.target instanceof Element ? mutation.target : mutation.target.parentElement
+      return target && !target.matches(excluded) && !target.closest(excluded)
+    })
+    if (relevant && document.visibilityState === 'visible') scheduleSettledChange()
+  })
+  const beginObservation = () => {
+    if (!document.body) return
+    observer.observe(document.body, { subtree: true, childList: true, characterData: true })
+  }
+  if (document.body) beginObservation()
+  else document.addEventListener('DOMContentLoaded', beginObservation, { once: true })
 })()

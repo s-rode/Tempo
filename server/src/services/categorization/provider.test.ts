@@ -440,4 +440,78 @@ describe('OllamaClassificationProvider', () => {
       confidence: 'low',
     });
   });
+
+  test('makes one grounded semantic decision from goal and original Firefox evidence', async () => {
+    globalThis.fetch = (async (_url: unknown, init: RequestInit | undefined) => {
+      const request = JSON.parse(String(init?.body));
+      expect(request.messages[1].content).toContain('Study Gaussian Processes');
+      expect(request.messages[1].content).toContain('Gaussian process regression');
+      expect(request.messages[1].content).toContain('"alias":"E4"');
+      expect(request.format.required).toEqual(['s', 'r', 't', 'm', 'p', 'c', 'e']);
+      return new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              s: 'focused',
+              r: 'direct',
+              t: 'T1',
+              m: null,
+              p: 'high',
+              c: 'Work',
+              e: ['E2', 'E4'],
+              l: null,
+              g: 'none',
+            }),
+          },
+        }),
+        { status: 200 }
+      );
+    }) as unknown as typeof fetch;
+    const result = await new OllamaClassificationProvider().decideActivity(
+      goals,
+      categories,
+      { ...activity, browser: 'firefox', contentSource: 'dom', siteHost: 'example.test' },
+      'balanced',
+      2000
+    );
+    expect(result).toMatchObject({
+      attemptCount: 1,
+      decision: {
+        state: 'focused',
+        relation: 'direct',
+        matchedGoalRef: 'daily:today:gp',
+        evidenceAliases: ['E2', 'E4'],
+      },
+    });
+  });
+
+  test('drops invented evidence aliases and unknown target aliases', async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              s: 'focused',
+              r: 'direct',
+              t: 'T9',
+              m: null,
+              p: 'high',
+              c: 'Work',
+              e: ['E9'],
+              l: null,
+              g: 'none',
+            }),
+          },
+        }),
+        { status: 200 }
+      )) as unknown as typeof fetch;
+    const result = await new OllamaClassificationProvider().decideActivity(
+      goals,
+      categories,
+      { ...activity, browser: 'firefox', contentSource: 'dom' },
+      'flexible',
+      2000
+    );
+    expect(result.decision).toMatchObject({ matchedGoalRef: null, evidenceAliases: [] });
+  });
 });

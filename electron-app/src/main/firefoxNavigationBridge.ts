@@ -14,7 +14,7 @@ export interface FirefoxNavigationState {
   pageCorrectionKey: string
   siteHost: string
   pageContent: string | null
-  reason: 'activation' | 'navigation' | 'reload' | 'title_change'
+  reason: 'activation' | 'navigation' | 'reload' | 'title_change' | 'content_change'
 }
 
 const localAppSupport = join(app.getPath('home'), 'Library', 'Application Support', 'Tempo')
@@ -91,7 +91,9 @@ function parseNavigation(value: unknown): FirefoxNavigationState | null {
     typeof title !== 'string' ||
     typeof url !== 'string' ||
     !url ||
-    !['activation', 'navigation', 'reload', 'title_change'].includes(String(reason))
+    !['activation', 'navigation', 'reload', 'title_change', 'content_change'].includes(
+      String(reason)
+    )
   )
     return null
   const fingerprint = createHmac('sha256', navigationSecret())
@@ -104,7 +106,7 @@ function parseNavigation(value: unknown): FirefoxNavigationState | null {
     message.pageContext && typeof message.pageContext === 'object'
       ? (message.pageContext as Record<string, unknown>)
       : null
-  const clean = (value: unknown, limit: number) =>
+  const clean = (value: unknown, limit: number): string =>
     typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, limit) : ''
   const headings = Array.isArray(rawContext?.headings)
     ? rawContext.headings

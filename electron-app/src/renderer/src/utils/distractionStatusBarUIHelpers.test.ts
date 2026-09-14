@@ -19,14 +19,14 @@ const failedEvent: ActiveWindowEvent = {
 describe('current activity status', () => {
   test('shows a persisted failure instead of pretending the same activity is still classifying', () => {
     expect(getStatusText(failedEvent, activity, null, false, false, null)).toBe(
-      'Local AI needs another try'
+      'Local AI could not complete this comparison'
     )
   })
 
   test('shows local analysis only for a genuinely new foreground activity', () => {
     expect(
       getStatusText(failedEvent, { ...activity, title: 'New activity' }, null, false, false, null)
-    ).toBe('Analyzing locally…')
+    ).toBe('Comparing with your plan…')
   })
 
   test('uses neutral wording for insufficient evidence on every app', () => {

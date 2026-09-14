@@ -5,6 +5,53 @@ export const DEFAULT_CLASSIFIER_STRICTNESS: ClassifierStrictness = 'strict';
 export const isClassifierStrictness = (value: unknown): value is ClassifierStrictness =>
   value === 'flexible' || value === 'balanced' || value === 'strict';
 
+interface GroundedSemanticDecision {
+  state: 'focused' | 'distracted';
+  relation: 'direct' | 'supporting' | 'none';
+  matchedGoalRef: string | null;
+  supportingMode: string | null;
+  confidence: 'high' | 'medium' | 'low';
+  evidenceAliases: string[];
+  learningExampleId: string | null;
+  learningSimilarity: 'close' | 'related' | 'none';
+}
+
+/**
+ * Strictness calibrates grounded semantic evidence rather than checking for
+ * literal word overlap. The model may understand acronyms and paraphrases,
+ * while the server still verifies that it cited evidence from this request.
+ */
+export function acceptsSemanticFocus(input: {
+  decision: GroundedSemanticDecision | null;
+  strictness: ClassifierStrictness;
+  hasFirefoxContent: boolean;
+}): boolean {
+  const { decision, strictness, hasFirefoxContent } = input;
+  if (
+    !decision ||
+    decision.state !== 'focused' ||
+    decision.relation === 'none' ||
+    !decision.matchedGoalRef ||
+    decision.evidenceAliases.length === 0 ||
+    decision.confidence === 'low'
+  )
+    return false;
+  const citedBeyondApplication = decision.evidenceAliases.some((alias) => alias !== 'E1');
+  const closeLearnedTool = Boolean(
+    decision.learningExampleId && decision.learningSimilarity === 'close'
+  );
+  if (strictness === 'flexible') return citedBeyondApplication || closeLearnedTool;
+  if (strictness === 'balanced') {
+    if (!citedBeyondApplication) return false;
+    return (
+      decision.relation === 'direct' ||
+      decision.confidence === 'high' ||
+      (hasFirefoxContent && decision.confidence === 'medium')
+    );
+  }
+  return decision.confidence === 'high' && citedBeyondApplication;
+}
+
 /**
  * The model describes the relation; this policy decides how much visible
  * evidence a user wants before Tempo treats it as focused work.

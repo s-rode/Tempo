@@ -100,7 +100,7 @@ export const correctionLearningPatternKey = (input: {
 export async function findLearningExamples(input: {
   userId: string;
   toolKey: string | null | undefined;
-  descriptor: Pick<PageActivityDescriptorData, 'pageKind' | 'topicCues'>;
+  descriptor?: Pick<PageActivityDescriptorData, 'pageKind' | 'topicCues'> | null;
   enabled: boolean;
 }): Promise<LearningExample[]> {
   if (!input.enabled || !input.toolKey) return [];
@@ -116,6 +116,7 @@ export async function findLearningExamples(input: {
   const clearlyOffGoalKinds = new Set(['social', 'entertainment', 'shopping', 'general_browsing']);
   return records
     .filter((record) => {
+      if (!input.descriptor) return true;
       // Unknown/native descriptors may still be compatible with a learned
       // study method. Clearly off-goal activity kinds never borrow focus from
       // a different learned work shape.

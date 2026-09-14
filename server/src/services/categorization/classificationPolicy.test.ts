@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import { allowsDirectEvidence, allowsSupportingEvidence } from './classificationPolicy';
+import {
+  acceptsSemanticFocus,
+  allowsDirectEvidence,
+  allowsSupportingEvidence,
+} from './classificationPolicy';
 
 describe('classifier strictness policy', () => {
   test('keeps generic or weak direct evidence out at every setting', () => {
@@ -54,5 +58,72 @@ describe('classifier strictness policy', () => {
         compatibleMethod: true,
       })
     ).toBe(true);
+  });
+});
+
+describe('grounded semantic strictness', () => {
+  const decision = {
+    state: 'focused' as const,
+    relation: 'supporting' as const,
+    matchedGoalRef: 'daily:goal',
+    supportingMode: 'study_notes_or_retrieval',
+    confidence: 'medium' as const,
+    evidenceAliases: ['E2'],
+    learningExampleId: null,
+    learningSimilarity: 'none' as const,
+  };
+
+  test('does not require literal goal tokens but always requires cited evidence', () => {
+    expect(
+      acceptsSemanticFocus({ decision, strictness: 'flexible', hasFirefoxContent: false })
+    ).toBe(true);
+    expect(
+      acceptsSemanticFocus({
+        decision: { ...decision, evidenceAliases: [] },
+        strictness: 'flexible',
+        hasFirefoxContent: false,
+      })
+    ).toBe(false);
+  });
+
+  test('keeps all three modes distinct', () => {
+    expect(
+      acceptsSemanticFocus({ decision, strictness: 'flexible', hasFirefoxContent: false })
+    ).toBe(true);
+    expect(
+      acceptsSemanticFocus({ decision, strictness: 'balanced', hasFirefoxContent: false })
+    ).toBe(false);
+    expect(acceptsSemanticFocus({ decision, strictness: 'strict', hasFirefoxContent: false })).toBe(
+      false
+    );
+    expect(
+      acceptsSemanticFocus({
+        decision: { ...decision, confidence: 'high' },
+        strictness: 'strict',
+        hasFirefoxContent: false,
+      })
+    ).toBe(true);
+  });
+
+  test('lets only Flexible use a close learned application-only preference', () => {
+    const learned = {
+      ...decision,
+      evidenceAliases: ['E1'],
+      learningExampleId: 'learned',
+      learningSimilarity: 'close' as const,
+    };
+    expect(
+      acceptsSemanticFocus({ decision: learned, strictness: 'flexible', hasFirefoxContent: false })
+    ).toBe(true);
+    expect(
+      acceptsSemanticFocus({ decision: learned, strictness: 'balanced', hasFirefoxContent: false })
+    ).toBe(false);
+    expect(
+      acceptsSemanticFocus({
+        decision: { ...learned, confidence: 'high' },
+        strictness: 'strict',
+        hasFirefoxContent: false,
+      })
+    ).toBe(false);
   });
 });

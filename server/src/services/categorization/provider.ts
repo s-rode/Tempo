@@ -1,10 +1,15 @@
 import { z } from 'zod';
-import { ActiveWindowDetails, Category as CategoryType } from '../../../../shared/types';
+import {
+  ActiveWindowDetails,
+  Category as CategoryType,
+  ClassifierStrictness,
+} from '../../../../shared/types';
 import {
   buildCoreClassificationPromptInput,
   buildEnrichmentPromptInput,
   buildGoalSupportProfilePromptInput,
   buildGoalRelationPromptInput,
+  buildSemanticActivityPromptInput,
   buildPageInterpretationPromptInput,
   CoreClassificationDecisionSchema,
   EnrichmentSchema,
@@ -12,6 +17,7 @@ import {
   GoalSupportProfileSchema,
   GoalRelationDecisionSchema,
   PageActivityDescriptorSchema,
+  SemanticActivityDecisionSchema,
 } from './llm';
 import { GoalSupportProfileData, SUPPORTING_MODES, isSupportingMode } from './goalSupportTypes';
 import type { PageActivityDescriptorData } from './pageDescriptorTypes';
@@ -70,6 +76,20 @@ export interface GoalRelationProviderResult {
   attemptCount: number;
 }
 
+export type SemanticActivityDecision = Omit<
+  z.infer<typeof SemanticActivityDecisionSchema>,
+  'learningExampleAlias'
+> & {
+  matchedGoalRef: string | null;
+  learningExampleId: string | null;
+};
+
+export interface SemanticActivityProviderResult {
+  decision: SemanticActivityDecision | null;
+  failureCode?: ClassificationFailureCode;
+  attemptCount: number;
+}
+
 export interface ClassificationProvider {
   classify(
     goals: EffectiveGoalContext,
@@ -92,6 +112,14 @@ export interface ClassificationProvider {
     timeoutMs: number,
     learningExamples?: LearningExampleForPrompt[]
   ): Promise<GoalRelationProviderResult>;
+  decideActivity(
+    goals: EffectiveGoalContext,
+    categories: PromptCategory[],
+    activity: ActivityContext,
+    strictness: ClassifierStrictness,
+    timeoutMs: number,
+    learningExamples?: LearningExampleForPrompt[]
+  ): Promise<SemanticActivityProviderResult>;
   enrich(
     goals: EffectiveGoalContext,
     category: PromptCategory,
@@ -204,6 +232,23 @@ const relationResponseSchema = {
   // l/g are optional to keep the bounded retry resilient while users have a
   // warm local model that predates correction learning.
   required: ['s', 'r', 't', 'm', 'p', 'c'],
+};
+
+const semanticActivityResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    s: { type: 'string', enum: ['focused', 'distracted'] },
+    r: { type: 'string', enum: ['direct', 'supporting', 'none'] },
+    t: { type: ['string', 'null'], maxLength: 4 },
+    m: { type: ['string', 'null'], enum: [...SUPPORTING_MODES, null] },
+    p: { type: 'string', enum: ['high', 'medium', 'low'] },
+    c: { type: ['string', 'null'], maxLength: 64 },
+    e: { type: 'array', items: { type: 'string', maxLength: 4 }, maxItems: 4 },
+    l: { type: ['string', 'null'], maxLength: 4 },
+    g: { type: 'string', enum: ['close', 'related', 'none'] },
+  },
+  required: ['s', 'r', 't', 'm', 'p', 'c', 'e'],
 };
 
 const enrichmentResponseSchema = {
@@ -465,6 +510,120 @@ export async function warmLocalClassificationModel(): Promise<void> {
 }
 
 export class OllamaClassificationProvider implements ClassificationProvider {
+  async decideActivity(
+    goals: EffectiveGoalContext,
+    categories: PromptCategory[],
+    activity: ActivityContext,
+    strictness: ClassifierStrictness,
+    timeoutMs: number,
+    learningExamples: LearningExampleForPrompt[] = []
+  ): Promise<SemanticActivityProviderResult> {
+    const startedAt = Date.now();
+    const parse = (result: { content: string | null; failure?: ClassificationFailureCode }) => {
+      if (!result.content) return { decision: null, failure: result.failure };
+      const parsed = parseStructuredResponse(result.content);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+        return { decision: null, failure: 'invalid_json' as const };
+      const raw = parsed as Record<string, unknown>;
+      const checked = SemanticActivityDecisionSchema.safeParse({
+        state: raw.s ?? raw.state,
+        relation: raw.r ?? raw.relation,
+        targetAlias: raw.t ?? raw.targetAlias ?? null,
+        supportingMode: raw.m ?? raw.supportingMode ?? null,
+        confidence: raw.p ?? raw.confidence,
+        categoryAlias: raw.c ?? raw.categoryAlias ?? null,
+        evidenceAliases: raw.e ?? raw.evidenceAliases ?? [],
+        learningExampleAlias: raw.l ?? raw.learningExampleAlias ?? null,
+        learningSimilarity: raw.g ?? raw.learningSimilarity ?? 'none',
+      });
+      if (!checked.success) return { decision: null, failure: 'invalid_decision_shape' as const };
+      const targetAlias = checked.data.targetAlias?.trim().toUpperCase() || null;
+      const targetIndex = targetAlias?.match(/^T(\d+)$/)?.[1];
+      const target = targetIndex
+        ? (goals.targets || [])[Number(targetIndex) - 1] || null
+        : (goals.targets || []).find((item) => item.ref === checked.data.targetAlias) || null;
+      const learningAlias = checked.data.learningExampleAlias?.trim().toUpperCase() || null;
+      const learningIndex = learningAlias?.match(/^L(\d+)$/)?.[1];
+      const learningExample = learningIndex
+        ? learningExamples[Number(learningIndex) - 1] || null
+        : null;
+      const validEvidence = new Set([
+        'E1',
+        ...(activity.title?.trim() ? ['E2'] : []),
+        ...(activity.browser === 'firefox' && activity.siteHost?.trim() ? ['E3'] : []),
+        ...(activity.browser === 'firefox' && activity.content?.trim() ? ['E4'] : []),
+      ]);
+      const evidenceAliases = [
+        ...new Set(
+          checked.data.evidenceAliases
+            .map((alias) => alias.trim().toUpperCase())
+            .filter((alias) => validEvidence.has(alias))
+        ),
+      ].slice(0, 4);
+      return {
+        decision: {
+          state: checked.data.state,
+          relation: checked.data.state === 'focused' ? checked.data.relation : 'none',
+          matchedGoalRef: checked.data.state === 'focused' ? target?.ref || null : null,
+          targetAlias: checked.data.targetAlias,
+          supportingMode:
+            checked.data.state === 'focused' && checked.data.relation === 'supporting'
+              ? checked.data.supportingMode
+              : null,
+          confidence: checked.data.confidence,
+          categoryAlias: checked.data.categoryAlias,
+          evidenceAliases,
+          learningExampleId: learningExample?.id || null,
+          learningSimilarity: learningExample ? checked.data.learningSimilarity : 'none',
+        } as SemanticActivityDecision,
+      };
+    };
+    const prompt = buildSemanticActivityPromptInput(
+      goals,
+      activity,
+      categories,
+      strictness,
+      learningExamples
+    );
+    const first = parse(
+      await chat(
+        prompt,
+        semanticActivityResponseSchema,
+        Math.min(72, ollamaConfig().numPredict),
+        Math.max(500, timeoutMs)
+      )
+    );
+    if (first.decision) return { decision: first.decision, attemptCount: 1 };
+    if (first.failure === 'timeout' || first.failure === 'ollama_http_error')
+      return { decision: null, failureCode: first.failure, attemptCount: 1 };
+    const remaining = timeoutMs - (Date.now() - startedAt);
+    if (remaining < 500)
+      return { decision: null, failureCode: 'core_retry_exhausted', attemptCount: 1 };
+    const retry = prompt.map((message, index) =>
+      index === 1
+        ? { ...message, content: `${message.content}\nRETRY: Return only s,r,t,m,p,c,e,l,g JSON.` }
+        : message
+    );
+    const second = parse(
+      await chat(
+        retry,
+        semanticActivityResponseSchema,
+        Math.min(56, ollamaConfig().numPredict),
+        remaining
+      )
+    );
+    return second.decision
+      ? { decision: second.decision, attemptCount: 2 }
+      : {
+          decision: null,
+          failureCode:
+            second.failure === 'timeout' || second.failure === 'ollama_http_error'
+              ? second.failure
+              : 'core_retry_exhausted',
+          attemptCount: 2,
+        };
+  }
+
   async describePage(
     activity: ActivityContext,
     source: 'dom' | 'ocr' | 'title',
@@ -565,7 +724,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       return { decision: null, failureCode: 'core_retry_exhausted', attemptCount: 1 };
     const retry = prompt.map((message, index) =>
       index === 1
-          ? { ...message, content: `${message.content}\nRETRY: Return only s,r,t,m,p,c,l,g JSON.` }
+        ? { ...message, content: `${message.content}\nRETRY: Return only s,r,t,m,p,c,l,g JSON.` }
         : message
     );
     const second = parse(

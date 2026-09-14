@@ -9,12 +9,12 @@ const options: Array<{ value: Strictness; title: string; description: string }> 
   {
     value: 'flexible',
     title: 'Flexible',
-    description: 'Accept plausible, visibly goal-supporting work.'
+    description: 'Trust grounded semantic links and close learned work patterns.'
   },
   {
     value: 'balanced',
     title: 'Balanced',
-    description: 'Require a clear direct or supporting connection.'
+    description: 'Require a clear semantic or visibly supporting connection.'
   },
   {
     value: 'strict',
