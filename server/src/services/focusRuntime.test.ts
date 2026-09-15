@@ -58,6 +58,15 @@ describe('focus transition notices', () => {
     expect(pomodoro.phases[2].todayPlanTask).toBeNull();
   });
 
+  test('records the initial goal boundary for a running work phase', () => {
+    const taskSource = { taskId: 'task-123', dateKey: '2026-09-09' };
+    const run = createCustomRun('Review lecture notes', 30, 12_345, taskSource);
+
+    expect(run.phases[0].goalHistory).toEqual([
+      { goal: 'Review lecture notes', todayPlanTask: taskSource, startedAtMs: 12_345 },
+    ]);
+  });
+
   test('announces a Pomodoro break after each naturally completed work phase', () => {
     const run = createPomodoroRun('Solve practice problems', 1_000);
     run.phases[0].plannedDurationMs = 1_000;

@@ -8,14 +8,27 @@ const todayPlanTaskSchema = new Schema(
   { _id: false }
 );
 
+const focusGoalHistorySchema = new Schema(
+  {
+    goal: { type: String, required: true },
+    todayPlanTask: { type: todayPlanTaskSchema, default: null },
+    startedAtMs: { type: Number, required: true },
+  },
+  { _id: false }
+);
+
 const focusPhaseSchema = new Schema(
   {
     id: { type: String, required: true },
     kind: { type: String, required: true, enum: ['work', 'short_break', 'long_break'] },
     goal: { type: String, default: null },
-    // The task identity is a provenance hint only. `goal` remains the immutable
-    // session snapshot so later plan edits cannot rewrite focus history.
+    // The task identity is a provenance hint only. `goal` is the active
+    // segment snapshot, so later plan edits cannot rewrite focus history.
     todayPlanTask: { type: todayPlanTaskSchema, default: null },
+    // A phase may deliberately change its working goal without resetting its
+    // clock. Keep the boundary records so the timeline remains historically
+    // honest instead of applying the latest goal to the whole phase.
+    goalHistory: { type: [focusGoalHistorySchema], default: [] },
     startedAtMs: { type: Number, default: null },
     completedAtMs: { type: Number, default: null },
     plannedDurationMs: { type: Number, required: true },

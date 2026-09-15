@@ -222,26 +222,59 @@ const focusGoalCandidates = (runs: FocusTimelineRun[], nowMs: number): FocusGoal
         run.state === 'active'
           ? nowMs
           : run.completedAtMs || endedAtMs || startMs + phase.activeElapsedMs
-      const endMs = phase.completedAtMs || nextStartedAtMs || fallbackEndMs
-      if (endMs <= startMs) return []
-      return [
-        {
-          runId: run.id,
-          phaseId: phase.id,
-          phaseIndex,
-          kind: run.kind,
-          goal: phase.goal.trim(),
-          startTime: new Date(startMs),
-          endTime: new Date(endMs),
-          focusedMs: 0,
-          distractedMs: 0,
-          uncertainMs: 0,
-          observedMs: 0,
-          focusRatio: null,
-          adherence: 'not_enough_activity' as const,
-          adherenceLabel: 'No classified activity yet'
-        }
-      ]
+      const phaseEndMs = phase.completedAtMs || nextStartedAtMs || fallbackEndMs
+      if (phaseEndMs <= startMs) return []
+
+      // Newer phases carry a boundary for each goal change. Older persisted
+      // phases intentionally fall back to their one immutable snapshot.
+      const history =
+        phase.goalHistory
+          ?.filter(
+            (segment) =>
+              segment.goal?.trim() &&
+              Number.isFinite(segment.startedAtMs) &&
+              segment.startedAtMs >= startMs &&
+              segment.startedAtMs < phaseEndMs
+          )
+          .sort((left, right) => left.startedAtMs - right.startedAtMs) || []
+      const segments = history.length
+        ? history
+        : [
+            {
+              goal: phase.goal.trim(),
+              todayPlanTask: phase.todayPlanTask || null,
+              startedAtMs: startMs
+            }
+          ]
+
+      return segments.flatMap((segment, segmentIndex) => {
+        const segmentStartMs = Math.max(startMs, segment.startedAtMs)
+        const segmentEndMs = Math.min(
+          phaseEndMs,
+          segments[segmentIndex + 1]?.startedAtMs || phaseEndMs
+        )
+        if (segmentEndMs <= segmentStartMs) return []
+        return [
+          {
+            runId: run.id,
+            // Treat each goal boundary as its own lead annotation. A phase can
+            // therefore show the task that was actually active for a chapter.
+            phaseId: `${phase.id}:${segmentIndex}`,
+            phaseIndex,
+            kind: run.kind,
+            goal: segment.goal.trim(),
+            startTime: new Date(segmentStartMs),
+            endTime: new Date(segmentEndMs),
+            focusedMs: 0,
+            distractedMs: 0,
+            uncertainMs: 0,
+            observedMs: 0,
+            focusRatio: null,
+            adherence: 'not_enough_activity' as const,
+            adherenceLabel: 'No classified activity yet'
+          }
+        ]
+      })
     })
   )
 

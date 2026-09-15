@@ -231,10 +231,75 @@ export const focusRuntimeRouter = router({
       const resolvedGoal = await resolveGoalSource(userId, input.goalSource);
       phase.goal = resolvedGoal.goal;
       phase.todayPlanTask = resolvedGoal.todayPlanTask;
+      phase.goalHistory = [
+        {
+          goal: resolvedGoal.goal,
+          todayPlanTask: resolvedGoal.todayPlanTask,
+          startedAtMs: Date.now(),
+        },
+      ];
       phase.state = 'running';
       phase.runningSinceMs = Date.now();
       phase.startedAtMs = phase.runningSinceMs;
       phase.completedAtMs = null;
+      await saveRuntime(runtime);
+      await scheduleActiveGoalProfile(userId);
+      return runtimeSnapshot(runtime);
+    }),
+
+  /**
+   * Switches the goal for the current work phase without restarting its clock.
+   * The phase keeps timestamped goal segments so finished work is not relabelled
+   * in the timeline after the user moves to the next task.
+   */
+  changeCurrentWorkGoal: publicProcedure
+    .input(tokenInput.extend({ goalSource }))
+    .mutation(async ({ input }) => {
+      const userId = verifyToken(input.token).userId;
+      const runtime = await runtimeFor(input.token);
+      const phase = currentPhase(runtime);
+      if (
+        !runtime.run ||
+        !phase ||
+        phase.kind !== 'work' ||
+        phase.state === 'awaiting_goal' ||
+        phase.state === 'completed'
+      ) {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'Tempo is not currently in a work phase.',
+        });
+      }
+
+      const resolvedGoal = await resolveGoalSource(userId, input.goalSource);
+      const sameGoal =
+        phase.goal === resolvedGoal.goal &&
+        phase.todayPlanTask?.taskId === resolvedGoal.todayPlanTask?.taskId &&
+        phase.todayPlanTask?.dateKey === resolvedGoal.todayPlanTask?.dateKey;
+      if (!sameGoal) {
+        const now = Date.now();
+        const existingHistory = Array.isArray(phase.goalHistory) ? phase.goalHistory : [];
+        // Older phases predate goalHistory. Recover their initial segment from
+        // the immutable phase snapshot before adding the new boundary.
+        if (!existingHistory.length && phase.goal?.trim() && phase.startedAtMs) {
+          existingHistory.push({
+            goal: phase.goal,
+            todayPlanTask: phase.todayPlanTask || null,
+            startedAtMs: phase.startedAtMs,
+          });
+        }
+        existingHistory.push({
+          goal: resolvedGoal.goal,
+          todayPlanTask: resolvedGoal.todayPlanTask,
+          startedAtMs: now,
+        });
+        phase.goalHistory = existingHistory;
+        phase.goal = resolvedGoal.goal;
+        phase.todayPlanTask = resolvedGoal.todayPlanTask;
+      }
+
+      cancelPendingEnrichment(userId);
+      cancelPendingGoalSupportProfiles(userId);
       await saveRuntime(runtime);
       await scheduleActiveGoalProfile(userId);
       return runtimeSnapshot(runtime);

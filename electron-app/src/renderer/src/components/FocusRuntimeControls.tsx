@@ -1,4 +1,4 @@
-import { Coffee, Focus, Pause, Play, Timer, X } from 'lucide-react'
+import { Coffee, Focus, Pause, Pencil, Play, Timer, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from '../hooks/use-toast'
@@ -49,6 +49,7 @@ export function FocusRuntimeControls({
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [duration, setDuration] = useState<(typeof customDurations)[number]>(30)
   const [open, setOpen] = useState(false)
+  const [changingGoal, setChangingGoal] = useState(false)
   const utils = trpc.useContext()
   const { data: dailyPlan } = trpc.goals.getDailyPlan.useQuery(
     { token: token || '' },
@@ -61,10 +62,7 @@ export function FocusRuntimeControls({
   )
   const selectedTask = activePlanTasks.find((task) => task.id === selectedTaskId) || null
   const invalidate = () => void utils.focusRuntime.getState.invalidate()
-  const finishStart = () => {
-    setGoal('')
-    setSelectedTaskId('')
-    setOpen(false)
+  const refreshGoalContext = () => {
     invalidate()
     void utils.goals.getActiveContext.fetch({ token: token || '' }).then((context) => {
       void window.api?.refreshCurrentActivity()
@@ -72,6 +70,13 @@ export function FocusRuntimeControls({
         utils.goals.getActiveContext.fetch({ token: token || '' })
       )
     })
+  }
+  const finishStart = () => {
+    setGoal('')
+    setSelectedTaskId('')
+    setChangingGoal(false)
+    setOpen(false)
+    refreshGoalContext()
   }
   const showError = (error: { message: string }) =>
     toast({ title: 'Could not start focus', description: error.message, variant: 'destructive' })
@@ -87,6 +92,21 @@ export function FocusRuntimeControls({
     onSuccess: finishStart,
     onError: showError
   })
+  const changeCurrentWorkGoal = trpc.focusRuntime.changeCurrentWorkGoal.useMutation({
+    onSuccess: () => {
+      setGoal('')
+      setSelectedTaskId('')
+      setChangingGoal(false)
+      refreshGoalContext()
+      toast({ title: 'Focus goal updated', description: 'The timer keeps running.' })
+    },
+    onError: (error) =>
+      toast({
+        title: 'Could not change focus goal',
+        description: error.message,
+        variant: 'destructive'
+      })
+  })
   const pause = trpc.focusRuntime.pause.useMutation({ onSuccess: invalidate })
   const resume = trpc.focusRuntime.resume.useMutation({ onSuccess: invalidate })
   const skipBreak = trpc.focusRuntime.skipBreak.useMutation({ onSuccess: invalidate })
@@ -100,6 +120,7 @@ export function FocusRuntimeControls({
     startCustom.isLoading ||
     startPomodoro.isLoading ||
     confirmGoal.isLoading ||
+    changeCurrentWorkGoal.isLoading ||
     pause.isLoading ||
     resume.isLoading ||
     skipBreak.isLoading ||
@@ -117,6 +138,9 @@ export function FocusRuntimeControls({
   useEffect(() => {
     if (selectedTaskId && !selectedTask) setSelectedTaskId('')
   }, [selectedTaskId, selectedTask])
+  useEffect(() => {
+    if (!open) setChangingGoal(false)
+  }, [open])
 
   if (!token || !runtime) return null
   const phase = runtime.currentPhase
@@ -124,15 +148,17 @@ export function FocusRuntimeControls({
   const isWaitingForGoal = phase?.state === 'awaiting_goal'
   const isBreak = runtime.trackingState === 'break'
   const isPaused = runtime.trackingState === 'paused'
+  const canChangeCurrentGoal = phase?.kind === 'work' && phase.state !== 'awaiting_goal'
   const hasGoal = Boolean(selectedTask || goal.trim())
   const goalSource = selectedTask
     ? { kind: 'today_plan_task' as const, taskId: selectedTask.id }
     : { kind: 'custom' as const, goal: goal.trim() }
-  const submitGoal = (action: 'custom' | 'pomodoro' | 'next') => {
+  const submitGoal = (action: 'custom' | 'pomodoro' | 'next' | 'change') => {
     if (!hasGoal) return
     if (action === 'custom') startCustom.mutate({ token, goalSource, durationMinutes: duration })
     if (action === 'pomodoro') startPomodoro.mutate({ token, firstGoalSource: goalSource })
     if (action === 'next') confirmGoal.mutate({ token, goalSource })
+    if (action === 'change') changeCurrentWorkGoal.mutate({ token, goalSource })
   }
   const label = !activeRun
     ? 'Start Focus'
@@ -172,16 +198,22 @@ export function FocusRuntimeControls({
         className="tempo-focus-popover w-[340px] p-4"
         aria-label="Focus session controls"
       >
-        {!activeRun || isWaitingForGoal ? (
+        {!activeRun || isWaitingForGoal || changingGoal ? (
           <div className="space-y-4">
             <div>
               <p className="text-sm font-semibold">
-                {isWaitingForGoal ? 'Next Pomodoro block' : 'Start a focus session'}
+                {changingGoal
+                  ? 'Change current goal'
+                  : isWaitingForGoal
+                    ? 'Next Pomodoro block'
+                    : 'Start a focus session'}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {isWaitingForGoal
-                  ? 'Choose one clear goal for the next 30 minutes.'
-                  : 'Tempo will use this goal while classifying activity.'}
+                {changingGoal
+                  ? 'The timer keeps running. New activity will be compared with this goal.'
+                  : isWaitingForGoal
+                    ? 'Choose one clear goal for the next 30 minutes.'
+                    : 'Tempo will use this goal while classifying activity.'}
               </p>
             </div>
             {activePlanTasks.length > 0 && (
@@ -216,13 +248,18 @@ export function FocusRuntimeControls({
                   value={goal}
                   onChange={(event) => setGoal(event.target.value)}
                   placeholder="What will you focus on?"
-                  onKeyDown={(event) =>
-                    event.key === 'Enter' && submitGoal(isWaitingForGoal ? 'next' : 'custom')
-                  }
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape' && changingGoal) {
+                      event.preventDefault()
+                      setChangingGoal(false)
+                    }
+                    if (event.key === 'Enter')
+                      submitGoal(changingGoal ? 'change' : isWaitingForGoal ? 'next' : 'custom')
+                  }}
                 />
               </label>
             )}
-            {!isWaitingForGoal && (
+            {!isWaitingForGoal && !changingGoal && (
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-muted-foreground">Duration</span>
                 <select
@@ -240,7 +277,7 @@ export function FocusRuntimeControls({
               </label>
             )}
             <div className="flex justify-end gap-2">
-              {isWaitingForGoal ? (
+              {isWaitingForGoal && !changingGoal ? (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -256,10 +293,19 @@ export function FocusRuntimeControls({
                   End Pomodoro
                 </Button>
               ) : null}
-              <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => (changingGoal ? setChangingGoal(false) : setOpen(false))}
+              >
                 Cancel
               </Button>
-              {isWaitingForGoal ? (
+              {changingGoal ? (
+                <Button size="sm" disabled={!hasGoal || busy} onClick={() => submitGoal('change')}>
+                  <Pencil size={15} />
+                  Update goal
+                </Button>
+              ) : isWaitingForGoal ? (
                 <Button size="sm" disabled={!hasGoal || busy} onClick={() => submitGoal('next')}>
                   <Play size={15} />
                   Begin block
@@ -334,6 +380,21 @@ export function FocusRuntimeControls({
                   onClick={() => skipBreak.mutate({ token })}
                 >
                   Skip break
+                </Button>
+              ) : null}
+              {canChangeCurrentGoal ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setGoal(phase?.goal || '')
+                    setSelectedTaskId(phase?.todayPlanTask?.taskId || '')
+                    setChangingGoal(true)
+                  }}
+                >
+                  <Pencil size={15} />
+                  Change goal…
                 </Button>
               ) : null}
               <Button

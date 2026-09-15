@@ -432,4 +432,63 @@ describe('activity sessions', () => {
       attachFocusGoalsToTimelineChapters(chapters, runs, base + 30 * 60_000)[0].focusGoal
     ).toBeUndefined()
   })
+
+  test('keeps separate timeline goals when a running work phase changes task', () => {
+    const first = block({
+      durationMs: 10 * 60_000,
+      startTime: new Date(base),
+      endTime: new Date(base + 10 * 60_000)
+    })
+    const second = block({
+      durationMs: 5 * 60_000,
+      startTime: new Date(base + 15 * 60_000),
+      endTime: new Date(base + 20 * 60_000)
+    })
+    const runs: FocusTimelineRun[] = [
+      {
+        endedAtMs: base + 20 * 60_000,
+        outcome: 'completed',
+        run: {
+          id: 'changed-goal-run',
+          kind: 'custom',
+          state: 'completed',
+          currentPhaseIndex: 0,
+          startedAtMs: base,
+          completedAtMs: base + 20 * 60_000,
+          phases: [
+            {
+              id: 'changed-goal-phase',
+              kind: 'work',
+              goal: 'Practice interview questions',
+              goalHistory: [
+                { goal: 'Review flashcards', todayPlanTask: null, startedAtMs: base },
+                {
+                  goal: 'Practice interview questions',
+                  todayPlanTask: null,
+                  startedAtMs: base + 10 * 60_000
+                }
+              ],
+              startedAtMs: base,
+              completedAtMs: base + 20 * 60_000,
+              plannedDurationMs: 20 * 60_000,
+              activeElapsedMs: 20 * 60_000,
+              runningSinceMs: null,
+              state: 'completed',
+              productiveMs: 0,
+              distractedMs: 0
+            }
+          ]
+        }
+      }
+    ]
+
+    const chapters = attachFocusGoalsToTimelineChapters(
+      buildTimelineChapters(buildActivitySessions([first, second])),
+      runs,
+      base + 20 * 60_000
+    )
+
+    expect(chapters[0].focusGoal?.goal).toBe('Review flashcards')
+    expect(chapters[1].focusGoal?.goal).toBe('Practice interview questions')
+  })
 })

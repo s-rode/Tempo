@@ -40,17 +40,22 @@ const phase = (
   durationMinutes: number,
   state: string,
   goal: string | null = null,
-  todayPlanTask: TodayPlanTaskSource | null = null
+  todayPlanTask: TodayPlanTaskSource | null = null,
+  now = Date.now()
 ) => ({
   id: crypto.randomUUID(),
   kind,
   goal,
   todayPlanTask,
-  startedAtMs: state === 'running' ? Date.now() : null,
+  goalHistory:
+    kind === 'work' && goal && state === 'running'
+      ? [{ goal, todayPlanTask, startedAtMs: now }]
+      : [],
+  startedAtMs: state === 'running' ? now : null,
   completedAtMs: null,
   plannedDurationMs: durationMinutes * minute,
   activeElapsedMs: 0,
-  runningSinceMs: state === 'running' ? Date.now() : null,
+  runningSinceMs: state === 'running' ? now : null,
   state,
   productiveMs: 0,
   distractedMs: 0,
@@ -418,7 +423,7 @@ export const createCustomRun = (
   currentPhaseIndex: 0,
   phases: [
     {
-      ...phase('work', durationMinutes, 'running', goal, todayPlanTask),
+      ...phase('work', durationMinutes, 'running', goal, todayPlanTask, now),
       runningSinceMs: now,
       startedAtMs: now,
     },
@@ -438,7 +443,7 @@ export const createPomodoroRun = (
   currentPhaseIndex: 0,
   phases: [
     {
-      ...phase('work', 30, 'running', firstGoal, todayPlanTask),
+      ...phase('work', 30, 'running', firstGoal, todayPlanTask, now),
       runningSinceMs: now,
       startedAtMs: now,
     },
