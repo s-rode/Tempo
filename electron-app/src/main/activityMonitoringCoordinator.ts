@@ -141,6 +141,18 @@ export class ActivityMonitoringCoordinator {
     }
   }
 
+  /**
+   * Resumes an explicit monitoring pause after the server has cleared its
+   * matching persisted pause. Keeping this as one main-process operation
+   * prevents a renderer state update from briefly leaving the native observer
+   * paused, which would otherwise make the first post-wake activity look
+   * stuck until the user changes apps again.
+   */
+  resumeManualTracking(): ManualSystemResumeResult {
+    this.setPaused(false)
+    return this.resumeAfterSystemSuspension()
+  }
+
   private onNativeActivity(details: ActiveWindowDetails | null): void {
     if (!details) return
     const now = Date.now()
