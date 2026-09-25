@@ -1,4 +1,5 @@
-import { CheckCircle2, CircleDashed, ExternalLink, Info, Sparkles } from 'lucide-react'
+import { CheckCircle2, CircleDashed, Copy, ExternalLink, FolderOpen, Info, Sparkles } from 'lucide-react'
+import { useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
 export type FirefoxCompanionState = 'not_detected' | 'connected' | 'cache_hit' | 'cache_miss'
@@ -40,6 +41,13 @@ const copy: Record<
 export function FirefoxCompanionStatus({ state }: { state: FirefoxCompanionState }) {
   const current = copy[state]
   const Icon = current.Icon
+  const [addressCopied, setAddressCopied] = useState(false)
+
+  const copyDebuggingAddress = () => {
+    window.api?.copyFirefoxRuntimeDebuggingAddress?.()
+    setAddressCopied(true)
+    window.setTimeout(() => setAddressCopied(false), 2_000)
+  }
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -63,15 +71,46 @@ export function FirefoxCompanionStatus({ state }: { state: FirefoxCompanionState
             <p className="text-sm font-semibold">{current.label}</p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{current.detail}</p>
             {state === 'not_detected' && (
-              <button
-                type="button"
-                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                onClick={() => window.api?.openFirefoxRuntimeDebugging?.()}
-                aria-label="Open Firefox extension debugging"
-              >
-                Open Firefox extension debugging
-                <ExternalLink size={12} aria-hidden="true" />
-              </button>
+              <div className="mt-3 space-y-2 border-t border-border pt-3 text-xs">
+                <p className="font-medium text-foreground">Install the companion in Firefox</p>
+                <ol className="list-decimal space-y-1 pl-4 text-muted-foreground">
+                  <li>Open Firefox, then paste the copied address in its address bar.</li>
+                  <li>
+                    Select <span className="font-medium text-foreground">This Firefox</span> →{' '}
+                    <span className="font-medium text-foreground">Load Temporary Add-on…</span>.
+                  </li>
+                  <li>Reveal and unzip the Tempo package, then select its <code>manifest.json</code>.</li>
+                </ol>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => void window.api?.openFirefoxRuntimeDebugging?.()}
+                    aria-label="Open Firefox"
+                  >
+                    Open Firefox
+                    <ExternalLink size={12} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={copyDebuggingAddress}
+                    aria-label="Copy Firefox extension debugging address"
+                  >
+                    <Copy size={12} aria-hidden="true" />
+                    {addressCopied ? 'Copied' : 'Copy address'}
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => window.api?.revealFirefoxCompanionPackage?.()}
+                    aria-label="Reveal Tempo Firefox companion package in Finder"
+                  >
+                    <FolderOpen size={12} aria-hidden="true" />
+                    Reveal package
+                  </button>
+                </div>
+              </div>
             )}
             <p className="mt-2 text-[11px] text-muted-foreground">
               Visible page text is processed on this Mac and discarded after classification. URLs
