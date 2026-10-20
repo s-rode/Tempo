@@ -41,12 +41,13 @@ export interface FloatingStatusUpdate {
   phaseGoal?: string | null
   phaseKind?: 'work' | 'short_break' | 'long_break' | null
   phaseIndex?: number | null
+  taskCheckpointReached?: boolean
   sessionTransitionAlertsEnabled?: boolean
   playSessionTransitionChime?: boolean
   showDistractionNotchAlerts?: boolean
   transitionNotice?: {
     id: string
-    kind: 'focus_complete' | 'break_started' | 'break_complete' | 'pomodoro_complete'
+    kind: 'focus_complete' | 'break_started' | 'break_complete' | 'pomodoro_complete' | 'task_target_reached'
     runId: string
     phaseId: string
     phaseIndex: number
@@ -73,7 +74,7 @@ type NotchEvent =
   | {
       version: 5
       type: 'focusCommand'
-      action: 'pause' | 'resume' | 'skipBreak' | 'endRun'
+      action: 'pause' | 'resume' | 'skipBreak' | 'endRun' | 'finishTask' | 'extendTask10'
       durationMinutes?: number
     }
   | { version: 5; type: 'error'; code: string }

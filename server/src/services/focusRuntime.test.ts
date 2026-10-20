@@ -3,6 +3,11 @@ import {
   advanceRuntime,
   createCustomRun,
   createPomodoroRun,
+  extendTaskRun,
+  runtimeSnapshot,
+  freezePhase,
+  resumePhase,
+  completeRun,
   shouldAwaitFreshSystemCapture,
 } from './focusRuntime';
 
@@ -15,6 +20,105 @@ const runtimeWith = (run: any): any => ({
   awaitingSystemResumeCapture: false,
   transitionNotice: null,
   acknowledgedTransitionNoticeId: null,
+});
+
+describe('estimated task work time', () => {
+  const source = { taskId: 'task-123', dateKey: '2026-10-04' };
+
+  test('custom target becomes a single persistent checkpoint and counts overtime', () => {
+    const runtime = runtimeWith(createCustomRun('Review algorithms', 45, 1_000, source, 45));
+    const targetAt = 1_000 + 45 * 60_000;
+    advanceRuntime(runtime, targetAt, { emitTransitionNotice: true });
+    const noticeId = runtime.transitionNotice.id;
+    expect(runtime.transitionNotice.kind).toBe('task_target_reached');
+    expect(runtime.run.state).toBe('active');
+    advanceRuntime(runtime, targetAt + 11 * 60_000, { emitTransitionNotice: true });
+    expect(runtime.transitionNotice.id).toBe(noticeId);
+    expect(runtimeSnapshot(runtime, targetAt + 11 * 60_000).taskProgress?.workElapsedMs).toBe(56 * 60_000);
+    expect(runtimeSnapshot(runtime, targetAt + 11 * 60_000).nextDeadlineAtMs).toBeNull();
+    expect(extendTaskRun(runtime, 10, targetAt + 11 * 60_000)).toBe(true);
+    expect(runtime.run.taskTarget.estimatedMinutes).toBe(45);
+    expect(runtime.run.taskTarget.workTargetMs).toBe(66 * 60_000);
+    advanceRuntime(runtime, targetAt + 21 * 60_000, { emitTransitionNotice: true });
+    expect(runtime.transitionNotice.kind).toBe('task_target_reached');
+    expect(runtime.transitionNotice.id).not.toBe(noticeId);
+  });
+
+  test('task Pomodoro schedules exact 30/5/15 and automatically resumes after break', () => {
+    const runtime = runtimeWith(createPomodoroRun('Flashcards', 1_000, source, 45, 45));
+    expect(runtime.run.phases.map((phase: any) => [phase.kind, phase.plannedDurationMs / 60_000]))
+      .toEqual([['work', 30], ['short_break', 5], ['work', 15]]);
+    advanceRuntime(runtime, 1_000 + 30 * 60_000, { emitTransitionNotice: true });
+    expect(runtime.run.currentPhaseIndex).toBe(1);
+    advanceRuntime(runtime, 1_000 + 35 * 60_000, { emitTransitionNotice: true });
+    expect(runtime.run.currentPhaseIndex).toBe(2);
+    expect(runtime.run.phases[2].state).toBe('running');
+    expect(runtime.run.phases[2].goal).toBe('Flashcards');
+    advanceRuntime(runtime, 1_000 + 50 * 60_000, { emitTransitionNotice: true });
+    expect(runtime.run.state).toBe('active');
+    expect(runtime.transitionNotice.kind).toBe('task_target_reached');
+    expect(runtime.run.phases.length).toBe(3);
+  });
+
+  test('90-minute task Pomodoro completes three work blocks without a final break', () => {
+    const runtime = runtimeWith(createPomodoroRun('Algorithms', 1_000, source, 90, 90));
+    const boundaries = [30, 35, 65, 70, 100].map((minutes) => 1_000 + minutes * 60_000);
+    for (const at of boundaries) advanceRuntime(runtime, at, { emitTransitionNotice: true });
+    expect(runtime.run.currentPhaseIndex).toBe(4);
+    expect(runtime.run.phases.length).toBe(5);
+    expect(runtime.run.state).toBe('active');
+    expect(runtime.transitionNotice.kind).toBe('task_target_reached');
+    expect(runtimeSnapshot(runtime, boundaries[4]).taskProgress?.workElapsedMs).toBe(90 * 60_000);
+  });
+
+  test('early completion keeps recorded work and never requires the target checkpoint', () => {
+    const runtime = runtimeWith(createCustomRun('Exercises', 90, 1_000, source, 90));
+    completeRun(runtime, 16 * 60_000, 'completed');
+    expect(runtime.run.state).toBe('completed');
+    expect(runtime.run.phases[0].activeElapsedMs).toBe(16 * 60_000 - 1_000);
+    expect(runtime.transitionNotice).toBeNull();
+  });
+
+  test('a 90-minute Focus task is one work phase and rejects extensions past the work cap', () => {
+    const runtime = runtimeWith(createCustomRun('Algorithms', 90, 1_000, source, 90));
+    expect(runtime.run.phases).toHaveLength(1);
+    advanceRuntime(runtime, 1_000 + 90 * 60_000, { emitTransitionNotice: true });
+    expect(runtime.transitionNotice.kind).toBe('task_target_reached');
+    expect(extendTaskRun(runtime, 720, 1_000 + 23 * 60 * 60_000)).toBe(false);
+    expect(runtime.run.taskTarget.workTargetMs).toBe(90 * 60_000);
+  });
+
+  test('a long Pomodoro extension inserts only necessary intermediate breaks', () => {
+    const runtime = runtimeWith(createPomodoroRun('Exercises', 1_000, source, 90, 90));
+    expect(runtime.run.phases.map((phase: any) => phase.kind))
+      .toEqual(['work', 'short_break', 'work', 'short_break', 'work']);
+    runtime.run.currentPhaseIndex = 4;
+    runtime.run.phases[0].activeElapsedMs = 30 * 60_000;
+    runtime.run.phases[0].state = 'completed';
+    runtime.run.phases[0].runningSinceMs = null;
+    runtime.run.phases[2].activeElapsedMs = 30 * 60_000;
+    runtime.run.phases[2].state = 'completed';
+    runtime.run.phases[2].runningSinceMs = null;
+    const final = runtime.run.phases[4];
+    final.state = 'running';
+    final.runningSinceMs = 31 * 60_000;
+    final.activeElapsedMs = 30 * 60_000;
+    runtime.run.taskTarget.checkpointAtMs = 31 * 60_000;
+    expect(extendTaskRun(runtime, 40, 31 * 60_000)).toBe(true);
+    expect(runtime.run.phases.slice(5).map((phase: any) => [phase.kind, phase.plannedDurationMs / 60_000]))
+      .toEqual([['short_break', 5], ['work', 10]]);
+    expect(final.plannedDurationMs).toBe(60 * 60_000);
+  });
+
+  test('manual pause does not count toward the task work target', () => {
+    const runtime = runtimeWith(createCustomRun('Review', 45, 1_000, source, 45));
+    freezePhase(runtime, 11_000);
+    runtime.manualPauseUntilMs = 71_000;
+    expect(runtimeSnapshot(runtime, 61_000).taskProgress?.workElapsedMs).toBe(10_000);
+    runtime.manualPauseUntilMs = null;
+    resumePhase(runtime, 71_000);
+    expect(runtimeSnapshot(runtime, 81_000).taskProgress?.workElapsedMs).toBe(20_000);
+  });
 });
 
 describe('focus transition notices', () => {
@@ -30,6 +134,12 @@ describe('focus transition notices', () => {
     const manuallyPaused = runtimeWith(createCustomRun('Focused work', 30, 1_000));
     manuallyPaused.manualPauseUntilMs = 61_000;
     expect(shouldAwaitFreshSystemCapture(manuallyPaused, 1_000)).toBe(false);
+
+    const onBreak = runtimeWith(createPomodoroRun('Flashcards', 1_000,
+      { taskId: 'task-123', dateKey: '2026-10-04' }, 45, 45));
+    onBreak.run.currentPhaseIndex = 1;
+    onBreak.run.phases[1].state = 'running';
+    expect(shouldAwaitFreshSystemCapture(onBreak, 1_000)).toBe(false);
   });
 
   test('records one notice for a naturally completed custom focus phase', () => {

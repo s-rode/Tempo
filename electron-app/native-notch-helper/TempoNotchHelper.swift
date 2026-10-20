@@ -99,6 +99,7 @@ struct StatusPayload: Codable {
   let phaseGoal: String?
   let phaseKind: String?
   let phaseIndex: Int?
+  let taskCheckpointReached: Bool?
   let sessionTransitionAlertsEnabled: Bool?
   let playSessionTransitionChime: Bool?
   let showDistractionNotchAlerts: Bool?
@@ -125,7 +126,6 @@ final class TempoNotchPanel: NSPanel {
 
 final class PassthroughHostingView: NSHostingView<AnyView> {
   weak var controller: NotchController?
-  private var hoverAreas: [NSTrackingArea] = []
 
   init(rootView: AnyView, controller: NotchController) {
     self.controller = controller
@@ -152,23 +152,6 @@ final class PassthroughHostingView: NSHostingView<AnyView> {
       : nil
   }
 
-  override func updateTrackingAreas() {
-    super.updateTrackingAreas()
-    hoverAreas.forEach(removeTrackingArea)
-    hoverAreas.removeAll()
-    guard let controller else { return }
-    for rect in controller.interactionRects(isFlipped: isFlipped) {
-      let area = NSTrackingArea(
-        rect: rect,
-        options: [.mouseEnteredAndExited, .activeAlways],
-        owner: self,
-        userInfo: nil
-      )
-      addTrackingArea(area)
-      hoverAreas.append(area)
-    }
-  }
-
   override func viewDidMoveToWindow() {
     super.viewDidMoveToWindow()
     DispatchQueue.main.async { [weak self] in self?.refreshInteractionRegions() }
@@ -177,15 +160,12 @@ final class PassthroughHostingView: NSHostingView<AnyView> {
   override func layout() {
     super.layout()
     // AppKit can assign hosting-view bounds after the panel is first framed.
-    // Refreshing here prevents an initial zero-sized tracking region.
+    // Refreshing here keeps pointer conversion aligned with the final bounds.
     DispatchQueue.main.async { [weak self] in self?.refreshInteractionRegions() }
   }
 
-  override func mouseEntered(with event: NSEvent) { controller?.hoverChanged(true) }
-  override func mouseExited(with event: NSEvent) { controller?.hoverChanged(false) }
-
   func refreshInteractionRegions() {
-    updateTrackingAreas()
+    controller?.refreshPointerInteraction()
   }
 }
 
@@ -210,10 +190,12 @@ final class NotchController: NSObject, ObservableObject {
     classificationStatus: nil, nudgeTitle: nil, nudgeBody: nil, eventIds: [],
     runtimeMode: "normal", trackingState: "normal", suspensionReasons: [], suspendedAtMs: nil, pausedUntilMs: nil,
     phaseRemainingMs: nil, phaseRemainingSampledAtMs: nil,
-    phaseDurationMs: nil, phaseGoal: nil, phaseKind: nil, phaseIndex: nil,
+    phaseDurationMs: nil, phaseGoal: nil, phaseKind: nil, phaseIndex: nil, taskCheckpointReached: false,
     sessionTransitionAlertsEnabled: true, playSessionTransitionChime: true,
     showDistractionNotchAlerts: true, transitionNotice: nil
   )
+  @Published private(set) var pillsSuppressed = false
+  @Published var hoveredPill: Int?
   @Published var expanded = false
   @Published var now = Date()
   @Published var chooserOpen = false
@@ -228,6 +210,9 @@ final class NotchController: NSObject, ObservableObject {
   private var hoverCloseWork: DispatchWorkItem?
   private var previousStatus: String?
   private var displayClockTimer: DispatchSourceTimer?
+  private var pointerTimer: DispatchSourceTimer?
+  private var overlapMonitor: NotchOverlapMonitor?
+  private var pillActivation = NotchPillActivation()
   private var transitionAlertWork: DispatchWorkItem?
   private var distractionAlertWork: DispatchWorkItem?
   private var queuedDistractionNotice: DistractionAttentionNotice?
@@ -242,11 +227,14 @@ final class NotchController: NSObject, ObservableObject {
   func install() {
     let host = PassthroughHostingView(rootView: AnyView(NotchRootView(controller: self)), controller: self)
     self.host = host
+    overlapMonitor = NotchOverlapMonitor { [weak self] in self?.setPillsSuppressed($0) }
     panel.contentView = host
     positionPanel()
     panel.orderFrontRegardless()
     host.refreshInteractionRegions()
     startDisplayClock()
+    overlapMonitor?.start()
+    startPointerTracking()
     emit(type: "ready")
     emit(type: "visibilityChanged", extra: ["visible": true])
   }
@@ -258,12 +246,13 @@ final class NotchController: NSObject, ObservableObject {
       NSRect(x: frame.midX - panelWidth / 2, y: frame.maxY - panelHeight, width: panelWidth, height: panelHeight),
       display: true
     )
+    refreshOverlapGeometry()
     host?.refreshInteractionRegions()
   }
 
   var expandedContentHeight: CGFloat {
     if presentedTransitionNotice != nil {
-      return normalExpandedPanelHeight
+      return presentedTransitionNotice?.kind == "task_target_reached" ? 170 : normalExpandedPanelHeight
     }
     if presentedDistractionNotice != nil {
       return distractionNoticeExpandedPanelHeight
@@ -275,22 +264,104 @@ final class NotchController: NSObject, ObservableObject {
     return presentsSession ? sessionExpandedPanelHeight : normalExpandedPanelHeight
   }
 
+  private var interactionLayout: NotchInteractionLayout {
+    NotchInteractionLayout(
+      panelWidth: panelWidth, panelHeight: panelHeight,
+      notchWidth: geometry.notchWidth, menuBarHeight: geometry.menuBarHeight,
+      pillWidth: pillWidth, notchGap: notchGap, expandedHeight: expandedContentHeight
+    )
+  }
+
   func interactionRects(isFlipped: Bool) -> [NSRect] {
-    let bounds = NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight)
-    if expanded {
-      // SwiftUI lays out from the top, while an NSHostingView can use flipped
-      // coordinates. Keep the tracking rectangle in the host's own system.
-      let visibleHeight = expandedContentHeight
-      let y = isFlipped ? 0 : bounds.maxY - visibleHeight
-      return [NSRect(x: 0, y: y, width: bounds.width, height: visibleHeight)]
+    interactionLayout.interactionRects(expanded: expanded, isFlipped: isFlipped, pillsSuppressed: pillsSuppressed)
+  }
+
+  private func refreshOverlapGeometry() {
+    // Quartz's global origin is the primary display's top-left. AppKit uses
+    // its bottom-left, including when Tempo is on a display with another origin.
+    let primaryHeight = CGDisplayBounds(CGMainDisplayID()).height
+    func quartz(_ rect: CGRect) -> CGRect {
+      NotchOverlapPolicy.quartzRect(fromAppKit: rect, primaryDisplayHeight: primaryHeight)
     }
-    let notchLeft = bounds.midX - geometry.notchWidth / 2
-    let y = isFlipped ? 0 : bounds.maxY - geometry.menuBarHeight
-    return [
-      NSRect(x: notchLeft - notchGap - pillWidth, y: y, width: pillWidth, height: geometry.menuBarHeight),
-      NSRect(x: notchLeft, y: y, width: geometry.notchWidth, height: geometry.menuBarHeight),
-      NSRect(x: notchLeft + geometry.notchWidth + notchGap, y: y, width: pillWidth, height: geometry.menuBarHeight),
-    ]
+    let frame = geometry.screen.frame
+    let notch = CGRect(x: frame.midX - geometry.notchWidth / 2,
+                       y: frame.maxY - geometry.menuBarHeight,
+                       width: geometry.notchWidth, height: geometry.menuBarHeight)
+    let visiblePills = interactionLayout.pillRects(isFlipped: false).map { region in
+      CGRect(x: panel.frame.minX + region.minX,
+             y: frame.maxY - geometry.menuBarHeight / 2 - pillHeight / 2,
+             width: pillWidth, height: pillHeight)
+    }
+    overlapMonitor?.updateGeometry(notch: quartz(notch), pills: visiblePills.map(quartz))
+  }
+
+  private func setPillsSuppressed(_ suppressed: Bool) {
+    guard pillsSuppressed != suppressed else { return }
+    hoverOpenWork?.cancel()
+    hoverCloseWork?.cancel()
+    hoveredPill = nil
+    pillActivation.setSuppressed(suppressed)
+    // Avoid an inherited SwiftUI animation: content and hit regions disappear
+    // together on the first overlapping sample and return together after clear.
+    var transaction = Transaction(animation: nil)
+    transaction.disablesAnimations = true
+    withTransaction(transaction) { pillsSuppressed = suppressed }
+    // Losing a pill because another app covered it must not close open controls.
+    refreshPointerInteraction(allowHoverClose: false)
+  }
+
+  private var pointerInHost: NSPoint? {
+    guard let host else { return nil }
+    return host.convert(panel.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
+  }
+
+  // NSTrackingArea cannot drive hover while the window ignores mouse events.
+  // Sample coordinates without global event taps or Accessibility permissions.
+  func refreshPointerInteraction(allowHoverClose: Bool = true) {
+    guard panel.isVisible, let host, let pointer = pointerInHost else {
+      panel.ignoresMouseEvents = true
+      if hoveredPill != nil { hoveredPill = nil }
+      return
+    }
+    let pill = interactionLayout.pillRects(isFlipped: host.isFlipped)
+      .firstIndex(where: { $0.contains(pointer) })
+    pillActivation.observePointer(overPill: pill != nil)
+    let highlightedPill = pillActivation.canActivate ? pill : nil
+    if hoveredPill != highlightedPill { hoveredPill = highlightedPill }
+    let overContent = expanded && interactionLayout.interactionRects(
+      expanded: true, isFlipped: host.isFlipped, pillsSuppressed: true
+    ).contains { $0.contains(pointer) }
+    let hovering = overContent || (pill != nil && pillActivation.canActivate)
+    // View-level hitTest returning nil does not pass a click to another app.
+    let ignoresMouse = !expanded || !hovering
+    if panel.ignoresMouseEvents != ignoresMouse { panel.ignoresMouseEvents = ignoresMouse }
+    if hovering != isHovering {
+      if !hovering && !allowHoverClose { isHovering = false }
+      else { hoverChanged(hovering) }
+    }
+  }
+
+  private func startPointerTracking() {
+    guard pointerTimer == nil else { return }
+    let timer = DispatchSource.makeTimerSource(queue: .main)
+    timer.schedule(deadline: .now(), repeating: .nanoseconds(16_666_667), leeway: .milliseconds(2))
+    timer.setEventHandler { [weak self] in self?.refreshPointerInteraction() }
+    pointerTimer = timer
+    timer.resume()
+    refreshPointerInteraction()
+  }
+
+  private func stopPointerTracking() {
+    pointerTimer?.setEventHandler {}
+    pointerTimer?.cancel()
+    pointerTimer = nil
+    hoverOpenWork?.cancel()
+    hoverCloseWork?.cancel()
+    hoverOpenWork = nil
+    hoverCloseWork = nil
+    isHovering = false
+    hoveredPill = nil
+    panel.ignoresMouseEvents = true
   }
 
   func apply(status next: StatusPayload) {
@@ -451,6 +522,10 @@ final class NotchController: NSObject, ObservableObject {
   deinit {
     displayClockTimer?.setEventHandler {}
     displayClockTimer?.cancel()
+    pointerTimer?.setEventHandler {}
+    pointerTimer?.cancel()
+    hoverOpenWork?.cancel()
+    hoverCloseWork?.cancel()
   }
 
   func setExpanded(_ value: Bool) {
@@ -469,9 +544,15 @@ final class NotchController: NSObject, ObservableObject {
     hoverOpenWork?.cancel()
     hoverCloseWork?.cancel()
     if hovering {
-      let work = DispatchWorkItem { [weak self] in self?.setExpanded(true) }
+      guard !expanded else { return }
+      let work = DispatchWorkItem { [weak self] in
+        guard let self, self.panel.isVisible, !self.expanded, self.pillActivation.canActivate,
+              let host = self.host, let pointer = self.pointerInHost,
+              self.interactionLayout.pillRects(isFlipped: host.isFlipped).contains(where: { $0.contains(pointer) }) else { return }
+        self.setExpanded(true)
+      }
       hoverOpenWork = work
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
     } else if !chooserOpen && !pausePickerOpen && presentedTransitionNotice == nil && presentedDistractionNotice == nil {
       let work = DispatchWorkItem { [weak self] in self?.setExpanded(false) }
       hoverCloseWork = work
@@ -500,11 +581,15 @@ final class NotchController: NSObject, ObservableObject {
     panel.orderFrontRegardless()
     now = Date()
     startDisplayClock()
+    overlapMonitor?.start()
+    startPointerTracking()
     emit(type: "visibilityChanged", extra: ["visible": true])
   }
 
   func hide() {
     panel.orderOut(nil)
+    stopPointerTracking()
+    overlapMonitor?.stop()
     stopDisplayClock()
     emit(type: "visibilityChanged", extra: ["visible": false])
   }
@@ -521,6 +606,7 @@ final class NotchController: NSObject, ObservableObject {
     var payload: [String: Any] = ["action": action]
     if let durationMinutes { payload["durationMinutes"] = durationMinutes }
     emit(type: "focusCommand", extra: payload)
+    if action == "finishTask" || action == "extendTask10" { dismissTransientControls() }
   }
 
   func requestPause(minutes: Int) {
@@ -731,6 +817,7 @@ struct TimerPill: View {
   let isFrozen: Bool
   let animateDigits: Bool
   let color: Color
+  var hovered = false
 
   private var displayValue: Int {
     let divisor = precision == .minutes ? 60_000 : 1_000
@@ -754,6 +841,7 @@ struct TimerPill: View {
       let shape = Capsule(style: .continuous)
       ZStack {
         shape.fill(Color.black.opacity(paused ? 0.76 : 0.94))
+        if hovered { shape.fill(Color.white.opacity(0.10)) }
         shape.stroke(Color.white.opacity(paused ? 0.10 : 0.14), lineWidth: 0.7)
         if !paused && active {
           shape.stroke(color.opacity(0.52), lineWidth: 0.8)
@@ -1060,6 +1148,7 @@ struct NotchRootView: View {
   private var compactSessionTitle: String {
     if controller.status.trackingState == "paused" { return "PAUSED" }
     if controller.status.trackingState == "break" { return "BREAK" }
+    if controller.status.taskCheckpointReached == true { return "DECIDE" }
     if controller.status.runtimeMode == "pomodoro" {
       return "POMO \((controller.status.phaseIndex ?? 0) / 2 + 1)/4"
     }
@@ -1067,6 +1156,7 @@ struct NotchRootView: View {
   }
   private var sessionRemaining: String? {
     if let pauseRemaining { return "\(pauseRemaining) paused" }
+    if controller.status.taskCheckpointReached == true { return "Work time reached" }
     guard let phaseRemaining = livePhaseRemainingMs else { return nil }
     return "\(formatRemaining(phaseRemaining)) left"
   }
@@ -1085,6 +1175,7 @@ struct NotchRootView: View {
     case "break_started": return "Work block complete"
     case "break_complete": return "Break complete"
     case "pomodoro_complete": return "Pomodoro complete"
+    case "task_target_reached": return "Work time reached"
     default: return "Session update"
     }
   }
@@ -1095,8 +1186,9 @@ struct NotchRootView: View {
     case "break_started":
       let duration = max(1, Int((notice.breakDurationMs ?? 0) / 60_000))
       return "Take your \(duration)-minute break before the next block."
-    case "break_complete": return "Choose one clear goal for your next work block."
+    case "break_complete": return notice.goal.map { "Back to \($0). Your next work block has started." } ?? "Choose one clear goal for your next work block."
     case "pomodoro_complete": return "All four work blocks and the long break are complete."
+    case "task_target_reached": return notice.goal.map { "Finished with \($0)?" } ?? "Finished with this task?"
     default: return ""
     }
   }
@@ -1163,10 +1255,15 @@ struct NotchRootView: View {
             .offset(y: controller.geometry.menuBarHeight + 5)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
-        TimerPill(label: "Focused", elapsedMilliseconds: productiveTime, precision: timerPillPrecision, active: controller.status.latestStatus == "productive", paused: isManualPause, isFrozen: areTimerPillsFrozen, animateDigits: shouldAnimateTimerPills, color: .green)
-          .position(x: notchLeft - notchGap - pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
-        TimerPill(label: controller.status.latestStatus == "maybe" ? "Uncertain" : "Distracted", elapsedMilliseconds: distractedTime, precision: timerPillPrecision, active: controller.status.latestStatus == "unproductive", paused: isManualPause, isFrozen: areTimerPillsFrozen, animateDigits: shouldAnimateTimerPills, color: statusColor(controller.status.latestStatus))
-          .position(x: notchLeft + controller.geometry.notchWidth + notchGap + pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
+        Group {
+          TimerPill(label: "Focused", elapsedMilliseconds: productiveTime, precision: timerPillPrecision, active: controller.status.latestStatus == "productive", paused: isManualPause, isFrozen: areTimerPillsFrozen, animateDigits: shouldAnimateTimerPills, color: .green, hovered: controller.hoveredPill == 0)
+            .position(x: notchLeft - notchGap - pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
+          TimerPill(label: controller.status.latestStatus == "maybe" ? "Uncertain" : "Distracted", elapsedMilliseconds: distractedTime, precision: timerPillPrecision, active: controller.status.latestStatus == "unproductive", paused: isManualPause, isFrozen: areTimerPillsFrozen, animateDigits: shouldAnimateTimerPills, color: statusColor(controller.status.latestStatus), hovered: controller.hoveredPill == 1)
+            .position(x: notchLeft + controller.geometry.notchWidth + notchGap + pillWidth / 2, y: controller.geometry.menuBarHeight / 2)
+        }
+        .opacity(controller.pillsSuppressed ? 0 : 1)
+        .allowsHitTesting(!controller.pillsSuppressed)
+        .accessibilityHidden(controller.pillsSuppressed)
         if controller.status.runtimeMode != "normal" {
           FocusSessionBadge(title: compactSessionTitle, progress: phaseProgress, tint: sessionTint)
             .position(x: proxy.size.width / 2, y: controller.geometry.menuBarHeight / 2)
@@ -1191,7 +1288,14 @@ struct NotchRootView: View {
         )
         Rectangle().fill(.white.opacity(0.10)).frame(height: 1 / (NSScreen.main?.backingScaleFactor ?? 2))
         HStack(spacing: 7) {
-          if transitionNotice?.kind == "break_complete" {
+          if transitionNotice?.kind == "task_target_reached" {
+            Button("I’m finished") { controller.requestFocusAction("finishTask") }
+              .buttonStyle(NotchActionStyle(tone: .productive))
+              .accessibilityLabel("Finish this planned task and check it off")
+            Button("+10 min") { controller.requestFocusAction("extendTask10") }
+              .buttonStyle(NotchActionStyle(tone: .neutral))
+              .accessibilityLabel("Add ten minutes of work to this task session")
+          } else if transitionNotice?.kind == "break_complete" && transitionNotice?.goal == nil {
             Button("Set next goal") { controller.emit(type: "openFocusGoal") }
               .buttonStyle(NotchActionStyle(tone: .productive))
               .accessibilityLabel("Open Tempo to set the next Pomodoro goal")
@@ -1441,6 +1545,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // which is visible below a custom-shaped transparent panel. The native
     // panel itself must stay entirely clear; NotchSurface owns every pixel.
     let panel = TempoNotchPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel, .utilityWindow], backing: .buffered, defer: false)
+    panel.ignoresMouseEvents = true
     panel.isFloatingPanel = true
     panel.isOpaque = false
     panel.backgroundColor = .clear

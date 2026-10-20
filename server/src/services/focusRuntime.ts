@@ -14,7 +14,8 @@ export type FocusTransitionNoticeKind =
   | 'focus_complete'
   | 'break_started'
   | 'break_complete'
-  | 'pomodoro_complete';
+  | 'pomodoro_complete'
+  | 'task_target_reached';
 
 export interface FocusTransitionNotice {
   id: string;
@@ -35,6 +36,15 @@ export interface TodayPlanTaskSource {
 type RuntimeDocument = any;
 
 const minute = 60_000;
+const taskTargetFor = (run: any) => run?.taskTarget?.taskId ? run.taskTarget : null;
+const phaseElapsed = (current: any, now: number) =>
+  current.activeElapsedMs +
+  (current.state === 'running' && current.runningSinceMs
+    ? Math.max(0, now - current.runningSinceMs)
+    : 0);
+const workElapsed = (run: any, now: number) =>
+  (run?.phases || []).reduce((total: number, entry: any) =>
+    total + (entry.kind === 'work' ? phaseElapsed(entry, now) : 0), 0);
 const phase = (
   kind: 'work' | 'short_break' | 'long_break',
   durationMinutes: number,
@@ -76,16 +86,19 @@ const currentPhase = (runtime: RuntimeDocument) =>
  */
 const shouldAwaitFreshSystemCapture = (runtime: RuntimeDocument, now = Date.now()) => {
   if (runtime.manualPauseUntilMs && runtime.manualPauseUntilMs > now) return false;
-  return currentPhase(runtime)?.state !== 'awaiting_goal';
+  const current = currentPhase(runtime);
+  // Breaks deliberately suspend foreground capture. Requiring a capture to
+  // resume the break after wake would wait for an event that cannot arrive.
+  return current?.state !== 'awaiting_goal' &&
+    current?.kind !== 'short_break' && current?.kind !== 'long_break';
 };
 
 const freezePhase = (runtime: RuntimeDocument, now: number) => {
   const current = currentPhase(runtime);
   if (!current || current.state !== 'running' || !current.runningSinceMs) return;
-  current.activeElapsedMs = Math.min(
-    current.plannedDurationMs,
-    current.activeElapsedMs + Math.max(0, now - current.runningSinceMs)
-  );
+  current.activeElapsedMs = taskTargetFor(runtime.run)?.checkpointAtMs
+    ? phaseElapsed(current, now)
+    : Math.min(current.plannedDurationMs, phaseElapsed(current, now));
   current.runningSinceMs = null;
   current.state = 'suspended';
 };
@@ -159,6 +172,19 @@ const advancePhase = (
   if (!run || !current) return;
   const phaseIndex = run.currentPhaseIndex;
   const completedGoal = current.goal || null;
+  const taskTarget = taskTargetFor(run);
+  if (taskTarget && current.kind === 'work' && phaseIndex === run.phases.length - 1) {
+    // Reaching a planned task target is a decision, not an automatic end.
+    // Keep the work phase running so overtime remains real work time.
+    taskTarget.checkpointAtMs = now;
+    if (options.emitTransitionNotice) {
+      recordTransitionNotice(runtime, {
+        kind: 'task_target_reached', runId: run.id, phaseId: current.id,
+        phaseIndex, goal: taskTarget.goalSnapshot || completedGoal, breakDurationMs: null,
+      }, now);
+    }
+    return;
+  }
   current.activeElapsedMs = current.plannedDurationMs;
   current.runningSinceMs = null;
   current.state = 'completed';
@@ -194,9 +220,18 @@ const advancePhase = (
     return;
   }
   if (next.kind === 'work') {
-    next.state = 'awaiting_goal';
-    next.runningSinceMs = null;
-    next.startedAtMs = null;
+    if (taskTarget) {
+      next.state = 'running';
+      next.runningSinceMs = now;
+      next.startedAtMs = now;
+      next.goalHistory = [{ goal: taskTarget.goalSnapshot, todayPlanTask: {
+        taskId: taskTarget.taskId, dateKey: taskTarget.dateKey,
+      }, startedAtMs: now }];
+    } else {
+      next.state = 'awaiting_goal';
+      next.runningSinceMs = null;
+      next.startedAtMs = null;
+    }
   } else {
     next.state = 'running';
     next.runningSinceMs = now;
@@ -211,7 +246,7 @@ const advancePhase = (
         runId: run.id,
         phaseId: current.id,
         phaseIndex,
-        goal: current.kind === 'work' ? completedGoal : null,
+        goal: current.kind === 'work' ? completedGoal : taskTarget?.goalSnapshot || null,
         breakDurationMs: current.kind === 'work' ? next.plannedDurationMs : null,
       },
       now
@@ -240,6 +275,7 @@ export const advanceRuntime = (
   }
   const current = currentPhase(runtime);
   if (!current || current.state !== 'running' || !current.runningSinceMs) return;
+  if (taskTargetFor(runtime.run)?.checkpointAtMs) return null;
   const elapsed = current.activeElapsedMs + Math.max(0, now - current.runningSinceMs);
   if (elapsed < current.plannedDurationMs) return null;
   advancePhase(runtime, now, options);
@@ -273,13 +309,9 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
   const current = currentPhase(runtime);
   const reasons = suspensionReasonsFor(runtime);
   const phaseElapsedMs = current
-    ? Math.min(
-        current.plannedDurationMs,
-        current.activeElapsedMs +
-          (current.state === 'running' && current.runningSinceMs
-            ? Math.max(0, now - current.runningSinceMs)
-            : 0)
-      )
+    ? taskTargetFor(runtime.run)?.checkpointAtMs
+      ? phaseElapsed(current, now)
+      : Math.min(current.plannedDurationMs, phaseElapsed(current, now))
     : 0;
   const trackingState = reasons.length
     ? current?.kind === 'short_break' || current?.kind === 'long_break'
@@ -297,9 +329,10 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
         ? pendingNotice.toObject()
         : pendingNotice
       : null;
+  const taskTarget = taskTargetFor(runtime.run);
   const nextDeadlineAtMs = runtime.manualPauseUntilMs
     ? runtime.manualPauseUntilMs
-    : current?.state === 'running' && current.runningSinceMs
+    : !taskTarget?.checkpointAtMs && current?.state === 'running' && current.runningSinceMs
       ? current.runningSinceMs + Math.max(0, current.plannedDurationMs - current.activeElapsedMs)
       : null;
   return {
@@ -314,6 +347,16 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
     run: runtime.run?.state === 'active' ? runValue : null,
     currentPhase: current ? { ...phaseValue, activeElapsedMs: phaseElapsedMs } : null,
     phaseRemainingMs: current ? Math.max(0, current.plannedDurationMs - phaseElapsedMs) : null,
+    taskProgress: taskTarget ? {
+      taskId: taskTarget.taskId,
+      dateKey: taskTarget.dateKey,
+      goal: taskTarget.goalSnapshot,
+      estimatedMinutes: taskTarget.estimatedMinutes,
+      workTargetMs: taskTarget.workTargetMs,
+      workElapsedMs: workElapsed(runtime.run, now),
+      checkpointAtMs: taskTarget.checkpointAtMs || null,
+      sampledAtMs: now,
+    } : null,
     nextDeadlineAtMs,
     transitionNotice,
     revision: runtime.revision || 0,
@@ -415,7 +458,8 @@ export const createCustomRun = (
   goal: string,
   durationMinutes: number,
   now = Date.now(),
-  todayPlanTask: TodayPlanTaskSource | null = null
+  todayPlanTask: TodayPlanTaskSource | null = null,
+  originalEstimateMinutes: number | null = null
 ) => ({
   id: crypto.randomUUID(),
   kind: 'custom',
@@ -428,6 +472,10 @@ export const createCustomRun = (
       startedAtMs: now,
     },
   ],
+  taskTarget: todayPlanTask ? {
+    ...todayPlanTask, goalSnapshot: goal, estimatedMinutes: originalEstimateMinutes,
+    workTargetMs: durationMinutes * minute, checkpointAtMs: null,
+  } : null,
   startedAtMs: now,
   completedAtMs: null,
 });
@@ -435,13 +483,22 @@ export const createCustomRun = (
 export const createPomodoroRun = (
   firstGoal: string,
   now = Date.now(),
-  todayPlanTask: TodayPlanTaskSource | null = null
+  todayPlanTask: TodayPlanTaskSource | null = null,
+  workTargetMinutes: number | null = null,
+  originalEstimateMinutes: number | null = null
 ) => ({
   id: crypto.randomUUID(),
   kind: 'pomodoro',
   state: 'active',
   currentPhaseIndex: 0,
-  phases: [
+  phases: todayPlanTask && workTargetMinutes ? Array.from(
+    { length: Math.ceil(workTargetMinutes / 30) }, (_, index) => {
+      const blockMinutes = Math.min(30, workTargetMinutes - index * 30);
+      const work = phase('work', blockMinutes, index === 0 ? 'running' : 'suspended',
+        firstGoal, todayPlanTask, now);
+      return index === 0 ? [work] : [phase('short_break', 5, 'suspended'), work];
+    }
+  ).flat() : [
     {
       ...phase('work', 30, 'running', firstGoal, todayPlanTask, now),
       runningSinceMs: now,
@@ -455,8 +512,38 @@ export const createPomodoroRun = (
     phase('work', 30, 'awaiting_goal'),
     phase('long_break', 30, 'suspended'),
   ],
+  taskTarget: todayPlanTask && workTargetMinutes ? {
+    ...todayPlanTask, goalSnapshot: firstGoal, estimatedMinutes: originalEstimateMinutes,
+    workTargetMs: workTargetMinutes * minute, checkpointAtMs: null,
+  } : null,
   startedAtMs: now,
   completedAtMs: null,
 });
+
+/** An extension starts at the click, never retroactively erasing overtime. */
+export const extendTaskRun = (runtime: RuntimeDocument, minutes: number, now = Date.now()) => {
+  const run = runtime.run;
+  const target = taskTargetFor(run);
+  const current = currentPhase(runtime);
+  if (!target || !current || !target.checkpointAtMs || current.kind !== 'work') return false;
+  const elapsed = workElapsed(run, now);
+  if (elapsed + minutes * minute > 24 * 60 * minute) return false;
+  if (current.state === 'running') {
+    current.activeElapsedMs = phaseElapsed(current, now);
+    current.runningSinceMs = now;
+  }
+  target.workTargetMs = elapsed + minutes * minute;
+  target.checkpointAtMs = null;
+  const first = run.kind === 'pomodoro' ? Math.min(minutes, 30) : minutes;
+  current.plannedDurationMs = current.activeElapsedMs + first * minute;
+  if (run.kind === 'pomodoro') {
+    for (let remaining = minutes - first; remaining > 0; remaining -= 30) {
+      run.phases.push(phase('short_break', 5, 'suspended'));
+      run.phases.push(phase('work', Math.min(30, remaining), 'suspended',
+        target.goalSnapshot, { taskId: target.taskId, dateKey: target.dateKey }));
+    }
+  }
+  return true;
+};
 
 export { currentPhase, freezePhase, resumePhase, completeRun, shouldAwaitFreshSystemCapture };

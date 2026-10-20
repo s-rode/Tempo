@@ -21,6 +21,7 @@ const deadlineFor = (runtime: any): number | null => {
   if (runtime.manualPauseUntilMs) return runtime.manualPauseUntilMs;
   const phase = currentPhase(runtime);
   if (!phase || phase.state !== 'running' || !phase.runningSinceMs) return null;
+  if (runtime.run?.taskTarget?.checkpointAtMs) return null;
   return phase.runningSinceMs + Math.max(0, phase.plannedDurationMs - phase.activeElapsedMs);
 };
 

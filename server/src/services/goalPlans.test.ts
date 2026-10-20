@@ -25,6 +25,7 @@ const {
   fingerprintEffectiveGoalContext,
   fingerprintClassificationContext,
   getCurrentDailyPlanTask,
+  getDailyPlan,
   goalPeriodFor,
   resolveEffectiveGoalContext,
 } = await import('./goalPlans');
@@ -103,6 +104,20 @@ describe('Tempo goal plans', () => {
     });
     expect(await getCurrentDailyPlanTask('user', 'done')).toBeNull();
     expect(await getCurrentDailyPlanTask('user', 'missing')).toBeNull();
+  });
+
+  test('keeps estimates on historical plan snapshots without making them classification goals', async () => {
+    goalPlans.findOne.mockReturnValue(findChain({
+      timeZone: 'Europe/Berlin',
+      tasks: [{ id: 'estimated', text: 'Review algorithms', estimatedMinutes: 90,
+        position: 0, completedAtMs: null }],
+    }));
+    const historical = await getDailyPlan('user', new Date(2026, 8, 8, 12).getTime());
+    expect(historical.isToday).toBe(false);
+    expect(historical.tasks[0]).toMatchObject({ text: 'Review algorithms', estimatedMinutes: 90 });
+    expect(await getCurrentDailyPlanTask('user', 'estimated')).toMatchObject({
+      task: { estimatedMinutes: 90 },
+    });
   });
 
   test('falls back to the weekly focus only after every daily task is complete', async () => {

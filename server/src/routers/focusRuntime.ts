@@ -9,6 +9,7 @@ import {
   completeRun,
   createCustomRun,
   createPomodoroRun,
+  extendTaskRun,
   currentPhase,
   freezePhase,
   getOrCreateRuntime,
@@ -20,6 +21,7 @@ import {
 import { cancelPendingEnrichment } from '../services/categorization/enrichmentScheduler';
 import { FocusRunHistoryModel } from '../models/focusRuntime';
 import { getCurrentDailyPlanTask, resolveEffectiveGoalContext } from '../services/goalPlans';
+import { GoalPlanModel } from '../models/goalPlan';
 import {
   cancelPendingGoalSupportProfiles,
   ensureGoalSupportProfiles,
@@ -43,6 +45,7 @@ const pauseDurations = z.union([
   z.literal(120),
 ]);
 const goal = z.string().trim().min(1).max(500);
+const taskMinutes = z.number().int().min(1).max(720);
 const goalSource = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('custom'), goal }),
   z.object({ kind: z.literal('today_plan_task'), taskId: z.string().uuid() }),
@@ -51,8 +54,8 @@ const goalSource = z.discriminatedUnion('kind', [
 const resolveGoalSource = async (
   userId: string,
   source: z.infer<typeof goalSource>
-): Promise<{ goal: string; todayPlanTask: { taskId: string; dateKey: string } | null }> => {
-  if (source.kind === 'custom') return { goal: source.goal, todayPlanTask: null };
+): Promise<{ goal: string; todayPlanTask: { taskId: string; dateKey: string } | null; estimatedMinutes: number | null }> => {
+  if (source.kind === 'custom') return { goal: source.goal, todayPlanTask: null, estimatedMinutes: null };
   const plannedTask = await getCurrentDailyPlanTask(userId, source.taskId);
   if (!plannedTask) {
     throw new TRPCError({
@@ -63,6 +66,7 @@ const resolveGoalSource = async (
   return {
     goal: plannedTask.task.text.trim(),
     todayPlanTask: { taskId: plannedTask.task.id, dateKey: plannedTask.dateKey },
+    estimatedMinutes: plannedTask.task.estimatedMinutes ?? null,
   };
 };
 
@@ -163,7 +167,7 @@ export const focusRuntimeRouter = router({
   }),
 
   startCustom: publicProcedure
-    .input(tokenInput.extend({ goalSource, durationMinutes: durations }))
+    .input(tokenInput.extend({ goalSource, durationMinutes: taskMinutes }))
     .mutation(async ({ input }) => {
       const userId = verifyToken(input.token).userId;
       const runtime = await runtimeFor(input.token);
@@ -175,11 +179,16 @@ export const focusRuntimeRouter = router({
           message: 'Finish the current focus session first.',
         });
       const resolvedGoal = await resolveGoalSource(userId, input.goalSource);
+      if (resolvedGoal.todayPlanTask && input.durationMinutes > 720)
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Work time must be at most 12 hours.' });
+      if (!resolvedGoal.todayPlanTask && !durations.safeParse(input.durationMinutes).success)
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Choose a standard focus duration.' });
       runtime.run = createCustomRun(
         resolvedGoal.goal,
         input.durationMinutes,
         Date.now(),
-        resolvedGoal.todayPlanTask
+        resolvedGoal.todayPlanTask,
+        resolvedGoal.estimatedMinutes
       );
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
@@ -189,7 +198,7 @@ export const focusRuntimeRouter = router({
     }),
 
   startPomodoro: publicProcedure
-    .input(tokenInput.extend({ firstGoalSource: goalSource }))
+    .input(tokenInput.extend({ firstGoalSource: goalSource, workTargetMinutes: taskMinutes.optional() }))
     .mutation(async ({ input }) => {
       const userId = verifyToken(input.token).userId;
       const runtime = await runtimeFor(input.token);
@@ -201,7 +210,9 @@ export const focusRuntimeRouter = router({
           message: 'Finish the current focus session first.',
         });
       const resolvedGoal = await resolveGoalSource(userId, input.firstGoalSource);
-      runtime.run = createPomodoroRun(resolvedGoal.goal, Date.now(), resolvedGoal.todayPlanTask);
+      runtime.run = createPomodoroRun(resolvedGoal.goal, Date.now(), resolvedGoal.todayPlanTask,
+        resolvedGoal.todayPlanTask ? input.workTargetMinutes ?? resolvedGoal.estimatedMinutes ?? 120 : null,
+        resolvedGoal.estimatedMinutes);
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
       await saveRuntime(runtime);
@@ -226,6 +237,12 @@ export const focusRuntimeRouter = router({
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
           message: 'Tempo is not waiting for a Pomodoro work goal.',
+        });
+      }
+      if (runtime.run.taskTarget?.taskId) {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'Finish or end this planned task session before changing its goal.',
         });
       }
       const resolvedGoal = await resolveGoalSource(userId, input.goalSource);
@@ -268,6 +285,13 @@ export const focusRuntimeRouter = router({
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
           message: 'Tempo is not currently in a work phase.',
+        });
+      }
+
+      if (runtime.run.taskTarget?.taskId) {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'Finish or end this planned task session before changing its goal.',
         });
       }
 
@@ -353,8 +377,17 @@ export const focusRuntimeRouter = router({
       runtime.run.currentPhaseIndex += 1;
       const next = currentPhase(runtime);
       if (next) {
-        next.state = 'awaiting_goal';
-        next.runningSinceMs = null;
+        if (runtime.run.taskTarget?.taskId) {
+          next.state = 'running';
+          next.runningSinceMs = Date.now();
+          next.startedAtMs = next.runningSinceMs;
+          next.goalHistory = [{ goal: runtime.run.taskTarget.goalSnapshot,
+            todayPlanTask: { taskId: runtime.run.taskTarget.taskId, dateKey: runtime.run.taskTarget.dateKey },
+            startedAtMs: next.startedAtMs }];
+        } else {
+          next.state = 'awaiting_goal';
+          next.runningSinceMs = null;
+        }
       }
     }
     await saveRuntime(runtime);
@@ -367,6 +400,8 @@ export const focusRuntimeRouter = router({
     cancelPendingEnrichment(userId);
     cancelPendingGoalSupportProfiles(userId);
     if (runtime.run?.state === 'active') {
+      if (runtime.transitionNotice?.kind === 'task_target_reached')
+        runtime.acknowledgedTransitionNoticeId = runtime.transitionNotice.id;
       completeRun(runtime, Date.now(), 'cancelled');
       await archiveFinishedRun(runtime);
     }
@@ -375,4 +410,49 @@ export const focusRuntimeRouter = router({
     await saveRuntime(runtime);
     return runtimeSnapshot(runtime);
   }),
+  finishTaskSession: publicProcedure.input(tokenInput.extend({ runId: z.string().uuid() }))
+    .mutation(async ({ input }) => {
+      const userId = verifyToken(input.token).userId;
+      const runtime = await runtimeFor(input.token);
+      const run = runtime.run;
+      let taskSource: { taskId: string; dateKey: string } | null = null;
+      if (run?.id === input.runId && run.state === 'active' && run.taskTarget?.taskId) {
+        taskSource = { taskId: run.taskTarget.taskId, dateKey: run.taskTarget.dateKey };
+        if (runtime.transitionNotice?.kind === 'task_target_reached')
+          runtime.acknowledgedTransitionNoticeId = runtime.transitionNotice.id;
+        completeRun(runtime, Date.now(), 'completed');
+        await archiveFinishedRun(runtime);
+        runtime.manualPauseUntilMs = null;
+        runtime.manualPausedAtMs = null;
+        await saveRuntime(runtime);
+      } else {
+        // A retry after archiving may still need to complete the plan task if
+        // the process stopped between the two local writes.
+        const archived = await FocusRunHistoryModel.findOne({ userId, runId: input.runId, outcome: 'completed' }).lean();
+        if (archived?.run?.taskTarget?.taskId)
+          taskSource = { taskId: archived.run.taskTarget.taskId, dateKey: archived.run.taskTarget.dateKey };
+      }
+      if (!taskSource)
+        throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'That planned task session is no longer active.' });
+      // Historical day key is intentional: a session can cross midnight.
+      await GoalPlanModel.updateOne(
+        { userId, scope: 'daily', periodKey: taskSource.dateKey,
+          tasks: { $elemMatch: { id: taskSource.taskId, completedAtMs: null } } },
+        { $set: { 'tasks.$.completedAtMs': Date.now() } }
+      );
+      cancelPendingEnrichment(userId);
+      cancelPendingGoalSupportProfiles(userId);
+      await scheduleActiveGoalProfile(userId);
+      return runtimeSnapshot(runtime);
+    }),
+  extendTaskSession: publicProcedure.input(tokenInput.extend({ runId: z.string().uuid(), minutes: taskMinutes }))
+    .mutation(async ({ input }) => {
+      const runtime = await runtimeFor(input.token);
+      if (runtime.run?.id !== input.runId || !extendTaskRun(runtime, input.minutes))
+        throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'This session cannot be extended, or it would exceed 24 hours of work.' });
+      if (runtime.transitionNotice?.kind === 'task_target_reached')
+        runtime.acknowledgedTransitionNoticeId = runtime.transitionNotice.id;
+      await saveRuntime(runtime);
+      return runtimeSnapshot(runtime);
+    }),
 });

@@ -4,6 +4,7 @@ const goalTaskSchema = new mongoose.Schema(
   {
     id: { type: String, required: true },
     text: { type: String, required: true, trim: true, maxlength: 500 },
+    estimatedMinutes: { type: Number, default: null, min: 1, max: 720 },
     position: { type: Number, required: true, min: 0 },
     completedAtMs: { type: Number, default: null },
   },
@@ -39,6 +40,7 @@ goalPlanSchema.index({ userId: 1, scope: 1, periodKey: 1 }, { unique: true });
 export interface GoalTask {
   id: string;
   text: string;
+  estimatedMinutes?: number | null;
   position: number;
   completedAtMs: number | null;
 }

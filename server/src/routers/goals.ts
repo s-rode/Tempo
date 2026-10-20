@@ -22,9 +22,11 @@ import { verifyToken } from './auth';
 
 const tokenInput = z.object({ token: z.string() });
 const taskText = z.string().trim().min(1).max(500);
+const estimatedMinutes = z.number().int().min(1).max(720).nullable();
 const persistedTask = z.object({
   id: z.string().uuid(),
   text: taskText,
+  estimatedMinutes: estimatedMinutes.optional(),
   position: z.number().int().min(0).max(99),
   completedAtMs: z.number().nullable(),
 });
@@ -89,7 +91,7 @@ export const goalsRouter = router({
     };
   }),
   addDailyTask: publicProcedure
-    .input(tokenInput.extend({ text: taskText }))
+    .input(tokenInput.extend({ text: taskText, estimatedMinutes: estimatedMinutes.optional() }))
     .mutation(async ({ input }) => {
       const userId = verifyToken(input.token).userId;
       const before = await prepareGoalMutation(userId);
@@ -98,6 +100,7 @@ export const goalsRouter = router({
       const task: GoalTask = {
         id: randomUUID(),
         text: input.text,
+        estimatedMinutes: input.estimatedMinutes ?? null,
         position: tasks.filter((task) => task.completedAtMs === null).length,
         completedAtMs: null,
       };
@@ -107,7 +110,7 @@ export const goalsRouter = router({
       return { ...(await changed(userId, before)), task, plan: await getDailyPlan(userId) };
     }),
   updateDailyTask: publicProcedure
-    .input(tokenInput.extend({ taskId: z.string().uuid(), text: taskText }))
+    .input(tokenInput.extend({ taskId: z.string().uuid(), text: taskText, estimatedMinutes: estimatedMinutes.optional() }))
     .mutation(async ({ input }) => {
       const userId = verifyToken(input.token).userId;
       const before = await prepareGoalMutation(userId);
@@ -116,6 +119,7 @@ export const goalsRouter = router({
       if (!task)
         throw new TRPCError({ code: 'NOT_FOUND', message: 'That task is no longer available.' });
       task.text = input.text;
+      if (input.estimatedMinutes !== undefined) task.estimatedMinutes = input.estimatedMinutes;
       plan.markModified('tasks');
       await plan.save();
       return { ...(await changed(userId, before)), plan: await getDailyPlan(userId) };
@@ -221,6 +225,7 @@ export const goalsRouter = router({
         tasks.push({
           id: randomUUID(),
           text: task.text,
+          estimatedMinutes: task.estimatedMinutes ?? null,
           position: position++,
           completedAtMs: null,
         });

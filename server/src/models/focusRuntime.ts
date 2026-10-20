@@ -52,6 +52,14 @@ const focusRunSchema = new Schema(
     state: { type: String, required: true, enum: ['active', 'completed', 'cancelled'] },
     currentPhaseIndex: { type: Number, required: true },
     phases: { type: [focusPhaseSchema], required: true },
+    taskTarget: {
+      taskId: { type: String, default: null },
+      dateKey: { type: String, default: null },
+      goalSnapshot: { type: String, default: null },
+      estimatedMinutes: { type: Number, default: null },
+      workTargetMs: { type: Number, default: null },
+      checkpointAtMs: { type: Number, default: null },
+    },
     startedAtMs: { type: Number, required: true },
     completedAtMs: { type: Number, default: null },
   },
@@ -72,7 +80,7 @@ const focusRuntimeSchema = new Schema(
       id: { type: String, default: null },
       kind: {
         type: String,
-        enum: ['focus_complete', 'break_started', 'break_complete', 'pomodoro_complete'],
+        enum: ['focus_complete', 'break_started', 'break_complete', 'pomodoro_complete', 'task_target_reached'],
         default: null,
       },
       runId: { type: String, default: null },

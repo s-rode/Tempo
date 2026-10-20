@@ -4,7 +4,7 @@ import { trpc } from '../utils/trpc'
 
 type TransitionNotice = {
   id: string
-  kind: 'focus_complete' | 'break_started' | 'break_complete' | 'pomodoro_complete'
+  kind: 'focus_complete' | 'break_started' | 'break_complete' | 'pomodoro_complete' | 'task_target_reached'
   goal: string | null
   phaseIndex: number
   breakDurationMs: number | null
@@ -15,6 +15,13 @@ const minutes = (milliseconds: number | null) =>
 
 const notificationCopy = (notice: TransitionNotice) => {
   switch (notice.kind) {
+    case 'task_target_reached':
+      return {
+        title: 'Planned work time reached',
+        body: notice.goal ? `Are you finished with “${notice.goal}”? Finish or add more time in Tempo.` : 'Are you finished? Finish or add more time in Tempo.',
+        action: 'open_tempo' as const,
+        actionLabel: 'Finish or extend'
+      }
     case 'focus_complete':
       return {
         title: 'Focus session complete',
@@ -30,7 +37,12 @@ const notificationCopy = (notice: TransitionNotice) => {
         actionLabel: 'Open Tempo'
       }
     case 'break_complete':
-      return {
+      return notice.goal ? {
+        title: 'Break complete',
+        body: `Back to “${notice.goal}”. Your next work block has started.`,
+        action: 'open_tempo' as const,
+        actionLabel: 'Open Tempo'
+      } : {
         title: 'Break complete',
         body: 'Choose one clear goal for your next Pomodoro block.',
         action: 'set_next_goal' as const,
