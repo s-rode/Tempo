@@ -167,10 +167,21 @@ export function FocusRuntimeControls({
     if (!open) { setChangingGoal(false); setChangingTaskGoal(false) }
   }, [open])
   useEffect(() => {
-    if (!runtime?.taskProgress || runtime.trackingState !== 'active') return
-    const interval = window.setInterval(() => setClockNow(Date.now()), 1000)
-    return () => window.clearInterval(interval)
-  }, [runtime?.taskProgress?.taskId, runtime?.trackingState])
+    if (!open || !runtime?.taskProgress || runtime.trackingState !== 'active') return
+    let interval: number | undefined
+    const refreshVisibility = () => {
+      window.clearInterval(interval)
+      if (document.hidden) return
+      setClockNow(Date.now())
+      interval = window.setInterval(() => setClockNow(Date.now()), 1000)
+    }
+    refreshVisibility()
+    document.addEventListener('visibilitychange', refreshVisibility)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', refreshVisibility)
+    }
+  }, [open, runtime?.taskProgress?.taskId, runtime?.trackingState])
 
   if (!token || !runtime) return null
   const phase = runtime.currentPhase

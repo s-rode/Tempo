@@ -184,7 +184,7 @@ final class NotchController: NSObject, ObservableObject {
     productiveClock: StreakClockPayload(accumulatedMs: 0, runningSinceMs: nil),
     distractedClock: StreakClockPayload(accumulatedMs: 0, runningSinceMs: nil),
     provisionalDistractionStartedAtMs: nil,
-    productiveStreakMs: 0, distractedStreakMs: 0, statusStartedAtMs: nil, animateTimerDigits: true,
+    productiveStreakMs: 0, distractedStreakMs: 0, statusStartedAtMs: nil, animateTimerDigits: false,
     categoryDetails: nil, availableCategories: [], activitySource: nil, activityName: nil,
     activitySummary: nil, activityUrl: nil, categoryReasoning: nil,
     classificationStatus: nil, nudgeTitle: nil, nudgeBody: nil, eventIds: [],
@@ -210,6 +210,9 @@ final class NotchController: NSObject, ObservableObject {
   private var hoverCloseWork: DispatchWorkItem?
   private var previousStatus: String?
   private var displayClockTimer: DispatchSourceTimer?
+  private var globalPointerMonitor: Any?
+  private var localPointerMonitor: Any?
+  // Only used if AppKit cannot install a mouse monitor.
   private var pointerTimer: DispatchSourceTimer?
   private var overlapMonitor: NotchOverlapMonitor?
   private var pillActivation = NotchPillActivation()
@@ -232,9 +235,7 @@ final class NotchController: NSObject, ObservableObject {
     positionPanel()
     panel.orderFrontRegardless()
     host.refreshInteractionRegions()
-    startDisplayClock()
-    overlapMonitor?.start()
-    startPointerTracking()
+    refreshBackgroundWork()
     emit(type: "ready")
     emit(type: "visibilityChanged", extra: ["visible": true])
   }
@@ -306,6 +307,7 @@ final class NotchController: NSObject, ObservableObject {
     var transaction = Transaction(animation: nil)
     transaction.disablesAnimations = true
     withTransaction(transaction) { pillsSuppressed = suppressed }
+    refreshDisplayClock()
     // Losing a pill because another app covered it must not close open controls.
     refreshPointerInteraction(allowHoverClose: false)
   }
@@ -316,7 +318,8 @@ final class NotchController: NSObject, ObservableObject {
   }
 
   // NSTrackingArea cannot drive hover while the window ignores mouse events.
-  // Sample coordinates without global event taps or Accessibility permissions.
+  // Mouse-only AppKit monitors also receive movement through other apps;
+  // unlike keyboard monitoring, they do not require Accessibility permission.
   func refreshPointerInteraction(allowHoverClose: Bool = true) {
     guard panel.isVisible, let host, let pointer = pointerInHost else {
       panel.ignoresMouseEvents = true
@@ -342,16 +345,49 @@ final class NotchController: NSObject, ObservableObject {
   }
 
   private func startPointerTracking() {
-    guard pointerTimer == nil else { return }
+    guard globalPointerMonitor == nil, localPointerMonitor == nil, pointerTimer == nil else { return }
+    let mask: NSEvent.EventTypeMask = [
+      .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
+      .leftMouseDown, .rightMouseDown, .otherMouseDown,
+      .leftMouseUp, .rightMouseUp, .otherMouseUp
+    ]
+    panel.acceptsMouseMovedEvents = true
+    globalPointerMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] _ in
+      self?.pointerMoved()
+    }
+    localPointerMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
+      self?.pointerMoved()
+      return event
+    }
+    if globalPointerMonitor == nil || localPointerMonitor == nil {
+      startPointerFallbackTimer()
+    }
+    refreshPointerInteraction()
+  }
+
+  private func pointerMoved() {
+    // Most mouse movement happens far from the notch. Avoid coordinate
+    // conversion, layout construction and hit testing for those events.
+    if !isHovering && hoveredPill == nil && !panel.frame.contains(NSEvent.mouseLocation) {
+      pillActivation.observePointer(overPill: false)
+      return
+    }
+    refreshPointerInteraction()
+  }
+
+  private func startPointerFallbackTimer() {
     let timer = DispatchSource.makeTimerSource(queue: .main)
     timer.schedule(deadline: .now(), repeating: .nanoseconds(16_666_667), leeway: .milliseconds(2))
     timer.setEventHandler { [weak self] in self?.refreshPointerInteraction() }
     pointerTimer = timer
     timer.resume()
-    refreshPointerInteraction()
   }
 
   private func stopPointerTracking() {
+    if let globalPointerMonitor { NSEvent.removeMonitor(globalPointerMonitor) }
+    if let localPointerMonitor { NSEvent.removeMonitor(localPointerMonitor) }
+    globalPointerMonitor = nil
+    localPointerMonitor = nil
     pointerTimer?.setEventHandler {}
     pointerTimer?.cancel()
     pointerTimer = nil
@@ -371,11 +407,7 @@ final class NotchController: NSObject, ObservableObject {
     // Status changes must render at the instant they arrive, rather than
     // waiting for the next one-second display tick.
     now = Date()
-    if !panel.isVisible || (next.suspensionReasons ?? []).contains("system_sleep") {
-      stopDisplayClock()
-    } else {
-      startDisplayClock()
-    }
+    refreshBackgroundWork()
     if next.trackingState == "paused" { pausePickerOpen = false }
     if next.showDistractionNotchAlerts == false {
       clearDistractionNotice()
@@ -493,11 +525,43 @@ final class NotchController: NSObject, ObservableObject {
     return status.eventIds?.contains(notice.eventId) == true
   }
 
-  /**
-   * This replaces SwiftUI's run-loop timer with one main-queue source aligned
-   * to second boundaries. It is still exactly one redraw per second: no new
-   * IPC, database query, activity capture, OCR, or model work is introduced.
-   */
+  private var systemSuspended: Bool {
+    let reasons = status.suspensionReasons ?? []
+    return reasons.contains("screen_locked") || reasons.contains("system_sleep")
+  }
+
+  private func refreshBackgroundWork() {
+    if panel.isVisible && !systemSuspended {
+      overlapMonitor?.start()
+      startPointerTracking()
+    } else {
+      stopPointerTracking()
+      overlapMonitor?.stop()
+    }
+    refreshDisplayClock()
+  }
+
+  private func refreshDisplayClock() {
+    // Stop publishing an ObservableObject change every second when every
+    // visible clock is frozen. Server deadlines and tracking remain separate.
+    let canAdvance = status.suspendedAtMs == nil
+    let runningPills = canAdvance && (!pillsSuppressed || expanded) &&
+      (status.productiveClock?.runningSinceMs != nil || status.distractedClock?.runningSinceMs != nil)
+    let runningTotals = canAdvance && expanded &&
+      (status.dailyProductiveClock?.runningSinceMs != nil || status.dailyUnproductiveClock?.runningSinceMs != nil)
+    // The compact session badge also shows live phase progress.
+    let runningPhase = status.trackingState == "active" && (status.suspensionReasons ?? []).isEmpty &&
+      status.phaseRemainingMs != nil && status.phaseRemainingSampledAtMs != nil
+    let pauseCountdown = expanded && (status.suspensionReasons ?? []).contains("manual_pause") &&
+      (status.pausedUntilMs ?? 0) > Date().timeIntervalSince1970 * 1000
+    if panel.isVisible && !systemSuspended && (runningPills || runningTotals || runningPhase || pauseCountdown) {
+      startDisplayClock()
+    } else {
+      stopDisplayClock()
+    }
+  }
+
+  /// Keep live clocks at their original second cadence, without renderer IPC.
   private func startDisplayClock() {
     guard displayClockTimer == nil else { return }
     let timer = DispatchSource.makeTimerSource(queue: .main)
@@ -508,7 +572,10 @@ final class NotchController: NSObject, ObservableObject {
       repeating: .seconds(1),
       leeway: .milliseconds(20)
     )
-    timer.setEventHandler { [weak self] in self?.now = Date() }
+    timer.setEventHandler { [weak self] in
+      self?.now = Date()
+      self?.refreshDisplayClock()
+    }
     displayClockTimer = timer
     timer.resume()
   }
@@ -524,6 +591,8 @@ final class NotchController: NSObject, ObservableObject {
     displayClockTimer?.cancel()
     pointerTimer?.setEventHandler {}
     pointerTimer?.cancel()
+    if let globalPointerMonitor { NSEvent.removeMonitor(globalPointerMonitor) }
+    if let localPointerMonitor { NSEvent.removeMonitor(localPointerMonitor) }
     hoverOpenWork?.cancel()
     hoverCloseWork?.cancel()
   }
@@ -535,6 +604,8 @@ final class NotchController: NSObject, ObservableObject {
       ? .easeOut(duration: 0.12)
       : .spring(response: 0.32, dampingFraction: 0.88)
     withAnimation(animation) { expanded = value }
+    now = Date()
+    refreshDisplayClock()
     panel.acceptsKeyboardControls = value && (chooserOpen || pausePickerOpen || presentedTransitionNotice != nil || presentedDistractionNotice != nil)
     host?.refreshInteractionRegions()
   }
@@ -580,9 +651,7 @@ final class NotchController: NSObject, ObservableObject {
   func show() {
     panel.orderFrontRegardless()
     now = Date()
-    startDisplayClock()
-    overlapMonitor?.start()
-    startPointerTracking()
+    refreshBackgroundWork()
     emit(type: "visibilityChanged", extra: ["visible": true])
   }
 
@@ -847,8 +916,10 @@ struct TimerPill: View {
           shape.stroke(color.opacity(0.52), lineWidth: 0.8)
         }
       }
+      // Shadow the static capsule rather than the animating glyphs. This
+      // preserves the pill silhouette without re-blurring text every frame.
+      .shadow(color: Color.black.opacity(0.22), radius: 2, y: 1)
     }
-    .shadow(color: Color.black.opacity(0.22), radius: 2, y: 1)
     .accessibilityLabel("\(label), \(text)\(paused ? ", paused" : active ? ", active" : "")")
   }
 }
@@ -1115,7 +1186,7 @@ struct NotchRootView: View {
     return !reasons.isEmpty || controller.status.trackingState == "paused" || controller.status.trackingState == "break"
   }
   private var shouldAnimateTimerPills: Bool {
-    controller.status.animateTimerDigits ?? true
+    controller.status.animateTimerDigits ?? false
   }
   private var phaseProgress: CGFloat {
     guard let total = controller.status.phaseDurationMs,
