@@ -320,12 +320,14 @@ export class NotchHelper {
     }
     if (event.type === 'openMain') {
       const window = this.mainWindow()
+      if (window?.isMinimized()) window.restore()
       window?.show()
       window?.focus()
       return
     }
     if (event.type === 'openFocusGoal') {
       const window = this.mainWindow()
+      if (window?.isMinimized()) window.restore()
       window?.show()
       window?.focus()
       window?.webContents.send('tempo-desktop-command', 'start-focus')

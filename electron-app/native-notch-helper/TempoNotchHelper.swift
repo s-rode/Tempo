@@ -1348,6 +1348,14 @@ struct NotchRootView: View {
     .frame(width: panelWidth, height: panelHeight, alignment: .top)
   }
 
+  private var openWindowButton: some View {
+    Button("Open window") { controller.emit(type: "openMain") }
+      .buttonStyle(NotchActionStyle(tone: .neutral))
+      .accessibilityLabel("Open Tempo window")
+      .accessibilityIdentifier("tempo-open-window")
+      .help("Show the Tempo window")
+  }
+
   private var details: some View {
     VStack(alignment: .leading, spacing: 6) {
       if transitionNotice != nil {
@@ -1371,8 +1379,7 @@ struct NotchRootView: View {
               .buttonStyle(NotchActionStyle(tone: .productive))
               .accessibilityLabel("Open Tempo to set the next Pomodoro goal")
           } else {
-            Button("Open Tempo") { controller.emit(type: "openMain") }
-              .buttonStyle(NotchActionStyle(tone: .neutral))
+            openWindowButton
           }
           if transitionNotice?.kind == "break_started" {
             Button("Skip break") { controller.requestFocusAction("skipBreak") }
@@ -1391,9 +1398,7 @@ struct NotchRootView: View {
         )
         Rectangle().fill(.white.opacity(0.10)).frame(height: 1 / (NSScreen.main?.backingScaleFactor ?? 2))
         HStack(spacing: 7) {
-          Button("Open Tempo") { controller.emit(type: "openMain") }
-            .buttonStyle(NotchActionStyle(tone: .neutral))
-            .accessibilityLabel("Open Tempo")
+          openWindowButton
           Button("Change category…") { controller.openCategoryChooserFromDistractionNotice() }
             .buttonStyle(NotchActionStyle(tone: .neutral))
             .disabled((controller.status.eventIds ?? []).isEmpty)
@@ -1511,8 +1516,7 @@ struct NotchRootView: View {
         .frame(height: 32, alignment: .leading)
       } else {
         HStack(spacing: 7) {
-          Button("Open Tempo") { controller.emit(type: "openMain") }
-            .buttonStyle(NotchActionStyle(tone: .neutral))
+          openWindowButton
           if controller.status.trackingState == "paused", (controller.status.suspensionReasons ?? []).contains("manual_pause") {
             Button("Resume") { controller.requestFocusAction("resume") }
               .buttonStyle(NotchActionStyle(tone: .neutral))

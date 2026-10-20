@@ -13,6 +13,7 @@ export type TempoDesktopCommand =
 function showMainWindow(getWindow: () => BrowserWindow | null) {
   const window = getWindow()
   if (!window) return
+  if (window.isMinimized()) window.restore()
   if (!window.isVisible()) window.show()
   window.focus()
 }
