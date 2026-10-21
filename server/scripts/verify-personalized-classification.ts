@@ -352,15 +352,17 @@ try {
     token,
     monitoringCaptureId: failedCaptureId,
     ownerName: 'Firefox',
-    title: 'Lecture video',
+    title: 'Lecture video with a detailed university course title and recording date '.repeat(3),
     type: 'browser' as const,
     browser: 'firefox' as const,
     pageCorrectionKey: 'a'.repeat(64),
+    siteIdentity: 'b'.repeat(64),
   };
   const prepared = await caller.prepareCurrentActivityCorrection(correctionInput);
   const preparedAgain = await caller.prepareCurrentActivityCorrection(correctionInput);
   assert.equal(prepared.eventId, preparedAgain.eventId);
   assert.equal(prepared.categoryId, null);
+  assert.equal(prepared.learningToolKey, correctionInput.siteIdentity);
   assert.equal(prepared.goalSnapshot?.targets[0].text, 'Review complex analysis');
   await caller.recategorizeBlock({
     token,
@@ -376,6 +378,28 @@ try {
     String(work._id),
     'late inference cannot undo explicit feedback'
   );
+  assert.ok((lateResponse.activityLabel?.length || 0) <= 60);
+  assert.equal(lateResponse.title, correctionInput.title, 'full title is retained separately');
+  for (let activation = 1; activation <= 3; activation++) {
+    const revisit = await caller.reuseFirefoxNavigation({
+      token,
+      windowId: 123,
+      title: `${correctionInput.title} ${activation}:00`,
+      navigationFingerprint: String(activation).repeat(64),
+      pageCorrectionKey: correctionInput.pageCorrectionKey,
+      siteIdentity: correctionInput.siteIdentity,
+      timestamp: Date.now(),
+      captureReason: 'firefox_activation',
+      monitoringCaptureId: randomUUID(),
+    });
+    assert.equal(revisit.reused, true);
+    if (revisit.reused) {
+      assert.equal(revisit.event.categoryId, String(work._id));
+      assert.equal(revisit.event.classificationStatus, 'manual_rule');
+      assert.equal(revisit.event.learningToolKey, correctionInput.siteIdentity);
+      assert.ok((revisit.event.activityLabel?.length || 0) <= 60);
+    }
+  }
   await caller.recategorizeBlock({
     token,
     eventIds: [prepared.eventId!],
@@ -385,6 +409,23 @@ try {
   assert.equal(
     (await caller.getClassificationEvent({ token, eventId: prepared.eventId! })).categoryId,
     String(distraction._id)
+  );
+  await start('An unrelated project', randomUUID(), 'another-list');
+  const outsideScope = await caller.reuseFirefoxNavigation({
+    token,
+    windowId: 123,
+    title: correctionInput.title,
+    navigationFingerprint: '9'.repeat(64),
+    pageCorrectionKey: correctionInput.pageCorrectionKey,
+    siteIdentity: correctionInput.siteIdentity,
+    timestamp: Date.now(),
+    captureReason: 'firefox_activation',
+    monitoringCaptureId: randomUUID(),
+  });
+  assert.equal(
+    outsideScope.reused,
+    false,
+    'an explicit page correction must not escape its goal scope'
   );
   console.log(
     'PASS: historical corrections, deduplication, scope, conflicts, reinstatement, expiry, privacy, review, and migration'

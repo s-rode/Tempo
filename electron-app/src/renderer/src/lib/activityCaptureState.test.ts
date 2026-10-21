@@ -3,6 +3,7 @@ import { MAX_ACTIVITY_CONTENT_CHARACTERS } from 'shared'
 import type { ActiveWindowEvent } from 'shared'
 import {
   boundedActivityContent,
+  FirefoxSiteIdentityCache,
   currentActivityEvent,
   failedForegroundCapture,
   type ForegroundActivityWindow
@@ -27,6 +28,17 @@ const previous: ActiveWindowEvent = {
 }
 
 describe('Firefox foreground capture regression', () => {
+  test('retains only page-bound opaque identity after transient context is discarded', () => {
+    const cache = new FirefoxSiteIdentityCache()
+    cache.remember('a'.repeat(64), 'b'.repeat(64))
+    expect(cache.get('a'.repeat(64))).toBe('b'.repeat(64))
+    expect(cache.get('c'.repeat(64))).toBeUndefined()
+    cache.remember('d'.repeat(64), 'example.invalid')
+    expect(cache.get('d'.repeat(64))).toBeUndefined()
+    for (let i = 0; i < 128; i++) cache.remember(i.toString(16).padStart(64, '0'), 'e'.repeat(64))
+    expect(cache.get('a'.repeat(64))).toBeUndefined()
+    expect(cache.get('7f'.padStart(64, '0'))).toBe('e'.repeat(64))
+  })
   test('bounds 7,000-character OCR evidence to the same limit used by the server', () => {
     const ocr = 'Lecture notes '.repeat(600).slice(0, 7000)
     expect(ocr.length).toBe(7000)

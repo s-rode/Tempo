@@ -84,5 +84,23 @@ describe('Firefox activity identity', () => {
     expect(first?.key).toMatch(/^[a-f0-9]{64}$/);
     expect(first?.key).not.toContain('desmos');
     expect(first?.key).not.toBe(second?.key);
+    expect(
+      learningToolIdentityFor({
+        ownerName: 'Firefox',
+        type: 'browser',
+        browser: 'firefox',
+        siteIdentity: first!.key,
+        url: null,
+      })?.key
+    ).toBe(first!.key);
+    expect(
+      learningToolIdentityFor({
+        ownerName: 'Firefox',
+        type: 'browser',
+        browser: 'firefox',
+        siteIdentity: 'unverified',
+        url: null,
+      })
+    ).toBeNull();
   });
 });

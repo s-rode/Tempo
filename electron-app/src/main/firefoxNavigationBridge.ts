@@ -3,6 +3,7 @@ import { createHmac, randomBytes } from 'crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 import net, { Server, Socket } from 'net'
 import { join } from 'path'
+import { localSiteIdentity } from './localServer'
 
 export interface FirefoxNavigationState {
   tabId: number
@@ -188,6 +189,8 @@ export class FirefoxNavigationBridge {
               this.mainWindow()?.webContents.send('firefox-navigation-state', {
                 reason: state.reason,
                 navigationFingerprint: state.navigationFingerprint,
+                pageCorrectionKey: state.pageCorrectionKey,
+                siteIdentity: localSiteIdentity(state.siteHost),
                 siteHost: state.siteHost,
                 pageContent: state.pageContent
               })

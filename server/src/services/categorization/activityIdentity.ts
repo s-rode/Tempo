@@ -74,7 +74,10 @@ export const pageCorrectionKeyFor = (
  * scoped to their application. The label is only for the local Settings UI.
  */
 export const learningToolIdentityFor = (
-  activity: Pick<ActiveWindowDetails, 'ownerName' | 'type' | 'browser' | 'siteHost' | 'url'>
+  activity: Pick<
+    ActiveWindowDetails,
+    'ownerName' | 'type' | 'browser' | 'siteHost' | 'siteIdentity' | 'url'
+  >
 ): LearningToolIdentity | null => {
   if (activity.type === 'browser') {
     let host = normalizeActivityText(activity.siteHost);
@@ -85,6 +88,12 @@ export const learningToolIdentityFor = (
         host = '';
       }
     }
+    if (!host && /^[a-f0-9]{64}$/.test(activity.siteIdentity || ''))
+      return {
+        key: activity.siteIdentity!,
+        kind: 'site',
+        label: `${activity.ownerName || 'Browser'} website`,
+      };
     if (!host) return null;
     return {
       key: learningKey('site', host),

@@ -6,6 +6,20 @@ export interface ForegroundActivityWindow extends ActiveWindowDetails {
   classificationFailed?: boolean
 }
 
+/** Keep only bounded opaque identities after transient page context expires. */
+export class FirefoxSiteIdentityCache {
+  private readonly sites = new Map<string, string>()
+  remember(pageKey: string, siteIdentity: string | null): void {
+    if (!/^[a-f0-9]{64}$/.test(pageKey) || !/^[a-f0-9]{64}$/.test(siteIdentity || '')) return
+    this.sites.delete(pageKey)
+    this.sites.set(pageKey, siteIdentity!)
+    while (this.sites.size > 128) this.sites.delete(this.sites.keys().next().value!)
+  }
+  get(pageKey?: string | null): string | undefined {
+    return pageKey ? this.sites.get(pageKey) : undefined
+  }
+}
+
 export function boundedActivityContent(content: string | null | undefined) {
   return content?.slice(0, MAX_ACTIVITY_CONTENT_CHARACTERS) ?? content
 }
