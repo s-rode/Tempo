@@ -4,7 +4,6 @@ import {
   ChevronUp,
   Circle,
   Copy,
-  Focus,
   GripVertical,
   MoreHorizontal,
   Pencil,
@@ -19,7 +18,7 @@ import { toast } from '../hooks/use-toast'
 import { cn } from '../lib/utils'
 import { trpc } from '../utils/trpc'
 import { scheduleGoalProfileRefresh } from '../lib/goalProfileRefresh'
-import { displayMinutes, parseTaskEstimate, pomodoroSummary } from '../lib/taskEstimate'
+import { displayMinutes, parseTaskEstimate } from '../lib/taskEstimate'
 import { Button } from './ui/button'
 import {
   DropdownMenu,
@@ -32,8 +31,18 @@ import { Input } from './ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { ToastAction } from './ui/toast'
 import type { FocusRuntimeSnapshot } from './FocusRuntimeControls'
+import { RemindersPlan } from './RemindersPanel'
+import { PlanTaskStartPopover } from './PlanTaskStartPopover'
+import type { ReminderTask } from 'shared/reminders'
 
-type PlanTask = { id: string; text: string; estimatedMinutes?: number | null; position: number; completedAtMs: number | null }
+type PlanTask = {
+  id: string
+  source?: 'reminder'
+  text: string
+  estimatedMinutes?: number | null
+  position: number
+  completedAtMs: number | null
+}
 
 interface TodayPlanProps {
   selectedDate: Date
@@ -47,6 +56,23 @@ const isSameLocalDay = (left: Date, right = new Date()): boolean =>
 
 /** Native list-style plan for the selected calendar day. */
 export function TodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): ReactElement {
+  const { token } = useAuth()
+  const { data: plan } = trpc.goals.getDailyPlan.useQuery(
+    { token: token || '', dateMs: selectedDate.getTime() },
+    { enabled: !!token, refetchInterval: 60_000 }
+  )
+  if (plan?.source === 'reminder')
+    return (
+      <RemindersPlan
+        tasks={plan.tasks as ReminderTask[]}
+        canStart={Boolean(plan.canStart)}
+        openRequest={openRequest}
+      />
+    )
+  return <ManualTodayPlan selectedDate={selectedDate} openRequest={openRequest} />
+}
+
+function ManualTodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): ReactElement {
   const { token } = useAuth()
   const utils = trpc.useContext()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -161,7 +187,8 @@ export function TodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): Re
   const activePlanTaskId =
     phase?.kind === 'work' && phase?.state === 'running' ? phase.todayPlanTask?.taskId : null
   const decisionTaskIdFromRuntime = typedFocusRuntime?.taskProgress?.checkpointAtMs
-    ? typedFocusRuntime.taskProgress.taskId : null
+    ? typedFocusRuntime.taskProgress.taskId
+    : null
   const activeRunId = typedFocusRuntime?.run?.id
   const parsedDraft = parseTaskEstimate(draft)
 
@@ -186,7 +213,14 @@ export function TodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): Re
     event?.preventDefault()
     const text = parsedDraft.recognized ? draftTitle.trim() : draft.trim()
     const estimatedMinutes = parsedDraft.recognized ? Number(draftMinutes) : null
-    if (parsedDraft.recognized && (estimatedMinutes === null || !Number.isInteger(estimatedMinutes) || estimatedMinutes < 1 || estimatedMinutes > 720)) return
+    if (
+      parsedDraft.recognized &&
+      (estimatedMinutes === null ||
+        !Number.isInteger(estimatedMinutes) ||
+        estimatedMinutes < 1 ||
+        estimatedMinutes > 720)
+    )
+      return
     if (!text || busy) return
     setDraft('')
     setDraftTitle('')
@@ -215,14 +249,22 @@ export function TodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): Re
     setEditingEstimateId(null)
     if (value === (task.estimatedMinutes ?? null)) return
     const previous = task.estimatedMinutes ?? null
-    update.mutate({ token: token || '', taskId: task.id, text: task.text, estimatedMinutes: value }, {
-      onSuccess: (result) => {
-        refreshIfChanged(result)
-        announceUndo('Time estimate updated', () => update.mutate({
-          token: token || '', taskId: task.id, text: task.text, estimatedMinutes: previous
-        }))
+    update.mutate(
+      { token: token || '', taskId: task.id, text: task.text, estimatedMinutes: value },
+      {
+        onSuccess: (result) => {
+          refreshIfChanged(result)
+          announceUndo('Time estimate updated', () =>
+            update.mutate({
+              token: token || '',
+              taskId: task.id,
+              text: task.text,
+              estimatedMinutes: previous
+            })
+          )
+        }
       }
-    })
+    )
   }
   const saveEdit = (task: PlanTask) => {
     const text = editingText.trim()
@@ -382,23 +424,39 @@ export function TodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): Re
         <span className="tempo-plan-task-text min-w-0 flex-1 truncate text-sm">{task.text}</span>
       )}
       {editingEstimateId === task.id ? (
-        <Input autoFocus type="number" min={1} max={720} step={1}
-          className="h-7 w-16 px-1 text-xs" value={editingEstimate}
+        <Input
+          autoFocus
+          type="number"
+          min={1}
+          max={720}
+          step={1}
+          className="h-7 w-16 px-1 text-xs"
+          value={editingEstimate}
           aria-label={`Estimated work minutes for ${task.text}`}
           onChange={(event) => setEditingEstimate(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter') saveEstimate(task)
             if (event.key === 'Escape') setEditingEstimateId(null)
           }}
-          onBlur={() => saveEstimate(task)} />
+          onBlur={() => saveEstimate(task)}
+        />
       ) : isToday ? (
-        <button type="button" className={cn('tempo-plan-estimate', !task.estimatedMinutes && 'is-empty')} disabled={busy}
+        <button
+          type="button"
+          className={cn('tempo-plan-estimate', !task.estimatedMinutes && 'is-empty')}
+          disabled={busy}
           aria-label={`${task.estimatedMinutes ? `Estimated ${displayMinutes(task.estimatedMinutes)}` : 'Add time estimate'} for ${task.text}`}
-          onClick={() => { setEditingEstimateId(task.id); setEditingEstimate(task.estimatedMinutes?.toString() || '') }}>
+          onClick={() => {
+            setEditingEstimateId(task.id)
+            setEditingEstimate(task.estimatedMinutes?.toString() || '')
+          }}
+        >
           {task.estimatedMinutes ? displayMinutes(task.estimatedMinutes) : 'Add time'}
         </button>
       ) : task.estimatedMinutes ? (
-        <span className="tempo-plan-estimate is-readonly">{displayMinutes(task.estimatedMinutes)}</span>
+        <span className="tempo-plan-estimate is-readonly">
+          {displayMinutes(task.estimatedMinutes)}
+        </span>
       ) : null}
       {activePlanTaskId === task.id && (
         <span className="tempo-plan-active" aria-label="Currently in a focus session">
@@ -407,7 +465,10 @@ export function TodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): Re
         </span>
       )}
       {decisionTaskIdFromRuntime === task.id && activeRunId && (
-        <Popover open={decisionTaskId === task.id} onOpenChange={(open) => setDecisionTaskId(open ? task.id : null)}>
+        <Popover
+          open={decisionTaskId === task.id}
+          onOpenChange={(open) => setDecisionTaskId(open ? task.id : null)}
+        >
           <PopoverTrigger asChild>
             <Button variant="outline" size="xs" aria-label={`Finish or extend ${task.text}`}>
               Finish or extend
@@ -417,16 +478,48 @@ export function TodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): Re
             <p className="text-sm font-semibold">Planned time reached</p>
             <p className="mt-1 text-xs text-muted-foreground">{task.text}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button size="sm" disabled={finishTaskSession.isLoading} onClick={() =>
-                finishTaskSession.mutate({ token: token || '', runId: activeRunId })}>I’m finished</Button>
-              <Button variant="outline" size="sm" disabled={extendTaskSession.isLoading} onClick={() =>
-                extendTaskSession.mutate({ token: token || '', runId: activeRunId, minutes: 10 })}>+10 min</Button>
+              <Button
+                size="sm"
+                disabled={finishTaskSession.isLoading}
+                onClick={() => finishTaskSession.mutate({ token: token || '', runId: activeRunId })}
+              >
+                I’m finished
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={extendTaskSession.isLoading}
+                onClick={() =>
+                  extendTaskSession.mutate({ token: token || '', runId: activeRunId, minutes: 10 })
+                }
+              >
+                +10 min
+              </Button>
             </div>
             <div className="mt-2 flex items-center gap-2">
-              <Input type="number" min={1} max={720} value={extensionMinutes} className="h-7 w-20"
-                aria-label="Custom extension minutes" onChange={(event) => setExtensionMinutes(Number(event.target.value))} />
-              <Button variant="outline" size="xs" disabled={extendTaskSession.isLoading || extensionMinutes < 1 || extensionMinutes > 720}
-                onClick={() => extendTaskSession.mutate({ token: token || '', runId: activeRunId, minutes: extensionMinutes })}>
+              <Input
+                type="number"
+                min={1}
+                max={720}
+                value={extensionMinutes}
+                className="h-7 w-20"
+                aria-label="Custom extension minutes"
+                onChange={(event) => setExtensionMinutes(Number(event.target.value))}
+              />
+              <Button
+                variant="outline"
+                size="xs"
+                disabled={
+                  extendTaskSession.isLoading || extensionMinutes < 1 || extensionMinutes > 720
+                }
+                onClick={() =>
+                  extendTaskSession.mutate({
+                    token: token || '',
+                    runId: activeRunId,
+                    minutes: extensionMinutes
+                  })
+                }
+              >
                 Add minutes
               </Button>
             </div>
@@ -483,10 +576,12 @@ export function TodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): Re
               <Pencil size={14} />
               Edit
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => {
-              setEditingEstimateId(task.id)
-              setEditingEstimate(task.estimatedMinutes?.toString() || '')
-            }}>
+            <DropdownMenuItem
+              onSelect={() => {
+                setEditingEstimateId(task.id)
+                setEditingEstimate(task.estimatedMinutes?.toString() || '')
+              }}
+            >
               <Timer size={14} />
               Edit time estimate…
             </DropdownMenuItem>
@@ -573,28 +668,46 @@ export function TodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): Re
             </form>
           )}
           {isToday && parsedDraft.recognized && (
-            <div className="tempo-plan-estimate-preview" aria-label="Recognized task and time estimate">
+            <div
+              className="tempo-plan-estimate-preview"
+              aria-label="Recognized task and time estimate"
+            >
               <label>
                 <span>Task</span>
-                <Input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)}
+                <Input
+                  value={draftTitle}
+                  onChange={(event) => setDraftTitle(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') addTask()
                     if (event.key === 'Escape') setDraftTitle(parsedDraft.title)
                   }}
-                  aria-label="Task title before saving" />
+                  aria-label="Task title before saving"
+                />
               </label>
               <label>
                 <span>Work minutes</span>
-                <Input type="number" min={1} max={720} value={draftMinutes}
+                <Input
+                  type="number"
+                  min={1}
+                  max={720}
+                  value={draftMinutes}
                   onChange={(event) => setDraftMinutes(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') addTask()
-                    if (event.key === 'Escape') setDraftMinutes(parsedDraft.estimatedMinutes?.toString() || '')
+                    if (event.key === 'Escape')
+                      setDraftMinutes(parsedDraft.estimatedMinutes?.toString() || '')
                   }}
-                  aria-label="Estimated work minutes before saving" />
+                  aria-label="Estimated work minutes before saving"
+                />
               </label>
-              <Button type="button" size="xs" disabled={!draftTitle.trim() || !Number(draftMinutes) || busy}
-                onClick={() => addTask()}>Add</Button>
+              <Button
+                type="button"
+                size="xs"
+                disabled={!draftTitle.trim() || !Number(draftMinutes) || busy}
+                onClick={() => addTask()}
+              >
+                Add
+              </Button>
             </div>
           )}
           {!activeTasks.length && (
@@ -614,156 +727,23 @@ export function TodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): Re
               </div>
             </div>
           )}
-          {!isToday && activeTasks.length > 0 && selectedDate < new Date() && (
-            <Button
-              variant="ghost"
-              size="xs"
-              className="mt-2"
-              disabled={copy.isLoading}
-              onClick={() => copy.mutate({ token: token || '', sourceDateMs: dateMs })}
-            >
-              <Copy size={14} />
-              Copy unfinished tasks to Today
-            </Button>
-          )}
+          {!isToday &&
+            activeTasks.length > 0 &&
+            selectedDate < new Date() &&
+            plan?.canCopyToToday !== false && (
+              <Button
+                variant="ghost"
+                size="xs"
+                className="mt-2"
+                disabled={copy.isLoading}
+                onClick={() => copy.mutate({ token: token || '', sourceDateMs: dateMs })}
+              >
+                <Copy size={14} />
+                Copy unfinished tasks to Today
+              </Button>
+            )}
         </>
       )}
     </section>
-  )
-}
-
-function PlanTaskStartPopover({
-  task,
-  runtime,
-  open,
-  disabled,
-  onOpenChange,
-  onStarted
-}: {
-  task: PlanTask
-  runtime: FocusRuntimeSnapshot | undefined
-  open: boolean
-  disabled: boolean
-  onOpenChange: (open: boolean) => void
-  onStarted: () => void
-}): ReactElement {
-  const { token } = useAuth()
-  const utils = trpc.useContext()
-  const [duration, setDuration] = useState(task.estimatedMinutes ?? 30)
-  useEffect(() => { if (open) setDuration(task.estimatedMinutes ?? 30) }, [open, task.estimatedMinutes])
-  const isWaitingForGoal = Boolean(runtime?.run && runtime.currentPhase?.state === 'awaiting_goal')
-  const afterStarted = () => {
-    onStarted()
-    void utils.goals.getActiveContext.fetch({ token: token || '' }).then((context) => {
-      void window.api?.refreshCurrentActivity()
-      scheduleGoalProfileRefresh(context, () =>
-        utils.goals.getActiveContext.fetch({ token: token || '' })
-      )
-    })
-  }
-  const startCustom = trpc.focusRuntime.startCustom.useMutation({
-    onSuccess: afterStarted,
-    onError: (error) =>
-      toast({ title: 'Could not start focus', description: error.message, variant: 'destructive' })
-  })
-  const startPomodoro = trpc.focusRuntime.startPomodoro.useMutation({
-    onSuccess: afterStarted,
-    onError: (error) =>
-      toast({
-        title: 'Could not start Pomodoro',
-        description: error.message,
-        variant: 'destructive'
-      })
-  })
-  const confirmGoal = trpc.focusRuntime.confirmWorkGoal.useMutation({
-    onSuccess: afterStarted,
-    onError: (error) =>
-      toast({
-        title: 'Could not begin the next block',
-        description: error.message,
-        variant: 'destructive'
-      })
-  })
-  const busy = startCustom.isLoading || startPomodoro.isLoading || confirmGoal.isLoading
-  const source = { kind: 'today_plan_task' as const, taskId: task.id }
-
-  const start = (kind: 'custom' | 'pomodoro' | 'next') => {
-    if (!token) return
-    if (kind === 'custom')
-      startCustom.mutate({ token, goalSource: source, durationMinutes: duration })
-    if (kind === 'pomodoro') startPomodoro.mutate({ token, firstGoalSource: source, workTargetMinutes: duration })
-    if (kind === 'next') confirmGoal.mutate({ token, goalSource: source })
-  }
-
-  return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          className="tempo-plan-start"
-          disabled={disabled}
-          aria-label={`Start a focus session for ${task.text}`}
-        >
-          <Play size={14} aria-hidden="true" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        side="right"
-        align="start"
-        className="tempo-focus-popover tempo-plan-session-popover w-[290px] p-3"
-        aria-label={`Start a session for ${task.text}`}
-      >
-        <div className="space-y-3">
-          <div>
-            <p className="text-sm font-semibold">
-              {isWaitingForGoal ? 'Next Pomodoro block' : 'Start a session'}
-            </p>
-            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.text}</p>
-          </div>
-          {!isWaitingForGoal && (
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-muted-foreground">Work time · minutes</span>
-              <input type="number" min={1} max={720} step={1}
-                className="tempo-field w-full"
-                value={duration}
-                onChange={(event) => setDuration(Number(event.target.value))}
-                aria-label="Task work time in minutes" />
-            </label>
-          )}
-          {!isWaitingForGoal && duration >= 1 && duration <= 720 && (
-            <p className="text-xs text-muted-foreground">Pomodoro: {pomodoroSummary(duration)}. Breaks do not count toward work time.</p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            {isWaitingForGoal ? (
-              <Button size="sm" disabled={busy || !token} onClick={() => start('next')}>
-                <Play size={15} />
-                Begin block
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={busy || !token || duration < 1 || duration > 720}
-                  onClick={() => start('pomodoro')}
-                >
-                  <Focus size={15} />
-                  Pomodoro
-                </Button>
-                <Button size="sm" disabled={busy || !token || duration < 1 || duration > 720} onClick={() => start('custom')}>
-                  <Play size={15} />
-                  Start Focus
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
   )
 }

@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import type { FocusTaskSource } from '../../../shared/reminders';
 import { FocusRunHistoryModel, FocusRuntimeModel } from '../models/focusRuntime';
 
 export type SuspensionReason =
@@ -28,23 +29,29 @@ export interface FocusTransitionNotice {
   breakDurationMs: number | null;
 }
 
-export interface TodayPlanTaskSource {
-  taskId: string;
-  dateKey: string;
-}
+export type TodayPlanTaskSource = FocusTaskSource;
+export const taskSourceSnapshot = (target: any): TodayPlanTaskSource => ({
+  taskId: target.taskId,
+  dateKey: target.dateKey,
+  ...(target.source === 'reminder'
+    ? { source: 'reminder', classificationText: target.classificationText }
+    : {}),
+});
 
 type RuntimeDocument = any;
 
 const minute = 60_000;
-const taskTargetFor = (run: any) => run?.taskTarget?.taskId ? run.taskTarget : null;
+const taskTargetFor = (run: any) => (run?.taskTarget?.taskId ? run.taskTarget : null);
 const phaseElapsed = (current: any, now: number) =>
   current.activeElapsedMs +
   (current.state === 'running' && current.runningSinceMs
     ? Math.max(0, now - current.runningSinceMs)
     : 0);
 const workElapsed = (run: any, now: number) =>
-  (run?.phases || []).reduce((total: number, entry: any) =>
-    total + (entry.kind === 'work' ? phaseElapsed(entry, now) : 0), 0);
+  (run?.phases || []).reduce(
+    (total: number, entry: any) => total + (entry.kind === 'work' ? phaseElapsed(entry, now) : 0),
+    0
+  );
 const phase = (
   kind: 'work' | 'short_break' | 'long_break',
   durationMinutes: number,
@@ -56,10 +63,10 @@ const phase = (
   id: crypto.randomUUID(),
   kind,
   goal,
-  todayPlanTask,
+  todayPlanTask: todayPlanTask ? { ...todayPlanTask } : null,
   goalHistory:
     kind === 'work' && goal && state === 'running'
-      ? [{ goal, todayPlanTask, startedAtMs: now }]
+      ? [{ goal, todayPlanTask: todayPlanTask ? { ...todayPlanTask } : null, startedAtMs: now }]
       : [],
   startedAtMs: state === 'running' ? now : null,
   completedAtMs: null,
@@ -89,8 +96,11 @@ const shouldAwaitFreshSystemCapture = (runtime: RuntimeDocument, now = Date.now(
   const current = currentPhase(runtime);
   // Breaks deliberately suspend foreground capture. Requiring a capture to
   // resume the break after wake would wait for an event that cannot arrive.
-  return current?.state !== 'awaiting_goal' &&
-    current?.kind !== 'short_break' && current?.kind !== 'long_break';
+  return (
+    current?.state !== 'awaiting_goal' &&
+    current?.kind !== 'short_break' &&
+    current?.kind !== 'long_break'
+  );
 };
 
 const freezePhase = (runtime: RuntimeDocument, now: number) => {
@@ -178,10 +188,18 @@ const advancePhase = (
     // Keep the work phase running so overtime remains real work time.
     taskTarget.checkpointAtMs = now;
     if (options.emitTransitionNotice) {
-      recordTransitionNotice(runtime, {
-        kind: 'task_target_reached', runId: run.id, phaseId: current.id,
-        phaseIndex, goal: taskTarget.goalSnapshot || completedGoal, breakDurationMs: null,
-      }, now);
+      recordTransitionNotice(
+        runtime,
+        {
+          kind: 'task_target_reached',
+          runId: run.id,
+          phaseId: current.id,
+          phaseIndex,
+          goal: taskTarget.goalSnapshot || completedGoal,
+          breakDurationMs: null,
+        },
+        now
+      );
     }
     return;
   }
@@ -224,9 +242,14 @@ const advancePhase = (
       next.state = 'running';
       next.runningSinceMs = now;
       next.startedAtMs = now;
-      next.goalHistory = [{ goal: taskTarget.goalSnapshot, todayPlanTask: {
-        taskId: taskTarget.taskId, dateKey: taskTarget.dateKey,
-      }, startedAtMs: now }];
+      next.goalHistory = [
+        {
+          goal: taskTarget.goalSnapshot,
+          todayPlanTask: taskSourceSnapshot(taskTarget),
+          startedAtMs: now,
+        },
+      ];
+      next.todayPlanTask = taskSourceSnapshot(taskTarget);
     } else {
       next.state = 'awaiting_goal';
       next.runningSinceMs = null;
@@ -347,16 +370,19 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
     run: runtime.run?.state === 'active' ? runValue : null,
     currentPhase: current ? { ...phaseValue, activeElapsedMs: phaseElapsedMs } : null,
     phaseRemainingMs: current ? Math.max(0, current.plannedDurationMs - phaseElapsedMs) : null,
-    taskProgress: taskTarget ? {
-      taskId: taskTarget.taskId,
-      dateKey: taskTarget.dateKey,
-      goal: taskTarget.goalSnapshot,
-      estimatedMinutes: taskTarget.estimatedMinutes,
-      workTargetMs: taskTarget.workTargetMs,
-      workElapsedMs: workElapsed(runtime.run, now),
-      checkpointAtMs: taskTarget.checkpointAtMs || null,
-      sampledAtMs: now,
-    } : null,
+    taskProgress: taskTarget
+      ? {
+          taskId: taskTarget.taskId,
+          dateKey: taskTarget.dateKey,
+          source: taskTarget.source || 'manual',
+          goal: taskTarget.goalSnapshot,
+          estimatedMinutes: taskTarget.estimatedMinutes,
+          workTargetMs: taskTarget.workTargetMs,
+          workElapsedMs: workElapsed(runtime.run, now),
+          checkpointAtMs: taskTarget.checkpointAtMs || null,
+          sampledAtMs: now,
+        }
+      : null,
     nextDeadlineAtMs,
     transitionNotice,
     revision: runtime.revision || 0,
@@ -472,10 +498,15 @@ export const createCustomRun = (
       startedAtMs: now,
     },
   ],
-  taskTarget: todayPlanTask ? {
-    ...todayPlanTask, goalSnapshot: goal, estimatedMinutes: originalEstimateMinutes,
-    workTargetMs: durationMinutes * minute, checkpointAtMs: null,
-  } : null,
+  taskTarget: todayPlanTask
+    ? {
+        ...todayPlanTask,
+        goalSnapshot: goal,
+        estimatedMinutes: originalEstimateMinutes,
+        workTargetMs: durationMinutes * minute,
+        checkpointAtMs: null,
+      }
+    : null,
   startedAtMs: now,
   completedAtMs: null,
 });
@@ -491,31 +522,44 @@ export const createPomodoroRun = (
   kind: 'pomodoro',
   state: 'active',
   currentPhaseIndex: 0,
-  phases: todayPlanTask && workTargetMinutes ? Array.from(
-    { length: Math.ceil(workTargetMinutes / 30) }, (_, index) => {
-      const blockMinutes = Math.min(30, workTargetMinutes - index * 30);
-      const work = phase('work', blockMinutes, index === 0 ? 'running' : 'suspended',
-        firstGoal, todayPlanTask, now);
-      return index === 0 ? [work] : [phase('short_break', 5, 'suspended'), work];
-    }
-  ).flat() : [
-    {
-      ...phase('work', 30, 'running', firstGoal, todayPlanTask, now),
-      runningSinceMs: now,
-      startedAtMs: now,
-    },
-    phase('short_break', 5, 'suspended'),
-    phase('work', 30, 'awaiting_goal'),
-    phase('short_break', 5, 'suspended'),
-    phase('work', 30, 'awaiting_goal'),
-    phase('short_break', 5, 'suspended'),
-    phase('work', 30, 'awaiting_goal'),
-    phase('long_break', 30, 'suspended'),
-  ],
-  taskTarget: todayPlanTask && workTargetMinutes ? {
-    ...todayPlanTask, goalSnapshot: firstGoal, estimatedMinutes: originalEstimateMinutes,
-    workTargetMs: workTargetMinutes * minute, checkpointAtMs: null,
-  } : null,
+  phases:
+    todayPlanTask && workTargetMinutes
+      ? Array.from({ length: Math.ceil(workTargetMinutes / 30) }, (_, index) => {
+          const blockMinutes = Math.min(30, workTargetMinutes - index * 30);
+          const work = phase(
+            'work',
+            blockMinutes,
+            index === 0 ? 'running' : 'suspended',
+            firstGoal,
+            todayPlanTask,
+            now
+          );
+          return index === 0 ? [work] : [phase('short_break', 5, 'suspended'), work];
+        }).flat()
+      : [
+          {
+            ...phase('work', 30, 'running', firstGoal, todayPlanTask, now),
+            runningSinceMs: now,
+            startedAtMs: now,
+          },
+          phase('short_break', 5, 'suspended'),
+          phase('work', 30, 'awaiting_goal'),
+          phase('short_break', 5, 'suspended'),
+          phase('work', 30, 'awaiting_goal'),
+          phase('short_break', 5, 'suspended'),
+          phase('work', 30, 'awaiting_goal'),
+          phase('long_break', 30, 'suspended'),
+        ],
+  taskTarget:
+    todayPlanTask && workTargetMinutes
+      ? {
+          ...todayPlanTask,
+          goalSnapshot: firstGoal,
+          estimatedMinutes: originalEstimateMinutes,
+          workTargetMs: workTargetMinutes * minute,
+          checkpointAtMs: null,
+        }
+      : null,
   startedAtMs: now,
   completedAtMs: null,
 });
@@ -539,8 +583,15 @@ export const extendTaskRun = (runtime: RuntimeDocument, minutes: number, now = D
   if (run.kind === 'pomodoro') {
     for (let remaining = minutes - first; remaining > 0; remaining -= 30) {
       run.phases.push(phase('short_break', 5, 'suspended'));
-      run.phases.push(phase('work', Math.min(30, remaining), 'suspended',
-        target.goalSnapshot, { taskId: target.taskId, dateKey: target.dateKey }));
+      run.phases.push(
+        phase(
+          'work',
+          Math.min(30, remaining),
+          'suspended',
+          target.goalSnapshot,
+          taskSourceSnapshot(target)
+        )
+      );
     }
   }
   return true;

@@ -71,8 +71,13 @@ const boundedStrings = (values: unknown, max: number, length: number): string[] 
 
 export const goalProfileSnapshot = (target: EffectiveGoalTarget) => ({
   subjectCues:
-    target.supportProfile?.subjectCues?.slice(0, 6) || [...tokens([target.text])].slice(0, 6),
-  expectedOutcome: (target.supportProfile?.expectedOutcome || target.text).slice(0, 120),
+    target.supportProfile?.subjectCues?.slice(0, 6) ||
+    [...tokens([target.classificationText || target.text])].slice(0, 6),
+  expectedOutcome: (
+    target.supportProfile?.expectedOutcome ||
+    target.classificationText ||
+    target.text
+  ).slice(0, 120),
   supportingModes: target.supportProfile?.supportingModes?.slice(0, 5) || [],
 });
 

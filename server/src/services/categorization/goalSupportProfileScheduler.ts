@@ -69,7 +69,7 @@ async function createProfile(
     // live decision. Cancelling enrichment also releases retained OCR text.
     cancelPendingEnrichment(userId);
     const result = await localClassificationProvider.profileGoal(
-      target.text,
+      target.classificationText || target.text,
       pending.controller.signal
     );
     if (!result || pending.controller.signal.aborted) return;

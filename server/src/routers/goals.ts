@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { GoalPlanModel, GoalTask } from '../models/goalPlan';
+import { getReminderIntegration } from '../services/reminders';
 import {
   DailyPlanSnapshot,
   fingerprintClassificationContext,
@@ -53,6 +54,9 @@ const prepareGoalMutation = async (userId: string): Promise<string> => {
 };
 
 const requireCurrentDaily = async (userId: string) => {
+  if ((await getReminderIntegration(userId))?.enabled) throw new TRPCError({
+    code: 'PRECONDITION_FAILED', message: 'Edit your tasks in Reminders, or disconnect Reminders to use manual Tempo tasks.',
+  });
   const periodKey = goalPeriodFor.dayKey();
   const plan = await GoalPlanModel.findOne({ userId, scope: 'daily', periodKey });
   if (!plan) {

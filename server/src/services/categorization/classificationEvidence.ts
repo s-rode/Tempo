@@ -109,7 +109,7 @@ export function validateFocusedEvidence(input: {
     };
   }
 
-  const goalTextTokens = meaningfulTokens([target.text]);
+  const goalTextTokens = meaningfulTokens([target.classificationText || target.text]);
   const activityTokens = meaningfulTokens([
     activity.ownerName,
     activity.title,

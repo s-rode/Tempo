@@ -4,6 +4,8 @@ const todayPlanTaskSchema = new Schema(
   {
     taskId: { type: String, required: true },
     dateKey: { type: String, required: true },
+    source: { type: String, enum: ['manual', 'reminder'], default: 'manual' },
+    classificationText: { type: String, default: null },
   },
   { _id: false }
 );
@@ -55,6 +57,8 @@ const focusRunSchema = new Schema(
     taskTarget: {
       taskId: { type: String, default: null },
       dateKey: { type: String, default: null },
+      source: { type: String, enum: ['manual', 'reminder'], default: 'manual' },
+      classificationText: { type: String, default: null },
       goalSnapshot: { type: String, default: null },
       estimatedMinutes: { type: Number, default: null },
       workTargetMs: { type: Number, default: null },
@@ -80,7 +84,13 @@ const focusRuntimeSchema = new Schema(
       id: { type: String, default: null },
       kind: {
         type: String,
-        enum: ['focus_complete', 'break_started', 'break_complete', 'pomodoro_complete', 'task_target_reached'],
+        enum: [
+          'focus_complete',
+          'break_started',
+          'break_complete',
+          'pomodoro_complete',
+          'task_target_reached',
+        ],
         default: null,
       },
       runId: { type: String, default: null },

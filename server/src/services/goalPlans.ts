@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { getReminderIntegration, getReminderTasks } from './reminders';
 import { randomUUID } from 'crypto';
 import { ActivityCorrectionRuleModel } from '../models/activityCorrectionRule';
 import { GoalSupportProfileModel } from '../models/goalSupportProfile';
@@ -27,6 +28,7 @@ export interface EffectiveGoalContext {
 }
 
 export interface EffectiveGoalTarget {
+  classificationText?: string;
   ref: string;
   scope: Exclude<EffectiveGoalScope, 'none'>;
   text: string;
@@ -35,6 +37,9 @@ export interface EffectiveGoalTarget {
 }
 
 export interface DailyPlanSnapshot {
+  canCopyToToday?: boolean;
+  source?: 'manual' | 'reminder';
+  canStart?: boolean;
   dateKey: string;
   timeZone: string;
   isToday: boolean;
@@ -107,6 +112,13 @@ export const fingerprintEffectiveGoalContext = (context: EffectiveGoalContext): 
         scope: context.scope,
         primaryGoal: context.primaryGoal?.trim() || '',
         dailyTasks: context.dailyTasks.map((task) => task.trim()),
+        ...(context.targets?.some((item) => item.classificationText)
+          ? {
+              classificationTargets: context.targets.map(
+                (item) => item.classificationText || item.text
+              ),
+            }
+          : {}),
       })
     )
     .digest('hex');
@@ -304,11 +316,24 @@ export async function getDailyPlan(
 ): Promise<DailyPlanSnapshot> {
   await ensureGoalPlanMigration(userId);
   const dateKey = localDateKey(timestamp);
+  if (dateKey === localDateKey()) {
+    const reminders = await getReminderTasks(userId);
+    if (reminders.enabled)
+      return {
+        dateKey,
+        timeZone: localTimeZone(),
+        isToday: true,
+        source: 'reminder',
+        canStart: reminders.canStart,
+        tasks: reminders.tasks,
+      };
+  }
   const plan = await GoalPlanModel.findOne({ userId, scope: 'daily', periodKey: dateKey }).lean();
   return {
     dateKey,
     timeZone: plan?.timeZone || localTimeZone(),
     isToday: dateKey === localDateKey(),
+    canCopyToToday: dateKey === localDateKey() || !(await getReminderIntegration(userId))?.enabled,
     tasks: sortedTasks((plan?.tasks || []) as GoalTask[]),
   };
 }
@@ -358,12 +383,14 @@ export async function getCurrentPlanning(
 const target = (
   ref: string,
   scope: Exclude<EffectiveGoalScope, 'none'>,
-  text: string
+  text: string,
+  classificationText?: string
 ): EffectiveGoalTarget => ({
   ref,
   scope,
   text,
-  textFingerprint: fingerprintGoalText(text),
+  ...(classificationText ? { classificationText } : {}),
+  textFingerprint: fingerprintGoalText(classificationText || text),
   supportProfile: null,
 });
 
@@ -413,7 +440,14 @@ export async function resolveEffectiveGoalContext(userId: string): Promise<Effec
       scope: 'session',
       primaryGoal: phase.goal.trim(),
       dailyTasks: [],
-      targets: [target(`session:${runtime.run.id}:${phase.id}`, 'session', phase.goal.trim())],
+      targets: [
+        target(
+          `session:${runtime.run.id}:${phase.id}`,
+          'session',
+          phase.goal.trim(),
+          phase.todayPlanTask?.classificationText || undefined
+        ),
+      ],
       attentionGuardrail: null,
     });
   }
@@ -423,7 +457,10 @@ export async function resolveEffectiveGoalContext(userId: string): Promise<Effec
     GoalPlanModel.findOne({ userId, scope: 'daily', periodKey: localDateKey(now) }).lean(),
     GoalPlanModel.findOne({ userId, scope: 'weekly', periodKey: weekStartKey(now) }).lean(),
   ]);
-  const remainingTasks = activeTasks((daily?.tasks || []) as GoalTask[]);
+  const reminders = await getReminderTasks(userId, now);
+  const remainingTasks = reminders.enabled
+    ? reminders.tasks
+    : activeTasks((daily?.tasks || []) as GoalTask[]);
   const remaining = remainingTasks.map((item) => item.text.trim());
   if (remaining.length) {
     const dayKey = localDateKey(now);
@@ -432,7 +469,12 @@ export async function resolveEffectiveGoalContext(userId: string): Promise<Effec
       primaryGoal: remaining[0],
       dailyTasks: remaining,
       targets: remainingTasks.map((item) =>
-        target(`daily:${dayKey}:${item.id}`, 'daily', item.text.trim())
+        target(
+          item.source === 'reminder' ? `reminder:${item.id}` : `daily:${dayKey}:${item.id}`,
+          'daily',
+          item.text.trim(),
+          item.classificationText
+        )
       ),
       attentionGuardrail: null,
     });

@@ -17,11 +17,14 @@ import {
   runtimeSnapshot,
   resumeFromStaleSystemSuspension,
   saveRuntime,
+  taskSourceSnapshot,
+  type TodayPlanTaskSource,
 } from '../services/focusRuntime';
 import { cancelPendingEnrichment } from '../services/categorization/enrichmentScheduler';
 import { FocusRunHistoryModel } from '../models/focusRuntime';
 import { getCurrentDailyPlanTask, resolveEffectiveGoalContext } from '../services/goalPlans';
 import { GoalPlanModel } from '../models/goalPlan';
+import { getReminderTasks } from '../services/reminders';
 import {
   cancelPendingGoalSupportProfiles,
   ensureGoalSupportProfiles,
@@ -49,15 +52,40 @@ const taskMinutes = z.number().int().min(1).max(720);
 const goalSource = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('custom'), goal }),
   z.object({ kind: z.literal('today_plan_task'), taskId: z.string().uuid() }),
+  z.object({ kind: z.literal('reminder'), taskId: z.string().uuid() }),
 ]);
 
 const resolveGoalSource = async (
   userId: string,
   source: z.infer<typeof goalSource>
-): Promise<{ goal: string; todayPlanTask: { taskId: string; dateKey: string } | null; estimatedMinutes: number | null }> => {
-  if (source.kind === 'custom') return { goal: source.goal, todayPlanTask: null, estimatedMinutes: null };
+): Promise<{
+  goal: string;
+  todayPlanTask: TodayPlanTaskSource | null;
+  estimatedMinutes: number | null;
+}> => {
+  if (source.kind === 'custom')
+    return { goal: source.goal, todayPlanTask: null, estimatedMinutes: null };
+  if (source.kind === 'reminder') {
+    const reminders = await getReminderTasks(userId);
+    const task = reminders.tasks.find((entry) => entry.id === source.taskId);
+    if (!reminders.enabled || !reminders.canStart || !task)
+      throw new TRPCError({
+        code: 'PRECONDITION_FAILED',
+        message: 'This reminder is unavailable. Refresh or reconnect Reminders.',
+      });
+    return {
+      goal: task.text.trim() || 'Untitled reminder',
+      estimatedMinutes: task.estimatedMinutes,
+      todayPlanTask: {
+        taskId: task.id,
+        dateKey: new Date().toLocaleDateString('en-CA'),
+        source: 'reminder',
+        classificationText: task.classificationText,
+      },
+    };
+  }
   const plannedTask = await getCurrentDailyPlanTask(userId, source.taskId);
-  if (!plannedTask) {
+  if (!plannedTask || plannedTask.task.source === 'reminder') {
     throw new TRPCError({
       code: 'PRECONDITION_FAILED',
       message: 'That task is no longer an unfinished item in Today’s Plan.',
@@ -180,7 +208,10 @@ export const focusRuntimeRouter = router({
         });
       const resolvedGoal = await resolveGoalSource(userId, input.goalSource);
       if (resolvedGoal.todayPlanTask && input.durationMinutes > 720)
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Work time must be at most 12 hours.' });
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Work time must be at most 12 hours.',
+        });
       if (!resolvedGoal.todayPlanTask && !durations.safeParse(input.durationMinutes).success)
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Choose a standard focus duration.' });
       runtime.run = createCustomRun(
@@ -198,7 +229,9 @@ export const focusRuntimeRouter = router({
     }),
 
   startPomodoro: publicProcedure
-    .input(tokenInput.extend({ firstGoalSource: goalSource, workTargetMinutes: taskMinutes.optional() }))
+    .input(
+      tokenInput.extend({ firstGoalSource: goalSource, workTargetMinutes: taskMinutes.optional() })
+    )
     .mutation(async ({ input }) => {
       const userId = verifyToken(input.token).userId;
       const runtime = await runtimeFor(input.token);
@@ -210,9 +243,15 @@ export const focusRuntimeRouter = router({
           message: 'Finish the current focus session first.',
         });
       const resolvedGoal = await resolveGoalSource(userId, input.firstGoalSource);
-      runtime.run = createPomodoroRun(resolvedGoal.goal, Date.now(), resolvedGoal.todayPlanTask,
-        resolvedGoal.todayPlanTask ? input.workTargetMinutes ?? resolvedGoal.estimatedMinutes ?? 120 : null,
-        resolvedGoal.estimatedMinutes);
+      runtime.run = createPomodoroRun(
+        resolvedGoal.goal,
+        Date.now(),
+        resolvedGoal.todayPlanTask,
+        resolvedGoal.todayPlanTask
+          ? (input.workTargetMinutes ?? resolvedGoal.estimatedMinutes ?? 120)
+          : null,
+        resolvedGoal.estimatedMinutes
+      );
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
       await saveRuntime(runtime);
@@ -381,9 +420,14 @@ export const focusRuntimeRouter = router({
           next.state = 'running';
           next.runningSinceMs = Date.now();
           next.startedAtMs = next.runningSinceMs;
-          next.goalHistory = [{ goal: runtime.run.taskTarget.goalSnapshot,
-            todayPlanTask: { taskId: runtime.run.taskTarget.taskId, dateKey: runtime.run.taskTarget.dateKey },
-            startedAtMs: next.startedAtMs }];
+          next.goalHistory = [
+            {
+              goal: runtime.run.taskTarget.goalSnapshot,
+              todayPlanTask: taskSourceSnapshot(runtime.run.taskTarget),
+              startedAtMs: next.startedAtMs,
+            },
+          ];
+          next.todayPlanTask = taskSourceSnapshot(runtime.run.taskTarget);
         } else {
           next.state = 'awaiting_goal';
           next.runningSinceMs = null;
@@ -410,14 +454,15 @@ export const focusRuntimeRouter = router({
     await saveRuntime(runtime);
     return runtimeSnapshot(runtime);
   }),
-  finishTaskSession: publicProcedure.input(tokenInput.extend({ runId: z.string().uuid() }))
+  finishTaskSession: publicProcedure
+    .input(tokenInput.extend({ runId: z.string().uuid() }))
     .mutation(async ({ input }) => {
       const userId = verifyToken(input.token).userId;
       const runtime = await runtimeFor(input.token);
       const run = runtime.run;
-      let taskSource: { taskId: string; dateKey: string } | null = null;
+      let taskSource: TodayPlanTaskSource | null = null;
       if (run?.id === input.runId && run.state === 'active' && run.taskTarget?.taskId) {
-        taskSource = { taskId: run.taskTarget.taskId, dateKey: run.taskTarget.dateKey };
+        taskSource = taskSourceSnapshot(run.taskTarget);
         if (runtime.transitionNotice?.kind === 'task_target_reached')
           runtime.acknowledgedTransitionNoticeId = runtime.transitionNotice.id;
         completeRun(runtime, Date.now(), 'completed');
@@ -428,28 +473,44 @@ export const focusRuntimeRouter = router({
       } else {
         // A retry after archiving may still need to complete the plan task if
         // the process stopped between the two local writes.
-        const archived = await FocusRunHistoryModel.findOne({ userId, runId: input.runId, outcome: 'completed' }).lean();
+        const archived = await FocusRunHistoryModel.findOne({
+          userId,
+          runId: input.runId,
+          outcome: 'completed',
+        }).lean();
         if (archived?.run?.taskTarget?.taskId)
-          taskSource = { taskId: archived.run.taskTarget.taskId, dateKey: archived.run.taskTarget.dateKey };
+          taskSource = taskSourceSnapshot(archived.run.taskTarget);
       }
       if (!taskSource)
-        throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'That planned task session is no longer active.' });
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'That planned task session is no longer active.',
+        });
       // Historical day key is intentional: a session can cross midnight.
-      await GoalPlanModel.updateOne(
-        { userId, scope: 'daily', periodKey: taskSource.dateKey,
-          tasks: { $elemMatch: { id: taskSource.taskId, completedAtMs: null } } },
-        { $set: { 'tasks.$.completedAtMs': Date.now() } }
-      );
+      if (taskSource.source !== 'reminder')
+        await GoalPlanModel.updateOne(
+          {
+            userId,
+            scope: 'daily',
+            periodKey: taskSource.dateKey,
+            tasks: { $elemMatch: { id: taskSource.taskId, completedAtMs: null } },
+          },
+          { $set: { 'tasks.$.completedAtMs': Date.now() } }
+        );
       cancelPendingEnrichment(userId);
       cancelPendingGoalSupportProfiles(userId);
       await scheduleActiveGoalProfile(userId);
       return runtimeSnapshot(runtime);
     }),
-  extendTaskSession: publicProcedure.input(tokenInput.extend({ runId: z.string().uuid(), minutes: taskMinutes }))
+  extendTaskSession: publicProcedure
+    .input(tokenInput.extend({ runId: z.string().uuid(), minutes: taskMinutes }))
     .mutation(async ({ input }) => {
       const runtime = await runtimeFor(input.token);
       if (runtime.run?.id !== input.runId || !extendTaskRun(runtime, input.minutes))
-        throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'This session cannot be extended, or it would exceed 24 hours of work.' });
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'This session cannot be extended, or it would exceed 24 hours of work.',
+        });
       if (runtime.transitionNotice?.kind === 'task_target_reached')
         runtime.acknowledgedTransitionNoticeId = runtime.transitionNotice.id;
       await saveRuntime(runtime);

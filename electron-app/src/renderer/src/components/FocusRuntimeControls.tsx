@@ -11,7 +11,13 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 const customDurations = [15, 30, 45, 60, 90, 120] as const
 const pauseDurations = [1, 5, 20, 30, 60, 120] as const
 
-type PlanTaskOption = { id: string; text: string; estimatedMinutes?: number | null; completedAtMs: number | null }
+type PlanTaskOption = {
+  id: string
+  source?: 'reminder'
+  text: string
+  estimatedMinutes?: number | null
+  completedAtMs: number | null
+}
 
 const clock = (milliseconds: number | null | undefined) => {
   if (milliseconds === null || milliseconds === undefined) return '—'
@@ -22,7 +28,12 @@ const clock = (milliseconds: number | null | undefined) => {
 export interface FocusRuntimeSnapshot {
   mode?: 'normal' | 'custom' | 'pomodoro'
   trackingState: string
-  run?: { id: string; kind: 'custom' | 'pomodoro'; currentPhaseIndex: number; phases?: { kind: string }[] } | null
+  run?: {
+    id: string
+    kind: 'custom' | 'pomodoro'
+    currentPhaseIndex: number
+    phases?: { kind: string }[]
+  } | null
   currentPhase?: {
     kind: 'work' | 'short_break' | 'long_break'
     state: 'awaiting_goal' | 'running' | 'suspended'
@@ -30,7 +41,17 @@ export interface FocusRuntimeSnapshot {
     todayPlanTask?: { taskId: string; dateKey: string } | null
   } | null
   phaseRemainingMs: number | null
-  taskProgress?: { taskId?: string; dateKey?: string; goal?: string; estimatedMinutes?: number | null; workTargetMs?: number; workElapsedMs?: number; checkpointAtMs?: number | null; sampledAtMs?: number } | null
+  taskProgress?: {
+    source?: 'manual' | 'reminder'
+    taskId?: string
+    dateKey?: string
+    goal?: string
+    estimatedMinutes?: number | null
+    workTargetMs?: number
+    workElapsedMs?: number
+    checkpointAtMs?: number | null
+    sampledAtMs?: number
+  } | null
   suspension: { reasons: string[]; pausedUntilMs?: number | null }
 }
 
@@ -58,7 +79,7 @@ export function FocusRuntimeControls({
   const utils = trpc.useContext()
   const { data: dailyPlan } = trpc.goals.getDailyPlan.useQuery(
     { token: token || '' },
-    { enabled: !!token && open }
+    { enabled: !!token && open, refetchInterval: 60_000 }
   )
   const activePlanTasks = useMemo(
     () =>
@@ -131,11 +152,17 @@ export function FocusRuntimeControls({
       refreshGoalContext()
       void utils.goals.getDailyPlan.invalidate()
     },
-    onError: (error) => toast({ title: 'Could not finish task', description: error.message, variant: 'destructive' })
+    onError: (error) =>
+      toast({ title: 'Could not finish task', description: error.message, variant: 'destructive' })
   })
   const extendTask = trpc.focusRuntime.extendTaskSession.useMutation({
     onSuccess: invalidate,
-    onError: (error) => toast({ title: 'Could not extend session', description: error.message, variant: 'destructive' })
+    onError: (error) =>
+      toast({
+        title: 'Could not extend session',
+        description: error.message,
+        variant: 'destructive'
+      })
   })
   const busy =
     startCustom.isLoading ||
@@ -145,7 +172,9 @@ export function FocusRuntimeControls({
     pause.isLoading ||
     resume.isLoading ||
     skipBreak.isLoading ||
-    endRun.isLoading || finishTask.isLoading || extendTask.isLoading
+    endRun.isLoading ||
+    finishTask.isLoading ||
+    extendTask.isLoading
 
   useEffect(() => {
     if (openRequest) setOpen(true)
@@ -164,7 +193,10 @@ export function FocusRuntimeControls({
     else setDuration(30)
   }, [selectedTaskId])
   useEffect(() => {
-    if (!open) { setChangingGoal(false); setChangingTaskGoal(false) }
+    if (!open) {
+      setChangingGoal(false)
+      setChangingTaskGoal(false)
+    }
   }, [open])
   useEffect(() => {
     if (!open || !runtime?.taskProgress || runtime.trackingState !== 'active') return
@@ -192,18 +224,30 @@ export function FocusRuntimeControls({
   const canChangeCurrentGoal = phase?.kind === 'work' && phase.state !== 'awaiting_goal'
   const taskProgress = runtime.taskProgress
   const awaitingTaskDecision = Boolean(taskProgress?.checkpointAtMs)
-  const liveTaskWorkMs = (taskProgress?.workElapsedMs || 0) +
+  const liveTaskWorkMs =
+    (taskProgress?.workElapsedMs || 0) +
     (runtime.trackingState === 'active' && taskProgress?.sampledAtMs
-      ? Math.max(0, clockNow - taskProgress.sampledAtMs) : 0)
-  const hasGoal = Boolean(selectedTask || goal.trim())
+      ? Math.max(0, clockNow - taskProgress.sampledAtMs)
+      : 0)
+  const hasGoal = Boolean(
+    selectedTask ? selectedTask.source !== 'reminder' || dailyPlan?.canStart : goal.trim()
+  )
   const goalSource = selectedTask
-    ? { kind: 'today_plan_task' as const, taskId: selectedTask.id }
+    ? {
+        kind:
+          selectedTask.source === 'reminder' ? ('reminder' as const) : ('today_plan_task' as const),
+        taskId: selectedTask.id
+      }
     : { kind: 'custom' as const, goal: goal.trim() }
   const submitGoal = (action: 'custom' | 'pomodoro' | 'next' | 'change') => {
     if (!hasGoal) return
     if (action === 'custom') startCustom.mutate({ token, goalSource, durationMinutes: duration })
-    if (action === 'pomodoro') startPomodoro.mutate({ token, firstGoalSource: goalSource,
-      ...(selectedTask ? { workTargetMinutes: duration } : {}) })
+    if (action === 'pomodoro')
+      startPomodoro.mutate({
+        token,
+        firstGoalSource: goalSource,
+        ...(selectedTask ? { workTargetMinutes: duration } : {})
+      })
     if (action === 'next') confirmGoal.mutate({ token, goalSource })
     if (action === 'change') changeCurrentWorkGoal.mutate({ token, goalSource })
   }
@@ -213,11 +257,11 @@ export function FocusRuntimeControls({
       ? 'Set next goal'
       : awaitingTaskDecision
         ? 'Finish or extend'
-      : isBreak
-        ? `Break · ${clock(runtime.phaseRemainingMs)}`
-        : isPaused
-          ? 'Paused'
-          : `${activeRun.kind === 'pomodoro' ? 'Pomodoro' : 'Focus'} · ${clock(runtime.phaseRemainingMs)}`
+        : isBreak
+          ? `Break · ${clock(runtime.phaseRemainingMs)}`
+          : isPaused
+            ? 'Paused'
+            : `${activeRun.kind === 'pomodoro' ? 'Pomodoro' : 'Focus'} · ${clock(runtime.phaseRemainingMs)}`
   const icon = !activeRun ? (
     <Timer size={16} />
   ) : isBreak ? (
@@ -250,11 +294,30 @@ export function FocusRuntimeControls({
         {changingTaskGoal && activeRun ? (
           <div className="space-y-3">
             <p className="text-sm font-semibold">Move to another goal</p>
-            <p className="text-xs text-muted-foreground">This work time belongs to the planned task. Finish it or leave it unchecked before choosing a new goal.</p>
+            <p className="text-xs text-muted-foreground">
+              {taskProgress?.source === 'reminder'
+                ? 'End this focus session before choosing a new goal. Complete the reminder separately in Reminders.'
+                : 'This work time belongs to the planned task. Finish it or leave it unchecked before choosing a new goal.'}
+            </p>
             <div className="flex flex-wrap justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setChangingTaskGoal(false)}>Cancel</Button>
-              <Button variant="outline" size="sm" disabled={busy} onClick={() => endRun.mutate({ token })}>End task session</Button>
-              <Button size="sm" disabled={busy} onClick={() => finishTask.mutate({ token, runId: activeRun.id })}>Finish task</Button>
+              <Button variant="ghost" size="sm" onClick={() => setChangingTaskGoal(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() => endRun.mutate({ token })}
+              >
+                End task session
+              </Button>
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => finishTask.mutate({ token, runId: activeRun.id })}
+              >
+                {taskProgress?.source === 'reminder' ? 'Finish session' : 'Finish task'}
+              </Button>
             </div>
           </div>
         ) : !activeRun || isWaitingForGoal || changingGoal ? (
@@ -277,7 +340,9 @@ export function FocusRuntimeControls({
             </div>
             {activePlanTasks.length > 0 && (
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-muted-foreground">Today’s Plan</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  {dailyPlan?.source === 'reminder' ? 'Reminders' : 'Today’s Plan'}
+                </span>
                 <select
                   className="tempo-field w-full"
                   value={selectedTaskId}
@@ -321,24 +386,42 @@ export function FocusRuntimeControls({
             {!isWaitingForGoal && !changingGoal && (
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-muted-foreground">Work time</span>
-                {selectedTask ? <input type="number" min={1} max={720} step={1}
-                  className="tempo-field w-full"
-                  value={duration}
-                  onChange={(event) => setDuration(Number(event.target.value))}
-                  aria-label="Task work time in minutes" /> : <select className="tempo-field w-full"
-                    value={duration} onChange={(event) => setDuration(Number(event.target.value))}
-                    aria-label="Custom focus duration">
-                  {customDurations.map((minutes) => (
-                    <option key={minutes} value={minutes}>
-                      {minutes} minutes
-                    </option>
-                  ))}
-                </select>}
+                {selectedTask ? (
+                  <input
+                    type="number"
+                    min={1}
+                    max={720}
+                    step={1}
+                    className="tempo-field w-full"
+                    value={duration}
+                    onChange={(event) => setDuration(Number(event.target.value))}
+                    aria-label="Task work time in minutes"
+                  />
+                ) : (
+                  <select
+                    className="tempo-field w-full"
+                    value={duration}
+                    onChange={(event) => setDuration(Number(event.target.value))}
+                    aria-label="Custom focus duration"
+                  >
+                    {customDurations.map((minutes) => (
+                      <option key={minutes} value={minutes}>
+                        {minutes} minutes
+                      </option>
+                    ))}
+                  </select>
+                )}
               </label>
             )}
-            {!isWaitingForGoal && !changingGoal && selectedTask && duration >= 1 && duration <= 720 && (
-              <p className="text-xs text-muted-foreground">Pomodoro: {pomodoroSummary(duration)}. Breaks are additional.</p>
-            )}
+            {!isWaitingForGoal &&
+              !changingGoal &&
+              selectedTask &&
+              duration >= 1 &&
+              duration <= 720 && (
+                <p className="text-xs text-muted-foreground">
+                  Pomodoro: {pomodoroSummary(duration)}. Breaks are additional.
+                </p>
+              )}
             <div className="flex justify-end gap-2">
               {isWaitingForGoal && !changingGoal ? (
                 <Button
@@ -378,7 +461,11 @@ export function FocusRuntimeControls({
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={!hasGoal || busy || (selectedTask !== null && (duration < 1 || duration > 720))}
+                    disabled={
+                      !hasGoal ||
+                      busy ||
+                      (selectedTask !== null && (duration < 1 || duration > 720))
+                    }
                     onClick={() => submitGoal('pomodoro')}
                   >
                     <Focus size={15} />
@@ -386,7 +473,11 @@ export function FocusRuntimeControls({
                   </Button>
                   <Button
                     size="sm"
-                    disabled={!hasGoal || busy || (selectedTask !== null && (duration < 1 || duration > 720))}
+                    disabled={
+                      !hasGoal ||
+                      busy ||
+                      (selectedTask !== null && (duration < 1 || duration > 720))
+                    }
                     onClick={() => submitGoal('custom')}
                   >
                     <Play size={15} />
@@ -407,7 +498,9 @@ export function FocusRuntimeControls({
                     : isPaused
                       ? 'Focus session paused'
                       : activeRun.kind === 'pomodoro'
-                        ? taskProgress ? 'Planned task · Pomodoro' : `Pomodoro ${Math.ceil((activeRun.currentPhaseIndex + 1) / 2)} of 4`
+                        ? taskProgress
+                          ? 'Planned task · Pomodoro'
+                          : `Pomodoro ${Math.ceil((activeRun.currentPhaseIndex + 1) / 2)} of 4`
                         : 'Focus session'}
                 </p>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -416,7 +509,9 @@ export function FocusRuntimeControls({
                 </p>
               </div>
               <span className="font-mono text-sm font-semibold tabular-nums">
-                {awaitingTaskDecision ? `+${clock(Math.max(0, liveTaskWorkMs - (taskProgress?.workTargetMs || 0)))}` : clock(runtime.phaseRemainingMs)}
+                {awaitingTaskDecision
+                  ? `+${clock(Math.max(0, liveTaskWorkMs - (taskProgress?.workTargetMs || 0)))}`
+                  : clock(runtime.phaseRemainingMs)}
               </span>
             </div>
             <div className="h-1 overflow-hidden rounded-full bg-muted">
@@ -424,22 +519,54 @@ export function FocusRuntimeControls({
             </div>
             {taskProgress && (
               <p className="text-xs text-muted-foreground" aria-live="polite">
-                {awaitingTaskDecision ? 'Your planned work time is complete. Keep working, or choose what to do next.' :
-                  `${displayMinutes(Math.floor(liveTaskWorkMs / 60_000))} worked of ${displayMinutes(Math.ceil((taskProgress.workTargetMs || 0) / 60_000))} target`}
-                {taskProgress.estimatedMinutes ? ` · original estimate ${displayMinutes(taskProgress.estimatedMinutes)}` : ''}
+                {awaitingTaskDecision
+                  ? 'Your planned work time is complete. Keep working, or choose what to do next.'
+                  : `${displayMinutes(Math.floor(liveTaskWorkMs / 60_000))} worked of ${displayMinutes(Math.ceil((taskProgress.workTargetMs || 0) / 60_000))} target`}
+                {taskProgress.estimatedMinutes
+                  ? ` · original estimate ${displayMinutes(taskProgress.estimatedMinutes)}`
+                  : ''}
+                {taskProgress.source === 'reminder' ? ' · Complete the task in Reminders.' : ''}
               </p>
             )}
             <div className="flex flex-wrap justify-end gap-2">
               {awaitingTaskDecision && activeRun && (
                 <>
-                  <Button size="sm" disabled={busy} onClick={() => finishTask.mutate({ token, runId: activeRun.id })}>I’m finished</Button>
-                  <Button variant="outline" size="sm" disabled={busy} onClick={() => extendTask.mutate({ token, runId: activeRun.id, minutes: 10 })}>Add 10 min</Button>
+                  <Button
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => finishTask.mutate({ token, runId: activeRun.id })}
+                  >
+                    I’m finished
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => extendTask.mutate({ token, runId: activeRun.id, minutes: 10 })}
+                  >
+                    Add 10 min
+                  </Button>
                   <label className="flex items-center gap-1 text-xs text-muted-foreground">
                     <span className="sr-only">Custom extension minutes</span>
-                    <input type="number" className="tempo-field w-14" min={1} max={720} value={customExtension}
-                      onChange={(event) => setCustomExtension(Number(event.target.value))} aria-label="Custom extension minutes" />
-                    <Button variant="outline" size="sm" disabled={busy || customExtension < 1 || customExtension > 720}
-                      onClick={() => extendTask.mutate({ token, runId: activeRun.id, minutes: customExtension })}>Add</Button>
+                    <input
+                      type="number"
+                      className="tempo-field w-14"
+                      min={1}
+                      max={720}
+                      value={customExtension}
+                      onChange={(event) => setCustomExtension(Number(event.target.value))}
+                      aria-label="Custom extension minutes"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={busy || customExtension < 1 || customExtension > 720}
+                      onClick={() =>
+                        extendTask.mutate({ token, runId: activeRun.id, minutes: customExtension })
+                      }
+                    >
+                      Add
+                    </Button>
                   </label>
                 </>
               )}

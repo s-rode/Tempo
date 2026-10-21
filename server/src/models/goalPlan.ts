@@ -38,6 +38,8 @@ const goalPlanSchema = new mongoose.Schema(
 goalPlanSchema.index({ userId: 1, scope: 1, periodKey: 1 }, { unique: true });
 
 export interface GoalTask {
+  source?: 'reminder';
+  classificationText?: string;
   id: string;
   text: string;
   estimatedMinutes?: number | null;
