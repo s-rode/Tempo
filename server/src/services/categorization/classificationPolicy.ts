@@ -6,7 +6,7 @@ export const isClassifierStrictness = (value: unknown): value is ClassifierStric
   value === 'flexible' || value === 'balanced' || value === 'strict';
 
 interface GroundedSemanticDecision {
-  state: 'focused' | 'distracted';
+  state: 'focused' | 'distracted' | 'uncertain';
   relation: 'direct' | 'supporting' | 'none';
   matchedGoalRef: string | null;
   supportingMode: string | null;

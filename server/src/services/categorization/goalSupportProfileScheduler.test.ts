@@ -63,7 +63,7 @@ describe('goal support profile scheduler', () => {
     expect(profiles.updateOne).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'profile-test-b',
-        goalRef: 'daily:2026-09-09:persisted',
+        goalRef: 'profile:goal-persisted',
         goalTextFingerprint: 'goal-persisted',
       }),
       expect.objectContaining({

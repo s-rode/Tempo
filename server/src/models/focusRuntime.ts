@@ -6,6 +6,9 @@ const todayPlanTaskSchema = new Schema(
     dateKey: { type: String, required: true },
     source: { type: String, enum: ['manual', 'reminder'], default: 'manual' },
     classificationText: { type: String, default: null },
+    listId: { type: String, default: null },
+    listName: { type: String, default: null },
+    listContext: { type: String, default: null },
   },
   { _id: false }
 );
@@ -59,6 +62,9 @@ const focusRunSchema = new Schema(
       dateKey: { type: String, default: null },
       source: { type: String, enum: ['manual', 'reminder'], default: 'manual' },
       classificationText: { type: String, default: null },
+      listId: { type: String, default: null },
+      listName: { type: String, default: null },
+      listContext: { type: String, default: null },
       goalSnapshot: { type: String, default: null },
       estimatedMinutes: { type: Number, default: null },
       workTargetMs: { type: Number, default: null },

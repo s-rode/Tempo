@@ -11,7 +11,7 @@ const pendingByKey = new Map<
 const attemptedByKey = new Set<string>();
 
 const profileKey = (userId: string, target: Pick<EffectiveGoalTarget, 'ref' | 'textFingerprint'>) =>
-  `${userId}:${target.ref}:${target.textFingerprint}:${GOAL_SUPPORT_PROFILE_POLICY_VERSION}`;
+  `${userId}:${target.textFingerprint}:${GOAL_SUPPORT_PROFILE_POLICY_VERSION}`;
 
 const revisionFor = (
   profile: Pick<GoalSupportProfileData, 'subjectCues' | 'expectedOutcome' | 'supportingModes'>
@@ -81,7 +81,7 @@ async function createProfile(
     await GoalSupportProfileModel.updateOne(
       {
         userId,
-        goalRef: target.ref,
+        goalRef: `profile:${target.textFingerprint}`,
         goalTextFingerprint: target.textFingerprint,
         policyVersion: GOAL_SUPPORT_PROFILE_POLICY_VERSION,
       },
@@ -94,7 +94,7 @@ async function createProfile(
         },
         $setOnInsert: {
           userId,
-          goalRef: target.ref,
+          goalRef: `profile:${target.textFingerprint}`,
           goalTextFingerprint: target.textFingerprint,
           policyVersion: GOAL_SUPPORT_PROFILE_POLICY_VERSION,
         },

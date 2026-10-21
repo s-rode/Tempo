@@ -28,8 +28,10 @@ export function ClassificationHealthSettings() {
               <span className="col-span-2 text-muted-foreground">Loading local diagnostics…</span>
             ) : health.data ? (
               <>
-                <span className="text-muted-foreground">Successful decisions</span>
-                <span className="text-right tabular-nums">{percent(health.data.successRate)}</span>
+                <span className="text-muted-foreground">Without technical failure</span>
+                <span className="text-right tabular-nums">
+                  {percent(health.data.technicalSuccessRate)}
+                </span>
                 <span className="text-muted-foreground">Median / p95 latency</span>
                 <span className="text-right tabular-nums">
                   {health.data.medianLatencyMs == null
@@ -40,6 +42,8 @@ export function ClassificationHealthSettings() {
                     ? '—'
                     : `${(health.data.p95LatencyMs / 1000).toFixed(1)}s`}
                 </span>
+                <span className="text-muted-foreground">Uncertain decisions</span>
+                <span className="text-right tabular-nums">{health.data.semanticUncertainty}</span>
                 <span className="text-muted-foreground">Cache reuse</span>
                 <span className="text-right tabular-nums">{percent(health.data.cacheHitRate)}</span>
                 <span className="text-muted-foreground">DOM / OCR / title inputs</span>
@@ -55,6 +59,20 @@ export function ClassificationHealthSettings() {
                 <span className="text-right tabular-nums">
                   {health.data.positiveCorrections} / {health.data.negativeCorrections}
                 </span>
+                <p className="col-span-2 text-xs text-muted-foreground">
+                  Correction counts and productive time do not measure accuracy. Productive reviews
+                  below cover only explicitly labeled samples.
+                </p>
+                {health.data.productiveReviewsByStratum.map((review) => (
+                  <p className="col-span-2 text-xs" key={review.stratum}>
+                    {review.stratum === 'random'
+                      ? 'Random samples'
+                      : review.stratum === 'learned'
+                        ? 'Learned-context samples'
+                        : 'Tool-role samples'}
+                    : {review.related} related · {review.offTask} off task · {review.unsure} unsure
+                  </p>
+                ))}
               </>
             ) : (
               <span className="col-span-2 text-muted-foreground">Diagnostics are unavailable.</span>

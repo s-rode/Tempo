@@ -34,7 +34,13 @@ export const taskSourceSnapshot = (target: any): TodayPlanTaskSource => ({
   taskId: target.taskId,
   dateKey: target.dateKey,
   ...(target.source === 'reminder'
-    ? { source: 'reminder', classificationText: target.classificationText }
+    ? {
+        source: 'reminder',
+        classificationText: target.classificationText,
+        listId: target.listId,
+        listName: target.listName,
+        listContext: target.listContext,
+      }
     : {}),
 });
 

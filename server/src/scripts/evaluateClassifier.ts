@@ -34,14 +34,11 @@ try {
       {
         classifierVersion: 'semantic-grounded-v1',
         labeledCorrections: feedback.length,
-        correctionAgreement: feedback.length ? (feedback.length - changed) / feedback.length : null,
+        changedCategoryFeedbackRecords: changed,
         technicalFailures,
         evaluatedEvents: events.length,
         latencyMs: { p50: p(0.5), p95: p(0.95) },
-        note:
-          feedback.length < 20
-            ? 'Collect more corrections before treating agreement as representative.'
-            : undefined,
+        note: 'Corrections are selection-biased and do not estimate accuracy. Use classifier:eval:personalized and stratified productive reviews.',
       },
       null,
       2

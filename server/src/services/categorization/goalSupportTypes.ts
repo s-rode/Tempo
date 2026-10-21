@@ -4,6 +4,7 @@ export const SUPPORTING_MODES = [
   'read_reference',
   'coding_or_analysis',
   'drafting_or_problem_solving',
+  'resource_navigation',
 ] as const;
 
 export const GOAL_SUPPORT_PROFILE_POLICY_VERSION = 2;

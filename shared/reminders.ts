@@ -58,4 +58,7 @@ export interface FocusTaskSource {
   dateKey: string;
   source?: 'manual' | 'reminder';
   classificationText?: string;
+  listId?: string;
+  listName?: string;
+  listContext?: string;
 }

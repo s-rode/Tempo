@@ -115,7 +115,7 @@ describe('OllamaClassificationProvider', () => {
         }),
         { status: 200 }
       );
-    }) as unknown as typeof fetch;
+    }) as unknown as unknown as typeof fetch;
 
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result.status).toBe('ollama');
@@ -148,7 +148,7 @@ describe('OllamaClassificationProvider', () => {
           },
         }),
         { status: 200 }
-      )) as unknown as typeof fetch;
+      )) as unknown as unknown as typeof fetch;
 
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result.status).toBe('ollama');
@@ -179,7 +179,7 @@ describe('OllamaClassificationProvider', () => {
           },
         }),
         { status: 200 }
-      )) as unknown as typeof fetch;
+      )) as unknown as unknown as typeof fetch;
 
     const result = await new OllamaClassificationProvider().classify(
       longGoals,
@@ -199,7 +199,7 @@ describe('OllamaClassificationProvider', () => {
           },
         }),
         { status: 200 }
-      )) as unknown as typeof fetch;
+      )) as unknown as unknown as typeof fetch;
 
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result.choice?.chosenCategoryName).toBe('Work');
@@ -226,7 +226,7 @@ describe('OllamaClassificationProvider', () => {
         }),
         { status: 200 }
       );
-    }) as unknown as typeof fetch;
+    }) as unknown as unknown as typeof fetch;
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(calls).toBe(2);
     expect(result).toMatchObject({
@@ -251,7 +251,7 @@ describe('OllamaClassificationProvider', () => {
           },
         }),
         { status: 200 }
-      )) as unknown as typeof fetch;
+      )) as unknown as unknown as typeof fetch;
 
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result.choice).toMatchObject({
@@ -270,7 +270,7 @@ describe('OllamaClassificationProvider', () => {
           message: { content: JSON.stringify({ v: 'uncertain', c: null, t: null, m: null }) },
         }),
         { status: 200 }
-      )) as unknown as typeof fetch;
+      )) as unknown as unknown as typeof fetch;
 
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result).toMatchObject({
@@ -295,7 +295,7 @@ describe('OllamaClassificationProvider', () => {
           },
         }),
         { status: 200 }
-      )) as unknown as typeof fetch;
+      )) as unknown as unknown as typeof fetch;
 
     const result = await new OllamaClassificationProvider().classify(goals, categories, activity);
     expect(result).toMatchObject({
@@ -332,7 +332,7 @@ describe('OllamaClassificationProvider', () => {
         }),
         { status: 200 }
       );
-    }) as unknown as typeof fetch;
+    }) as unknown as unknown as typeof fetch;
 
     const result = await new OllamaClassificationProvider().enrich(
       goals,
@@ -364,7 +364,7 @@ describe('OllamaClassificationProvider', () => {
         }),
         { status: 200 }
       );
-    }) as unknown as typeof fetch;
+    }) as unknown as unknown as typeof fetch;
 
     await expect(
       new OllamaClassificationProvider().profileGoal('Solve machine learning exercise sheet')
@@ -392,7 +392,7 @@ describe('OllamaClassificationProvider', () => {
         }),
         { status: 200 }
       );
-    }) as unknown as typeof fetch;
+    }) as unknown as unknown as typeof fetch;
     await expect(
       new OllamaClassificationProvider().describePage(
         { ...activity, title: 'Graphing Calculator', contentSource: 'title' },
@@ -420,7 +420,7 @@ describe('OllamaClassificationProvider', () => {
           },
         }),
         { status: 200 }
-      )) as unknown as typeof fetch;
+      )) as unknown as unknown as typeof fetch;
     const result = await new OllamaClassificationProvider().decideRelation(
       goals,
       categories,
@@ -466,7 +466,7 @@ describe('OllamaClassificationProvider', () => {
         }),
         { status: 200 }
       );
-    }) as unknown as typeof fetch;
+    }) as unknown as unknown as typeof fetch;
     const result = await new OllamaClassificationProvider().decideActivity(
       goals,
       categories,
@@ -504,7 +504,7 @@ describe('OllamaClassificationProvider', () => {
           },
         }),
         { status: 200 }
-      )) as unknown as typeof fetch;
+      )) as unknown as unknown as typeof fetch;
     const result = await new OllamaClassificationProvider().decideActivity(
       goals,
       categories,
@@ -513,5 +513,70 @@ describe('OllamaClassificationProvider', () => {
       2000
     );
     expect(result.decision).toMatchObject({ matchedGoalRef: null, evidenceAliases: [] });
+  });
+});
+
+describe('personalized semantic wire contract', () => {
+  test('uses one verdict after subject extraction and preserves a concrete low-confidence distraction', async () => {
+    globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body));
+      expect(request.format.required).toEqual(['o', 'q', 'v', 't', 'm', 'p', 'e']);
+      expect(request.options.num_predict).toBeLessThanOrEqual(128);
+      return new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              o: 'Physics',
+              q: 'Algorithms',
+              v: 'distracting',
+              t: 'T1',
+              m: null,
+              p: 'low',
+              e: ['E2'],
+            }),
+          },
+        })
+      );
+    }) as unknown as typeof fetch;
+    const result = await new OllamaClassificationProvider().decideActivity(
+      goals,
+      categories,
+      { ...activity, title: 'Physics lecture' },
+      'balanced',
+      10000,
+      [],
+      true
+    );
+    expect(result.decision?.assessment).toBe('conflicting');
+    expect(result.decision?.state).toBe('distracted');
+    expect(result.decision?.confidence).toBe('low');
+  });
+  test('rejects a duplicate-title alias that was never independent evidence in the prompt', async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              o: null,
+              q: 'Study',
+              v: 'uncertain',
+              t: 'T1',
+              m: null,
+              p: 'medium',
+              e: ['E1', 'E2'],
+            }),
+          },
+        })
+      )) as unknown as typeof fetch;
+    const result = await new OllamaClassificationProvider().decideActivity(
+      goals,
+      categories,
+      { ...activity, ownerName: 'Tutor', title: 'Tutor' },
+      'balanced',
+      10000,
+      [],
+      true
+    );
+    expect(result.decision?.evidenceAliases).toEqual(['E1']);
   });
 });

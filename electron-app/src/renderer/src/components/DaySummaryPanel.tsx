@@ -1,3 +1,4 @@
+import { ClassificationReview } from './ClassificationReview'
 import { Clock3, Focus, TriangleAlert } from 'lucide-react'
 import { type ReactElement, useMemo, useState } from 'react'
 import { Category } from 'shared'
@@ -23,6 +24,7 @@ import {
 } from './ui/dropdown-menu'
 
 interface DaySummaryPanelProps {
+  dayRange: { startDateMs: number; endDateMs: number }
   sessions: ActivitySessionBlock[]
   categories: Category[]
   selectedSessionId: string | null
@@ -104,6 +106,7 @@ function StateBreakdown({ source }: { source: DayActivitySummary }): ReactElemen
 }
 
 export default function DaySummaryPanel({
+  dayRange,
   sessions,
   categories,
   selectedSessionId,
@@ -148,6 +151,7 @@ export default function DaySummaryPanel({
       token,
       eventIds: selectedSession.eventIds,
       newCategoryId: categoryId,
+      correctionActionId: crypto.randomUUID(),
       rememberExactMatch: true
     })
   }
@@ -214,6 +218,11 @@ export default function DaySummaryPanel({
         </div>
       </section>
 
+      <ClassificationReview
+        startDateMs={dayRange.startDateMs}
+        endDateMs={dayRange.endDateMs}
+        onChange={refetchEvents}
+      />
       <section className="border-b py-4" aria-labelledby="activity-sources-heading">
         <div className="mb-2 flex items-baseline justify-between gap-3">
           <p

@@ -6,6 +6,8 @@ import {
 } from '../../../../shared/types';
 import {
   buildCoreClassificationPromptInput,
+  buildPersonalizedActivityPromptInput,
+  buildToolProfilePromptInput,
   buildEnrichmentPromptInput,
   buildGoalSupportProfilePromptInput,
   buildGoalRelationPromptInput,
@@ -22,6 +24,7 @@ import {
 import { GoalSupportProfileData, SUPPORTING_MODES, isSupportingMode } from './goalSupportTypes';
 import type { PageActivityDescriptorData } from './pageDescriptorTypes';
 import type { LearningExampleForPrompt } from './correctionLearning';
+import type { ToolCapabilityProfile } from '../../../../shared/classification';
 
 export type ClassificationStatus =
   | 'history'
@@ -118,7 +121,8 @@ export interface ClassificationProvider {
     activity: ActivityContext,
     strictness: ClassifierStrictness,
     timeoutMs: number,
-    learningExamples?: LearningExampleForPrompt[]
+    learningExamples?: LearningExampleForPrompt[],
+    personalized?: boolean
   ): Promise<SemanticActivityProviderResult>;
   enrich(
     goals: EffectiveGoalContext,
@@ -126,6 +130,11 @@ export interface ClassificationProvider {
     activity: ActivityContext,
     signal?: AbortSignal
   ): Promise<ClassificationEnrichment | null>;
+  profileTool(
+    label: string,
+    host: string | null,
+    signal?: AbortSignal
+  ): Promise<ToolCapabilityProfile | null>;
   profileGoal(goal: string, signal?: AbortSignal): Promise<GoalSupportProfileData | null>;
 }
 
@@ -249,6 +258,21 @@ const semanticActivityResponseSchema = {
     g: { type: 'string', enum: ['close', 'related', 'none'] },
   },
   required: ['s', 'r', 't', 'm', 'p', 'c', 'e'],
+};
+
+const personalizedActivityResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    o: { type: ['string', 'null'], maxLength: 40 },
+    q: { type: ['string', 'null'], maxLength: 40 },
+    v: { type: 'string', enum: ['productive', 'distracting', 'uncertain'] },
+    t: { type: ['string', 'null'], maxLength: 4 },
+    m: { type: ['string', 'null'], enum: [...SUPPORTING_MODES, null] },
+    p: { type: 'string', enum: ['high', 'medium', 'low'] },
+    e: { type: 'array', items: { type: 'string', maxLength: 4 }, maxItems: 4 },
+  },
+  required: ['o', 'q', 'v', 't', 'm', 'p', 'e'],
 };
 
 const enrichmentResponseSchema = {
@@ -516,7 +540,8 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     activity: ActivityContext,
     strictness: ClassifierStrictness,
     timeoutMs: number,
-    learningExamples: LearningExampleForPrompt[] = []
+    learningExamples: LearningExampleForPrompt[] = [],
+    personalized = false
   ): Promise<SemanticActivityProviderResult> {
     const startedAt = Date.now();
     const parse = (result: { content: string | null; failure?: ClassificationFailureCode }) => {
@@ -526,8 +551,27 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         return { decision: null, failure: 'invalid_json' as const };
       const raw = parsed as Record<string, unknown>;
       const checked = SemanticActivityDecisionSchema.safeParse({
-        state: raw.s ?? raw.state,
-        relation: raw.r ?? raw.relation,
+        state: personalized
+          ? raw.v === 'productive'
+            ? 'focused'
+            : raw.v === 'distracting'
+              ? 'distracted'
+              : 'uncertain'
+          : (raw.s ?? raw.state),
+        assessment: personalized
+          ? raw.v === 'productive'
+            ? 'relevant'
+            : raw.v === 'distracting'
+              ? 'conflicting'
+              : 'opaque'
+          : (raw.a ?? raw.assessment),
+        relation: personalized
+          ? raw.v === 'productive'
+            ? raw.m
+              ? 'supporting'
+              : 'direct'
+            : 'none'
+          : (raw.r ?? raw.relation),
         targetAlias: raw.t ?? raw.targetAlias ?? null,
         supportingMode: raw.m ?? raw.supportingMode ?? null,
         confidence: raw.p ?? raw.confidence,
@@ -549,7 +593,11 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         : null;
       const validEvidence = new Set([
         'E1',
-        ...(activity.title?.trim() ? ['E2'] : []),
+        ...(activity.title?.trim() &&
+        (!personalized ||
+          activity.title.trim().toLowerCase() !== activity.ownerName.trim().toLowerCase())
+          ? ['E2']
+          : []),
         ...(activity.browser === 'firefox' && activity.siteHost?.trim() ? ['E3'] : []),
         ...(activity.browser === 'firefox' && activity.content?.trim() ? ['E4'] : []),
       ]);
@@ -563,13 +611,11 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       return {
         decision: {
           state: checked.data.state,
+          assessment: checked.data.assessment,
           relation: checked.data.state === 'focused' ? checked.data.relation : 'none',
-          matchedGoalRef: checked.data.state === 'focused' ? target?.ref || null : null,
+          matchedGoalRef: checked.data.state !== 'distracted' ? target?.ref || null : null,
           targetAlias: checked.data.targetAlias,
-          supportingMode:
-            checked.data.state === 'focused' && checked.data.relation === 'supporting'
-              ? checked.data.supportingMode
-              : null,
+          supportingMode: checked.data.state !== 'distracted' ? checked.data.supportingMode : null,
           confidence: checked.data.confidence,
           categoryAlias: checked.data.categoryAlias,
           evidenceAliases,
@@ -578,18 +624,14 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         } as SemanticActivityDecision,
       };
     };
-    const prompt = buildSemanticActivityPromptInput(
-      goals,
-      activity,
-      categories,
-      strictness,
-      learningExamples
-    );
+    const prompt = personalized
+      ? buildPersonalizedActivityPromptInput(goals, activity, strictness)
+      : buildSemanticActivityPromptInput(goals, activity, categories, strictness, learningExamples);
     const first = parse(
       await chat(
         prompt,
-        semanticActivityResponseSchema,
-        Math.min(72, ollamaConfig().numPredict),
+        personalized ? personalizedActivityResponseSchema : semanticActivityResponseSchema,
+        Math.min(personalized ? 128 : 72, ollamaConfig().numPredict),
         Math.max(500, timeoutMs)
       )
     );
@@ -607,8 +649,8 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     const second = parse(
       await chat(
         retry,
-        semanticActivityResponseSchema,
-        Math.min(56, ollamaConfig().numPredict),
+        personalized ? personalizedActivityResponseSchema : semanticActivityResponseSchema,
+        Math.min(personalized ? 112 : 56, ollamaConfig().numPredict),
         remaining
       )
     );
@@ -837,6 +879,35 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       nudgeTitle: parsed.data.nudgeTitle ? clip(parsed.data.nudgeTitle, 60) : null,
       nudgeBody: parsed.data.nudgeBody ? clip(parsed.data.nudgeBody, 120) : null,
     };
+  }
+
+  async profileTool(
+    label: string,
+    host: string | null,
+    signal?: AbortSignal
+  ): Promise<ToolCapabilityProfile | null> {
+    const schema = {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        role: { type: 'string', enum: ['specialized', 'general_purpose', 'unknown'] },
+        supportingModes: {
+          type: 'array',
+          items: { type: 'string', enum: SUPPORTING_MODES },
+          maxItems: 6,
+        },
+      },
+      required: ['role', 'supportingModes'],
+    };
+    const response = await chat(buildToolProfilePromptInput(label, host), schema, 96, 8000, signal);
+    if (!response.content) return null;
+    const checked = z
+      .object({
+        role: z.enum(['specialized', 'general_purpose', 'unknown']),
+        supportingModes: z.array(z.enum(SUPPORTING_MODES)).max(6),
+      })
+      .safeParse(parseStructuredResponse(response.content));
+    return checked.success ? { ...checked.data, revision: 'tool-capabilities-v1' } : null;
   }
 
   async profileGoal(goal: string, signal?: AbortSignal): Promise<GoalSupportProfileData | null> {

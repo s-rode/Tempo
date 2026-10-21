@@ -12,10 +12,13 @@ import {
   isSupportingMode,
 } from './categorization/goalSupportTypes';
 import type { ClassifierStrictness } from '../../../shared/types';
+import type { ClassificationContextSnapshot } from '../../../shared/classification';
+import { PERSONALIZED_POLICY_VERSION } from './categorization/personalizedPolicy';
 
 export type EffectiveGoalScope = 'session' | 'daily' | 'weekly' | 'none';
 
 export interface EffectiveGoalContext {
+  sessionId?: string | null;
   scope: EffectiveGoalScope;
   /** A short primary target for concise UI and interruption copy. */
   primaryGoal: string | null;
@@ -28,6 +31,10 @@ export interface EffectiveGoalContext {
 }
 
 export interface EffectiveGoalTarget {
+  taskKey?: string;
+  listKey?: string | null;
+  listName?: string | null;
+  listContext?: string | null;
   classificationText?: string;
   ref: string;
   scope: Exclude<EffectiveGoalScope, 'none'>;
@@ -139,7 +146,11 @@ export const fingerprintClassificationContext = (
         // Unlike manual corrections, reusable model/history decisions must be
         // invalidated whenever the relation policy, an active support profile,
         // or the ambiguity-only weekly guardrail changes.
-        version: 'semantic-grounded-v1-learning',
+        version:
+          process.env.TEMPO_PERSONALIZED_CLASSIFIER === 'disabled'
+            ? 'semantic-grounded-v1-learning'
+            : PERSONALIZED_POLICY_VERSION,
+        provenance: context.targets?.map((t) => [t.taskKey, t.listKey, t.listContext]),
         strictness,
         learningRevision,
         effective: fingerprintEffectiveGoalContext(context),
@@ -384,8 +395,19 @@ const target = (
   ref: string,
   scope: Exclude<EffectiveGoalScope, 'none'>,
   text: string,
-  classificationText?: string
+  classificationText?: string,
+  provenance?: { taskId?: string; listId?: string; listName?: string; listContext?: string }
 ): EffectiveGoalTarget => ({
+  taskKey:
+    provenance?.taskId || fingerprintGoalText(text.toLowerCase().replace(/\s+/g, ' ').trim()),
+  listKey: provenance?.listId
+    ? crypto
+        .createHmac('sha256', process.env.AUTH_SECRET || 'local-development-secret')
+        .update(`list:${provenance.listId}`)
+        .digest('hex')
+    : null,
+  listName: provenance?.listName?.slice(0, 100) || null,
+  listContext: provenance?.listContext?.slice(0, 1000) || null,
   ref,
   scope,
   text,
@@ -403,7 +425,7 @@ async function attachSupportProfiles(
     userId,
     policyVersion: GOAL_SUPPORT_PROFILE_POLICY_VERSION,
     $or: context.targets.map((item) => ({
-      goalRef: item.ref,
+      goalRef: { $in: [item.ref, `profile:${item.textFingerprint}`] },
       goalTextFingerprint: item.textFingerprint,
     })),
   }).lean();
@@ -425,7 +447,10 @@ async function attachSupportProfiles(
     ...context,
     targets: context.targets.map((item) => ({
       ...item,
-      supportProfile: byTarget.get(`${item.ref}:${item.textFingerprint}`) || null,
+      supportProfile:
+        byTarget.get(`profile:${item.textFingerprint}:${item.textFingerprint}`) ||
+        byTarget.get(`${item.ref}:${item.textFingerprint}`) ||
+        null,
     })),
   };
 }
@@ -438,6 +463,7 @@ export async function resolveEffectiveGoalContext(userId: string): Promise<Effec
   if (phase?.kind === 'work' && phase?.state === 'running' && phase.goal?.trim()) {
     return attachSupportProfiles(userId, {
       scope: 'session',
+      sessionId: runtime.run.id,
       primaryGoal: phase.goal.trim(),
       dailyTasks: [],
       targets: [
@@ -445,7 +471,8 @@ export async function resolveEffectiveGoalContext(userId: string): Promise<Effec
           `session:${runtime.run.id}:${phase.id}`,
           'session',
           phase.goal.trim(),
-          phase.todayPlanTask?.classificationText || undefined
+          phase.todayPlanTask?.classificationText || undefined,
+          phase.todayPlanTask || undefined
         ),
       ],
       attentionGuardrail: null,
@@ -473,7 +500,18 @@ export async function resolveEffectiveGoalContext(userId: string): Promise<Effec
           item.source === 'reminder' ? `reminder:${item.id}` : `daily:${dayKey}:${item.id}`,
           'daily',
           item.text.trim(),
-          item.classificationText
+          item.classificationText,
+          {
+            taskId: item.id,
+            ...('listId' in item
+              ? {
+                  listId: String(item.listId),
+                  listName: (item as import('../../../shared/reminders').ReminderTask).listName,
+                  listContext: (item as import('../../../shared/reminders').ReminderTask)
+                    .listFocusContext,
+                }
+              : {}),
+          }
         )
       ),
       attentionGuardrail: null,
@@ -504,3 +542,29 @@ export const goalPeriodFor = {
   weekKey: weekStartKey,
   sortedTasks,
 };
+
+/** Freeze this before inference so delayed feedback never uses a different live task. */
+export const snapshotGoalContext = (
+  goals: EffectiveGoalContext
+): ClassificationContextSnapshot => ({
+  version: 2,
+  scope: goals.scope,
+  sessionId:
+    goals.sessionId ||
+    (goals.scope === 'daily'
+      ? `daily:${localDateKey()}`
+      : goals.scope === 'weekly'
+        ? `weekly:${weekStartKey()}`
+        : null),
+  targets: (goals.targets || []).map((t) => ({
+    ref: t.ref,
+    taskKey: t.taskKey || fingerprintGoalText(t.text),
+    text: t.text.slice(0, 500),
+    classificationText: (t.classificationText || t.text).slice(0, 1800),
+    listKey: t.listKey || null,
+    listName: t.listName || null,
+    listContext: t.listContext || null,
+    supportingModes: t.supportProfile?.supportingModes || [],
+    profileRevision: t.supportProfile?.revision || null,
+  })),
+});

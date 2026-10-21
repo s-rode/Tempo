@@ -81,6 +81,9 @@ const resolveGoalSource = async (
         dateKey: new Date().toLocaleDateString('en-CA'),
         source: 'reminder',
         classificationText: task.classificationText,
+        listId: task.listId,
+        listName: task.listName,
+        listContext: task.listFocusContext,
       },
     };
   }

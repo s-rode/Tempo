@@ -175,7 +175,8 @@ export function applyReminderContextToRun(
   run: any,
   taskId: string,
   classificationText: string,
-  now: number
+  now: number,
+  provenance?: { listId: string; listName: string; listContext: string }
 ): boolean {
   if (run?.state !== 'active') return false;
   let changed = false;
@@ -186,7 +187,11 @@ export function applyReminderContextToRun(
       phase.state === 'completed' ||
       ref?.source !== 'reminder' ||
       ref.taskId !== taskId ||
-      ref.classificationText === classificationText
+      (ref.classificationText === classificationText &&
+        (!provenance ||
+          (ref.listId === provenance.listId &&
+            ref.listName === provenance.listName &&
+            ref.listContext === provenance.listContext)))
     )
       continue;
     if (phase.startedAtMs) {
@@ -197,19 +202,25 @@ export function applyReminderContextToRun(
         ];
       phase.goalHistory.push({
         goal: phase.goal,
-        todayPlanTask: { ...snapshot, classificationText },
+        todayPlanTask: { ...snapshot, classificationText, ...provenance },
         startedAtMs: now,
       });
     }
     ref.classificationText = classificationText;
+    if (provenance) Object.assign(ref, provenance);
     changed = true;
   }
   if (
     run.taskTarget?.source === 'reminder' &&
     run.taskTarget.taskId === taskId &&
-    run.taskTarget.classificationText !== classificationText
+    (run.taskTarget.classificationText !== classificationText ||
+      (provenance &&
+        (run.taskTarget.listId !== provenance.listId ||
+          run.taskTarget.listContext !== provenance.listContext ||
+          run.taskTarget.listName !== provenance.listName)))
   ) {
     run.taskTarget.classificationText = classificationText;
+    if (provenance) Object.assign(run.taskTarget, provenance);
     changed = true;
   }
   return changed;
@@ -244,7 +255,12 @@ export async function remindersChanged(userId: string): Promise<void> {
             meta.focusContext,
             contexts[item.listId]
           ),
-          Date.now()
+          Date.now(),
+          {
+            listId: item.listId,
+            listName: list?.name || 'Unavailable list',
+            listContext: contexts[item.listId] || '',
+          }
         ) || changed;
     }
     if (changed) {

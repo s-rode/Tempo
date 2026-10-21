@@ -59,6 +59,7 @@ const meaningfulTokens = (values: Array<string | null | undefined>): Set<string>
   );
 
 const MODE_PAGE_KINDS: Record<SupportingMode, ReadonlySet<PageKind>> = {
+  resource_navigation: new Set(['administration', 'reference']),
   calculation_or_visualization: new Set(['problem_solving']),
   study_notes_or_retrieval: new Set(['learning', 'note_taking']),
   read_reference: new Set(['reference', 'learning']),
@@ -67,6 +68,7 @@ const MODE_PAGE_KINDS: Record<SupportingMode, ReadonlySet<PageKind>> = {
 };
 
 const MODE_MARKERS: Record<SupportingMode, RegExp> = {
+  resource_navigation: /\b(dashboard|course|portal|navigation|materials)\w*/i,
   calculation_or_visualization:
     /\b(calculat|calculator|equation|formula|graph|plot|visuali[sz]|math)\w*/i,
   study_notes_or_retrieval: /\b(flashcard|note|quiz|recall|retriev|memor|practice)\w*/i,
