@@ -346,6 +346,46 @@ try {
       ?.originalState,
     'distracted'
   );
+  // Manual relevance controls must not depend on successful model inference/upload.
+  const failedCaptureId = randomUUID();
+  const correctionInput = {
+    token,
+    monitoringCaptureId: failedCaptureId,
+    ownerName: 'Firefox',
+    title: 'Lecture video',
+    type: 'browser' as const,
+    browser: 'firefox' as const,
+    pageCorrectionKey: 'a'.repeat(64),
+  };
+  const prepared = await caller.prepareCurrentActivityCorrection(correctionInput);
+  const preparedAgain = await caller.prepareCurrentActivityCorrection(correctionInput);
+  assert.equal(prepared.eventId, preparedAgain.eventId);
+  assert.equal(prepared.categoryId, null);
+  assert.equal(prepared.goalSnapshot?.targets[0].text, 'Review complex analysis');
+  await caller.recategorizeBlock({
+    token,
+    eventIds: [prepared.eventId!],
+    newCategoryId: String(work._id),
+    rememberExactMatch: true,
+    correctionActionId: randomUUID(),
+  });
+  const lateResponse = await caller.create({ ...correctionInput, timestamp: Date.now() });
+  assert.equal(lateResponse.eventId, prepared.eventId);
+  assert.equal(
+    lateResponse.categoryId,
+    String(work._id),
+    'late inference cannot undo explicit feedback'
+  );
+  await caller.recategorizeBlock({
+    token,
+    eventIds: [prepared.eventId!],
+    newCategoryId: String(distraction._id),
+    correctionActionId: randomUUID(),
+  });
+  assert.equal(
+    (await caller.getClassificationEvent({ token, eventId: prepared.eventId! })).categoryId,
+    String(distraction._id)
+  );
   console.log(
     'PASS: historical corrections, deduplication, scope, conflicts, reinstatement, expiry, privacy, review, and migration'
   );
