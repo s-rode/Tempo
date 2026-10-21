@@ -22,6 +22,7 @@ import {
 } from '../src/services/categorization/learningActions';
 import { ClassificationReviewSampleModel } from '../src/routers/classificationLearning';
 import { NavigationEpisodeModel } from '../src/services/categorization/personalizedClassification';
+import { boundedActivityContent } from '../../electron-app/src/renderer/src/lib/activityCaptureState';
 
 process.env.TEMPO_LOCAL_MODE = 'true';
 delete process.env.TEMPO_PERSONALIZED_CLASSIFIER;
@@ -303,6 +304,24 @@ try {
   await start('Review complex analysis', randomUUID());
   assessment = 'opaque';
   assert.equal((await create()).categoryId, null, 'expired observations cannot supply trust');
+  // Exercise the real Firefox transport boundary, not just the content helper.
+  const longFirefox = await caller.create({
+    token,
+    ownerName: 'Firefox',
+    title: 'Lecture notes',
+    type: 'browser',
+    browser: 'firefox',
+    content: boundedActivityContent('lecture '.repeat(1000)),
+    contentSource: 'ocr',
+    contentCaptureStatus: 'captured',
+    timestamp: Date.now(),
+    monitoringCaptureId: randomUUID(),
+  });
+  assert.equal(longFirefox.ownerName, 'Firefox');
+  assert.ok(
+    longFirefox.eventId,
+    'long OCR capture must persist instead of revealing the previous app'
+  );
   // A single correction may span events with different previous categories.
   const mixedA = await create('Mixed original A');
   const mixedB = await create('Mixed original B');
