@@ -2,9 +2,9 @@
   "source_head": "ed7fd69c65510c76aa868cb9056672319d395005",
   "licensed_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
   "counts": {
-    "publication_metadata_reviewed": 30,
+    "publication_metadata_reviewed": 31,
     "verified_mit_blob": 40,
-    "attributable_tempo_addition_reviewed": 168,
+    "attributable_tempo_addition_reviewed": 167,
     "third_party_terms_recorded": 4,
     "publication_port_addition": 2,
     "user_supplied_asset": 1,
@@ -129,11 +129,11 @@
     },
     {
       "path": "docs/CLASSIFICATION_VALIDATION.md",
-      "sha256": "5959c83ef6bc75d0159aaadaf85b349db3dc2f29fefc8aba49df3895c88c6830",
-      "status": "attributable_tempo_addition_reviewed",
+      "sha256": "df616a03f0ff806b8c35371a6e964cde9b178350aef3659ed3633d62675b25a8",
+      "status": "publication_metadata_reviewed",
       "licensed_exact_paths": [],
       "original_first_path_commit": "dcb8e86f55dffd8fc31bb5c4fad3871d071c27c5",
-      "review_note": "Attributable later Tempo development: this path is absent from the recovered v1.0.8 baseline and its creation is recorded under Samuel R in dcb8e86f55dffd8fc31bb5c4fad3871d071c27c5. Reviewed with its feature family, current imports/contracts and old/MIT comparison. The new-file comparison is a discovery aid, not a legal clearance threshold; no separate older substantive implementation is identified in this retained addition. External dependencies retain their own terms.",
+      "review_note": "Updated validation documentation records the completed fixed-fixture actual local inference comparison separately from historical saved reports, deterministic replay and outstanding installed browser/native acceptance. Model/report hashes and limits are linked.",
       "previous_sha256": "5959c83ef6bc75d0159aaadaf85b349db3dc2f29fefc8aba49df3895c88c6830",
       "original_author": "Samuel R",
       "original_author_date": "2026-10-21T12:42:14+02:00"
@@ -197,7 +197,7 @@
     },
     {
       "path": "docs/publication/STATUS.md",
-      "sha256": "db72a948866b724a226e772ed56b610eff58eb2540c857324ef0e7b19ee89d02",
+      "sha256": "01becb69f171207084d746ce0d74632d1d4bd4093eabfff2c8ff59a863d04d61",
       "status": "publication_metadata_reviewed",
       "licensed_exact_paths": [],
       "review_note": "Publication-port documentation checked against local source/build commands, MIT attribution, supplied icon, reconstruction and rollback/acceptance limits. Status explicitly distinguishes unfinished source/history/installed UI gates from verified automated evidence.",
