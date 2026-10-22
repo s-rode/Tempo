@@ -25,7 +25,7 @@ def content_issue(path, data):
         return 'generated application bundle'
     if path.endswith(('.node', '.dmg', '.xpi', '.zip', '.icns', '.tsbuildinfo', '.bundle', '.pyc', '.o', '.a', '.so', '.dylib', '.exe', '.wav', '.mp3')):
         return 'generated binary or private backup'
-    if Path(path).name.startswith('.env') and not path.endswith('.example'):
+    if (Path(path).name.startswith('.env') or path.endswith('.env')) and not path.endswith('.example'):
         return 'private environment file'
     if b'\0' in data or path.endswith('.png'): return None
     text = data.decode('utf-8', errors='replace')
@@ -91,6 +91,10 @@ def main():
             errors.append('an original-to-public mapping points outside reachable history')
         if not row.get('reason', '').strip():
             errors.append('an original-to-public mapping lacks its curation reason')
+        if row.get('disposition') == 'retained_curated_feature_step' and row.get('public_commit') in reachable:
+            name, date = git('show', '-s', '--format=%an%x00%aI', row['public_commit']).decode().strip().split('\0')
+            if name != row.get('author') or date != row.get('author_date'):
+                errors.append('a retained development step changed its recorded original author or author date')
     for commit in commits:
         if commit.startswith(ORIGINAL_ROOT): errors.append('original recovery ancestry was imported')
         identity = git('show', '-s', '--format=%an%x00%ae', commit).decode().strip().split('\0')
@@ -136,6 +140,7 @@ if __name__ == '__main__':
     if '--self-test' in sys.argv:
         assert content_issue('client/file.ts', b'')
         assert content_issue('server/.env', b'')
+        assert content_issue('server/local.env', b'')
         assert content_issue('public/app.dmg', b'')
         assert content_issue('dist/Tempo.app/Contents/MacOS/Tempo', b'')
         assert content_issue('scripts/__pycache__/cached.pyc', b'')

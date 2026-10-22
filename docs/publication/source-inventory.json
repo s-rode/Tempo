@@ -2602,10 +2602,10 @@
     },
     {
       "path": "scripts/publication-check.py",
-      "sha256": "5f203da3b78211ffc8af131d1ab64f2e3880520f0cc046e42c386d7c4065937e",
+      "sha256": "b32b49e0400efb49bc31587ca8ba9c8b480c023cef3d2d2b3573d6c3500c70bc",
       "status": "replacement_review_recorded",
       "licensed_exact_paths": [],
-      "review_note": "Independent fail-closed source/history audit checks current hashes, reviewed historical blobs, all reachable refs, mapping completeness/reachability/reasons, author identity, excluded paths and credential/private-path patterns in source and messages. Pattern scans supplement the source review rather than constitute legal clearance.",
+      "review_note": "Final fail-closed source/history audit also rejects local.env-style private configuration even if force-tracked, and verifies mapped retained feature authors and exact original author dates against reachable public commits. Source/current hashes, history coverage, private-data scans and legal-interpretation limits remain unchanged.",
       "previous_sha256": "0c461917111a6ada1d8be25bee5bbe307f896bff53430bc8721f15c95f899835"
     },
     {

@@ -4333,6 +4333,10 @@
     "8f4f7a4133141391bfaefded2f5d1b7c32c6d8ada36a2192926e9e2a3f425447": {
       "disposition": "publication_metadata_reviewed",
       "review": "Final source/history/build/install/recovery evidence and artifact hashes checked against tool results. Explicitly distinguish staged/installed observations, Firefox user testing on two websites, inaccessible hover/browser permutations and other outstanding manual checks. Synthetic demo instructions use no personal activity; no private checkpoint contents or paths are published."
+    },
+    "b32b49e0400efb49bc31587ca8ba9c8b480c023cef3d2d2b3573d6c3500c70bc": {
+      "disposition": "replacement_review_recorded",
+      "review": "Final fail-closed source/history audit also rejects local.env-style private configuration even if force-tracked, and verifies mapped retained feature authors and exact original author dates against reachable public commits. Source/current hashes, history coverage, private-data scans and legal-interpretation limits remain unchanged."
     }
   }
 }
