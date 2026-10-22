@@ -389,6 +389,18 @@
         "shared/README.md"
       ],
       "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "5952debf03ecba9f5215a17cdb6182d777da1922557bec499200fa7b45c3ef09": {
+      "disposition": "user_supplied_asset",
+      "review": "Exact user-supplied Tempo icon, requested for this publication port. No independent third-party ownership finding is asserted."
+    },
+    "a1fcd35552148b5ece56fec875194511f84097c82fe4fae9ae13ffd5cec6acd8": {
+      "disposition": "publication_port_addition",
+      "review": "Records the supplied attachment content hash and user instruction without a private source path."
+    },
+    "0486ee2a92032d5a2a3fecaeac8ba2a779b1ace9da65c6c24fc9ed7ccf5b636f": {
+      "disposition": "publication_port_addition",
+      "review": "Independently written packaging conversion of the supplied icon and generated two-tone PCM chime; no recovered audio is sampled."
     }
   }
 }
