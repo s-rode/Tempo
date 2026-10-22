@@ -1,5 +1,5 @@
 /** Must match the local server's packaged API revision. */
-export const TEMPO_LOCAL_SERVER_API_VERSION = '2026-10-contextual-classifier-v2'
+export const TEMPO_LOCAL_SERVER_API_VERSION = '2026-10-tempo-local-publication-v1'
 
 export interface LocalServerHealth {
   service?: string

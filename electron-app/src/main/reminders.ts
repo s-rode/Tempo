@@ -4,8 +4,7 @@ import { tempoInternalRequest } from './localServer'
 import { ReminderSyncCoordinator } from './reminderSyncCoordinator'
 
 export function startReminderIntegration(): () => void {
-  if (process.platform !== 'darwin' || import.meta.env.MAIN_VITE_TEMPO_LOCAL_MODE !== 'true')
-    return () => {}
+  if (process.platform !== 'darwin' || false) return () => {}
   const coordinator = new ReminderSyncCoordinator({
     readState: () => tempoInternalRequest('/internal/reminders'),
     writeState: async (update) => {

@@ -2,6 +2,8 @@
 
 #import <Cocoa/Cocoa.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 typedef void (^WindowOcrCaptureCompletion)(NSString * _Nullable text, NSString *status);
 
 @interface WindowOcrCapture : NSObject
@@ -11,3 +13,5 @@ typedef void (^WindowOcrCaptureCompletion)(NSString * _Nullable text, NSString *
                      completion:(WindowOcrCaptureCompletion)completion;
 
 @end
+
+NS_ASSUME_NONNULL_END

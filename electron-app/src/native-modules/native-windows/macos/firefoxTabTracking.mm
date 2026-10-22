@@ -64,24 +64,28 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
     if (![frontmostApp.bundleIdentifier isEqualToString:kFirefoxBundleIdentifier]) return nil;
 
     pid_t pid = frontmostApp.processIdentifier;
-    NSArray *windows = (__bridge_transfer NSArray *)CGWindowListCopyWindowInfo(
+    CFArrayRef windowList = CGWindowListCopyWindowInfo(
         kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
         kCGNullWindowID
     );
-    for (NSDictionary *window in windows) {
+    if (!windowList) return nil;
+    NSDictionary *result = nil;
+    for (NSDictionary *window in (NSArray *)windowList) {
         if ([window[(id)kCGWindowLayer] integerValue] != 0) continue;
         if ([window[(id)kCGWindowOwnerPID] intValue] != pid) continue;
         NSNumber *windowId = window[(id)kCGWindowNumber];
         if (!windowId) continue;
-        return @{
+        result = @{
             @"id": windowId,
             @"ownerName": @"Firefox",
             @"title": window[(id)kCGWindowName] ?: @"",
             @"type": @"browser",
             @"browser": @"firefox",
         };
+        break;
     }
-    return nil;
+    CFRelease(windowList);
+    return result;
 }
 
 - (BOOL)matchesCurrentFirefoxWindow:(NSDictionary *)windowInfo {
