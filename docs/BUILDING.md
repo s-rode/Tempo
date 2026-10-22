@@ -1,12 +1,27 @@
 # Building and verifying Tempo
 
-Use Apple Silicon and macOS 14 or later. Local execution has been tested on macOS 27.0.1; compatibility with every intervening release is not implied. Install Xcode Command Line Tools, Python 3, Node 22.23.2, and Bun 1.4.0. Put Node 22 on PATH, or set `TEMPO_NODE22` to its executable for native rebuilding.
+Use Apple Silicon and macOS 14 or later. Local execution has been tested on macOS 27.0.1; compatibility with every intervening release is not implied. Install Xcode Command Line Tools, Python 3.11, Node 22.23.2, and Bun 1.4.0. Put Node 22 on PATH, or set `TEMPO_NODE22` to its executable for native rebuilding.
 
 `bun run setup` performs a frozen dependency install with lifecycle scripts disabled, explicitly bootstraps the pinned Electron development runtime, rebuilds the native addon, and builds shared declarations. Electron's runtime download is an intentional setup step, not a general re-enabling of dependency lifecycle scripts. `bun run build` builds and locally signs the complete ARM64 app. Generated icons, sounds, native modules and helpers are build output, not versioned binaries.
 
 The regular app requires MongoDB Community 8.0 on port 27017 and Ollama on port 11434 with `qwen3:4b-instruct`. Start those services using your installation's service manager. Installing a model may download its separately licensed weights. There is no remote AI fallback.
 
+## Native-build Python
+
+The retained native toolchain uses `node-gyp` 9.4.1, which imports Python's `distutils`. Python 3.12 removed that module. CI explicitly selects Python 3.11 and passes its executable through `PYTHON` during setup and packaging. Python 3.10 also worked in the original local validation.
+
+If your default Python is newer, select an installed Python 3.11 for both commands:
+
+```sh
+PYTHON=python3.11 bun run setup
+PYTHON=python3.11 bun run build
+```
+
+This keeps the existing dependency resolutions; no global Python package or dependency upgrade is required.
+
 ## Checks
+
+Backend tests use Bun's `--isolate` mode so module mocks cannot leak between files. Keep it enabled when running the suite or selecting multiple backend test files.
 
 - `bun run typecheck`: shared declarations, server and Electron TypeScript.
 - `bun run test`: deterministic backend, renderer and main-process tests.

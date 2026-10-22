@@ -2,13 +2,13 @@
   "source_head": "ed7fd69c65510c76aa868cb9056672319d395005",
   "licensed_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
   "counts": {
-    "publication_metadata_reviewed": 35,
+    "publication_metadata_reviewed": 36,
     "verified_mit_blob": 40,
     "attributable_tempo_addition_reviewed": 167,
-    "replacement_review_recorded": 39,
     "third_party_terms_recorded": 4,
     "publication_port_addition": 2,
     "user_supplied_asset": 1,
+    "replacement_review_recorded": 38,
     "reviewed_mit_adaptation": 54,
     "tempo_addition_reviewed": 9
   },
@@ -30,10 +30,10 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "c7228b483bc6c1f39baac6b607dea92e0c26f0c4e75d1c50c0ff3bf558dd30ce",
+      "sha256": "e04e8ae4a0ce71784fe3f7541cfcaf08d7decc698f6676390ac5fe67eac53ac1",
       "status": "publication_metadata_reviewed",
       "licensed_exact_paths": [],
-      "review_note": "New deterministic and macOS ARM64 source build jobs; full history audit on Linux, pinned tools, no deployment or release/upload step.",
+      "review_note": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes.",
       "previous_sha256": "c7228b483bc6c1f39baac6b607dea92e0c26f0c4e75d1c50c0ff3bf558dd30ce"
     },
     {
@@ -82,12 +82,12 @@
     },
     {
       "path": "README.md",
-      "sha256": "51f1ba2c43176e7e0537564565b5f3add78a71c043476223a2e6a9046bd4ba3e",
+      "sha256": "5364a6a8f6ee87aa854d8c72af8f87c3304f09840f0ee2b14e4adf8be18cceaf",
       "status": "publication_metadata_reviewed",
       "licensed_exact_paths": [],
       "baseline_comparison": "different_same_path",
       "original_first_path_commit": "8b93cdac7a6708ab5282141defc7a6c39595a02f",
-      "review_note": "Final source/history/build/install/recovery evidence and artifact hashes checked against tool results. Explicitly distinguish staged/installed observations, Firefox user testing on two websites, inaccessible hover/browser permutations and other outstanding manual checks. Synthetic demo instructions use no personal activity; no private checkpoint contents or paths are published.",
+      "review_note": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes.",
       "previous_sha256": "409818354b1339f5ab41cd6a855cd983fd69834e89af26ffc182dbf2380a1989"
     },
     {
@@ -113,11 +113,11 @@
     },
     {
       "path": "docs/BUILDING.md",
-      "sha256": "3bc95dc75789efe70aef66817d011baa87ea14d357bd2e795ebfb524104f92e8",
-      "status": "replacement_review_recorded",
+      "sha256": "457fb984d57334147aa897a5fbd20b116b17fc4990af56f5831ce7ef6521a694",
+      "status": "publication_metadata_reviewed",
       "licensed_exact_paths": [],
       "original_first_path_commit": "6abe76cc3c0a8102078ea23457d8d99a1722e997",
-      "review_note": "Preserve the verified existing Electron profile tempo-electron-app and its local-runtime JWT/site identity key; Tempo is the separate Firefox support folder. Explicitly set production/test userData paths and keep test profiles outside the actual production directory. Stopped-app checkpoint includes both folders with matching file hashes.",
+      "review_note": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes.",
       "previous_sha256": "a8e657efdfcd0ecd594925420c2811a08f84c040544bcdf45cd843041c41d1ef",
       "original_author": "Samuel R",
       "original_author_date": "2026-09-01T15:29:38+02:00"
@@ -209,17 +209,17 @@
     },
     {
       "path": "docs/publication/STATUS.md",
-      "sha256": "c5ae366ce293563e6923744e8a44807f72f573237ef67ade2931205ce62bd487",
+      "sha256": "8dcc25d32a57a38886af6e68d96bdd3bcac40e2ea441e233ae20570011a1c304",
       "status": "publication_metadata_reviewed",
       "licensed_exact_paths": [],
-      "review_note": "Final source/history/build/install/recovery evidence and artifact hashes checked against tool results. Explicitly distinguish staged/installed observations, Firefox user testing on two websites, inaccessible hover/browser permutations and other outstanding manual checks. Synthetic demo instructions use no personal activity; no private checkpoint contents or paths are published.",
+      "review_note": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes.",
       "previous_sha256": "01becb69f171207084d746ce0d74632d1d4bd4093eabfff2c8ff59a863d04d61"
     },
     {
       "path": "docs/publication/VERIFICATION.md",
       "status": "publication_metadata_reviewed",
-      "review_note": "Final source/history/build/install/recovery evidence and artifact hashes checked against tool results. Explicitly distinguish staged/installed observations, Firefox user testing on two websites, inaccessible hover/browser permutations and other outstanding manual checks. Synthetic demo instructions use no personal activity; no private checkpoint contents or paths are published.",
-      "sha256": "14eaef0586b8331bb8277f4dbe6800c3bfdc2bf4ade9b9ffd5cfd98d0ad350cd"
+      "review_note": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes.",
+      "sha256": "2cbd1a13d675f486647d3f7ee0c2b2b0eb4d922647d72684a686e7d0e6f62949"
     },
     {
       "path": "docs/publication/dependency-inventory.json",
@@ -2576,12 +2576,12 @@
     },
     {
       "path": "package.json",
-      "sha256": "280cd6e5f3bd170c2c0f42a316ff894ef57a43bc40196aa1c8b57fb75cd12697",
+      "sha256": "0832526113e2ebbddf33d749bf144553650ac8c03ca8708e8dc56bdb26431d23",
       "status": "publication_metadata_reviewed",
       "licensed_exact_paths": [],
       "baseline_comparison": "different_same_path",
       "original_first_path_commit": "8b93cdac7a6708ab5282141defc7a6c39595a02f",
-      "review_note": "New source-only workspace commands, explicit native setup, pinned runtime expectations and local-only build/test/install/import commands. No publishing lifecycle command.",
+      "review_note": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes.",
       "previous_sha256": "3c7d78c711e33c8f7bce08f87049d25361661387d18df929d620433b8b90e21b"
     },
     {
@@ -2699,12 +2699,12 @@
     },
     {
       "path": "server/package.json",
-      "sha256": "b77b2227617af10949fd87ecb579f567a22a11336fca0a2cb08dd9a82f366590",
+      "sha256": "61ccd0852b761dc067a515b680e3dd4133f8bc4d79f73a1bc83d321fa95972ff",
       "status": "publication_metadata_reviewed",
       "licensed_exact_paths": [],
       "baseline_comparison": "different_same_path",
       "original_first_path_commit": "8b93cdac7a6708ab5282141defc7a6c39595a02f",
-      "review_note": "Retained local dependencies/scripts and explicit import/integration checks; hosted auth/payments/S3 dependencies omitted.",
+      "review_note": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes.",
       "previous_sha256": "b77b2227617af10949fd87ecb579f567a22a11336fca0a2cb08dd9a82f366590"
     },
     {
@@ -3102,12 +3102,12 @@
     },
     {
       "path": "server/src/services/categorization/categorizationService.test.ts",
-      "sha256": "da334d65c8ea1acd539efa383645bd0fbb4f1f15d79910510496842e3157f7b1",
+      "sha256": "83b1b233f89f55a0648acf4f693043bbaeee44a399b20bf098193c65fa6d6148",
       "status": "tempo_addition_reviewed",
       "licensed_exact_paths": [],
       "baseline_comparison": "different_same_path",
       "original_first_path_commit": "8b93cdac7a6708ab5282141defc7a6c39595a02f",
-      "review_note": "Later Tempo deterministic local classification/history regression cases, reviewed with the original development and current pipeline. Synthetic fixtures and mocks retain real assertions; no live personal captured data.",
+      "review_note": "Complete the Tempo test fixture by retaining the existing pure snapshotGoalContext export before mocking goalPlans. Cross-file scheduler mock leakage reproduced in failing order; isolated pair and full backend suite pass with original assertions and delays unchanged. No runtime implementation or inherited source introduced.",
       "previous_sha256": "da334d65c8ea1acd539efa383645bd0fbb4f1f15d79910510496842e3157f7b1"
     },
     {

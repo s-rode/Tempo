@@ -30,7 +30,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22.23.2
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: '3.11'
       - run: bun run setup
+        env:
+          PYTHON: ${{ steps.python.outputs.python-path }}
       - run: bun run test:native
       - run: bun run build
+        env:
+          PYTHON: ${{ steps.python.outputs.python-path }}
       - run: codesign --verify --deep --strict electron-app/dist-local/mac-arm64/Tempo.app

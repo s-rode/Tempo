@@ -18,7 +18,7 @@ Cronus supplies the Electron/macOS monitoring and activity-dashboard foundation.
 
 ## Build
 
-Apple Silicon; macOS 14+; Xcode Command Line Tools; Python 3; Node **22.23.2**; Bun **1.4.0**. Runtime requirements are local MongoDB Community 8.0 and Ollama with `qwen3:4b-instruct`. Models and services are not bundled.
+Apple Silicon; macOS 14+; Xcode Command Line Tools; Python **3.11**; Node **22.23.2**; Bun **1.4.0**. Runtime requirements are local MongoDB Community 8.0 and Ollama with `qwen3:4b-instruct`. Models and services are not bundled. See [Python selection](docs/BUILDING.md#native-build-python) if your default Python is newer.
 
 ```sh
 bun run setup

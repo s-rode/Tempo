@@ -30,7 +30,7 @@ The separate source repository is prepared for publication review and ongoing de
 
 | Area | Verified evidence | Limits / outstanding checks |
 |---|---|---|
-| Clean source build | Fresh clone; Node 22.23.2/Bun 1.4.0; frozen lifecycle-disabled install; explicit Electron bootstrap/native rebuild; shared/server/Electron type checks; complete ARM64 app build and signing | Run on macOS 27.0.1. macOS 14 is the declared API/deployment minimum, not a tested release here. GitHub CI is configured but has not run remotely. |
+| Clean source build | Fresh clone; Node 22.23.2/Bun 1.4.0; frozen lifecycle-disabled install; explicit Electron bootstrap/native rebuild; shared/server/Electron type checks; complete ARM64 app build and signing | Run on macOS 27.0.1. macOS 14 is the declared API/deployment minimum, not a tested release here. The first GitHub CI run failed; see the follow-up below. |
 | Deterministic tests | 125 backend tests; 89 renderer/main/runtime tests; three installer rollback tests | These are source-level checks, not GUI accuracy measurements. |
 | Disposable Mongo integration | Local authentication/concurrent bootstrap, correction/classification routers, durable system boundaries, Reminders metadata and explicit legacy import | Uses unique test databases. It does not edit Apple reminders or import over production. |
 | Native checks | Addon source rebuild/inactive lifecycle smoke; animation/layout/overlap policies; off-screen AppKit controller suppression and idle-work tests | Off-screen tests do not prove physical hover or coexistence with a real overlapping app. |
@@ -46,6 +46,12 @@ The separate source repository is prepared for publication review and ongoing de
 | UI/performance | Actual synthetic dashboard/week/correction interaction and native clock advance; native idle-work policies tested | Dark-mode/context-menu permutations, measured 260px `scrollWidth <= clientWidth`, physical overnight sleep, real midnight rollover, and a hardware energy benchmark remain manual checks. |
 
 The sidebar's existing “Monitoring active” label is static; the main paused-state card is authoritative during a manual pause. This presentation limitation predates the port.
+
+### First GitHub CI follow-up
+
+The owner's [initial CI run](https://github.com/s-rode/Tempo/actions/runs/39805326801) failed in two jobs. The macOS native build selected a Python without `distutils`, required by the retained `node-gyp` 9.4.1. The workflow now selects Python 3.11 explicitly for setup and packaging. The Linux backend suite exposed cross-file module-mock contamination: the categorization service's scheduler mock replaced the scheduler under test. Backend commands now use `--isolate`; the categorization fixture also supplies its previously missing `snapshotGoalContext` export using the real pure helper. The failing file order was reproduced locally and passes with isolation, without increasing the scheduler delay or weakening assertions.
+
+Local follow-up checks passed: the full deterministic suite (125 backend, 89 Electron, three installer tests), type checks, frozen setup/native rebuild with Python 3.11, native policy/lifecycle tests, the complete ARM64 package build, and deep/strict signature verification. The installed application was not replaced. A successful GitHub rerun is still required after pushing this fix. No existing commit dates or application behavior were changed by this follow-up.
 
 ## Recovery and handoff
 

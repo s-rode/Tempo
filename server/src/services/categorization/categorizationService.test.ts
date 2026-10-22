@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, jest, mock, test } from 'bun:test';
 import type { ActiveWindowDetails } from '../../../../shared/types';
 
+const { snapshotGoalContext } = await import('../goalPlans');
+
 const activeEvents = { findOne: jest.fn() };
 const categories = { find: jest.fn() };
 const rules = { findOne: jest.fn() };
@@ -18,6 +20,7 @@ const supportProfiles = {
   ensureGoalSupportProfiles: jest.fn(),
 };
 const goalPlans = {
+  snapshotGoalContext,
   resolveEffectiveGoalContext: jest.fn(),
   fingerprintEffectiveGoalContext: jest.fn(),
   fingerprintClassificationContext: jest.fn(),

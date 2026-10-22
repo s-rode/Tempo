@@ -10,7 +10,7 @@
     "start": "bun run ./dist/index.js",
     "tsc:build": "tsc --outDir ./dist_tsc",
     "node:start": "node ./dist_tsc/index.js",
-    "test": "bun test src",
+    "test": "bun test --isolate src",
     "classifier:eval": "bun run src/scripts/evaluateClassifier.ts",
     "classifier:eval:personalized": "bun run src/scripts/evaluatePersonalizedClassifier.ts",
     "classifier:verify": "bun run scripts/verify-personalized-classification.ts",

@@ -4337,6 +4337,38 @@
     "b32b49e0400efb49bc31587ca8ba9c8b480c023cef3d2d2b3573d6c3500c70bc": {
       "disposition": "replacement_review_recorded",
       "review": "Final fail-closed source/history audit also rejects local.env-style private configuration even if force-tracked, and verifies mapped retained feature authors and exact original author dates against reachable public commits. Source/current hashes, history coverage, private-data scans and legal-interpretation limits remain unchanged."
+    },
+    "e04e8ae4a0ce71784fe3f7541cfcaf08d7decc698f6676390ac5fe67eac53ac1": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes."
+    },
+    "5364a6a8f6ee87aa854d8c72af8f87c3304f09840f0ee2b14e4adf8be18cceaf": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes."
+    },
+    "457fb984d57334147aa897a5fbd20b116b17fc4990af56f5831ce7ef6521a694": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes."
+    },
+    "8dcc25d32a57a38886af6e68d96bdd3bcac40e2ea441e233ae20570011a1c304": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes."
+    },
+    "2cbd1a13d675f486647d3f7ee0c2b2b0eb4d922647d72684a686e7d0e6f62949": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes."
+    },
+    "0832526113e2ebbddf33d749bf144553650ac8c03ca8708e8dc56bdb26431d23": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes."
+    },
+    "61ccd0852b761dc067a515b680e3dd4133f8bc4d79f73a1bc83d321fa95972ff": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "CI follow-up: explicitly select Python 3.11 for retained node-gyp native builds and isolate backend module mocks. Documentation records both initial CI failures and local setup, typecheck, deterministic/native tests, ARM64 packaging and signature verification; remote rerun remains pending. No dependency resolutions or app runtime changes."
+    },
+    "83b1b233f89f55a0648acf4f693043bbaeee44a399b20bf098193c65fa6d6148": {
+      "disposition": "tempo_addition_reviewed",
+      "review": "Complete the Tempo test fixture by retaining the existing pure snapshotGoalContext export before mocking goalPlans. Cross-file scheduler mock leakage reproduced in failing order; isolated pair and full backend suite pass with original assertions and delays unchanged. No runtime implementation or inherited source introduced."
     }
   }
 }
