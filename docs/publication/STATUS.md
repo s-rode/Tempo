@@ -1,25 +1,20 @@
 # Publication preparation status
 
-**Not ready for publication or installed-app handoff.** This is an implementation checkpoint, not a completed migration.
+**Prepared locally for publication review, with explicit manual acceptance limits.** The integrated candidate is installed and the separate source checkout is ready for continued development. Nothing has been published or pushed.
 
-## Verified so far
+Completed:
 
-- Original checkout left unchanged; filesystem and all-ref bundle backups restored and verified, including all 14 commits ahead of the saved remote-tracking branch.
-- All 620 licensed source blobs reverified against upstream tree metadata.
-- Local-only route/auth/bootstrap cleanup; explicit non-destructive legacy import; isolated test-profile routing.
-- 125 backend tests, 89 frontend/main/runtime tests and 3 installer rollback tests pass.
-- Isolated Mongo integration: local authentication, classifier/corrections, system boundaries, Reminders and explicit legacy import pass.
-- Native animation, interaction-layout and overlap policy tests pass.
-- Native addon rebuild, shared/server builds, and Electron main/renderer type checks pass.
-- Staged ARM64 app packages and passes deep/strict signing verification. Latest native source rebuild and inactive lifecycle smoke check pass. No candidate has been installed or launched as an app.
+- Verified source and installation/data recovery checkpoints; original checkout and all 14 saved unpushed commits remain intact.
+- Current source dispositions and every reachable historical revision audited. All 128 original commits mapped; 97 feature steps retained individually.
+- Fresh-clone frozen source setup, type checks, deterministic/native/integration tests and signed ARM64 package build.
+- Actual local-model original/candidate comparisons: 120 standard plus 15 adversarial cases per implementation, all passed. These are fixed synthetic cases, not measured real-world accuracy.
+- Staged task/session/correction/calendar checks and live native clock advance.
+- Installed signatures/artifact hashes/new API revision; existing profile key, history, settings, corrections and connected Reminders observed.
+- Firefox: user reports successful installed-app testing on two websites. Browser automation was declined and not required again.
+- Supplied old icon retained; original generated demonstration data and instructions available without personal fixtures.
 
-## Remaining gates
+Outstanding manual acceptance includes full Firefox navigation/companion/OCR failure scenarios; physical notch hover/overlap and Dock restoration; overnight sleep/midnight rollover; measured narrow-panel overflow; appearance/context-menu permutations and hardware energy behavior. Chrome/Safari interaction was not tested because the user uses Firefox. No known material feature failure is being accepted or hidden by this status.
 
-- Finish the integrated all-revision history audit; current source dispositions and exact dependency/asset notices are recorded.
-- Reconstruct and audit meaningful original development commits; the history mapping is currently an inventory, not a completed replay.
-- Fresh-clone dependency/build verification and execution of the CI-equivalent checks.
-- Actual desktop/native/browser UI acceptance. Fixed live-local-model original/candidate comparisons passed all 120 standard and 15 adversarial fixtures; see `model-comparison.json`. Synthetic fixture success does not establish real-world accuracy.
-- Consistent installed-app/data backup and verified restoration before any replacement.
-- Installed-app interaction verification and primary-checkout handoff.
+See [the detailed verification report](VERIFICATION.md), [model comparison](model-comparison.json), [history mapping](history-map.json), and [installed artifact record](installed-artifacts.json). These distinguish source review, automated checks, actual runtime observation, user testing and unresolved verification. Source provenance records are engineering evidence, not a legal clearance opinion.
 
-The original repository remains the primary daily-use/development reference until these gates pass. No GitHub repository, remote, push, author contact or Mozilla submission has been performed.
+Public GitHub creation/pushing and public app/extension releases remain separate actions outside this preparation.

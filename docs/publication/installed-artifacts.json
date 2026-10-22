@@ -1,0 +1,28 @@
+{
+  "source_commit": "8172ca8ca8797157dbd296db07337977fd579162",
+  "signature_requirement": "identifier \"com.tempo.local\"",
+  "minimum_system_version": "14.0",
+  "protocol": "tempo",
+  "artifacts": [
+    {
+      "path": "Contents/Resources/app.asar",
+      "sha256": "38fdb886394e19095c8bb5eb3e564e4bb1ac4c6eb6c415c8ce9fad6982599190"
+    },
+    {
+      "path": "Contents/Resources/native/nativeWindows.node",
+      "sha256": "e2e57010ef8a18385292c9129d49c9fc05e733bc45d396f871e39aab046c1ebf"
+    },
+    {
+      "path": "Contents/Resources/local-server/tempo-local-server",
+      "sha256": "73934469b79e95643c56e9a9f3b10bae9d9374ca03585b1b597833f9b7eb0f4b"
+    },
+    {
+      "path": "Contents/Helpers/Tempo Notch Helper.app/Contents/MacOS/Tempo Notch Helper",
+      "sha256": "49a944e029726f0f82bb28361782558aa6e0f1265304da997db98fc00ab601d2"
+    },
+    {
+      "path": "Contents/Resources/firefox-host/tempo-firefox-native-host",
+      "sha256": "efbe2efae3bc3798dea38beb276243656652b33c56159e3188907759b15136e4"
+    }
+  ]
+}

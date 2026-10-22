@@ -1,8 +1,10 @@
 # Tempo Local
 
+<img src="electron-app/assets/tempo-icon.png" alt="Tempo hourglass icon" width="96" />
+
 Tempo is a local macOS focus companion built from Cronus, with local AI classification, persisted focus sessions, task planning, Apple Reminders, and native notch timers.
 
-**Publication preparation is in progress.** See [verification status](docs/publication/STATUS.md). The current source and development-history review must finish before this checkout is presented as ready for publication.
+**Prepared locally for publication review.** The source/history audit and fresh-clone build pass; see [verification status](docs/publication/STATUS.md) for completed installed checks and explicit manual acceptance limits. No public repository or release has been created.
 
 Cronus supplies the Electron/macOS monitoring and activity-dashboard foundation. Samuel R’s Tempo development adds the local Ollama pipeline and scoped learning, task-linked focus/Pomodoro sessions, native notch controls, Firefox companion, Reminders planning, and later analytics and stability improvements. The provenance and history records distinguish those contributions from imported source.
 
@@ -37,6 +39,8 @@ Accessibility is optional. Screen Recording is optional for Firefox OCR fallback
 The app's API, database, and model inference run locally. Page text and OCR images are transient; derived activity metadata, goals, corrections, and task context are persisted locally. See [privacy and network details](docs/NETWORK_NOTES.md).
 
 The Firefox extension source and unsigned development package are included. Temporary development loading must be repeated after browser restarts as required by Firefox. Permanent installation in standard Firefox requires a separately Mozilla-signed XPI; no signing submission is part of this source repository.
+
+For a portfolio demonstration using authored sample data, follow [the isolated demo guide](docs/DEMONSTRATION.md).
 
 ## Provenance
 

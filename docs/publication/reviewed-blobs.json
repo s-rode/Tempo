@@ -4305,6 +4305,34 @@
     "68b1b786efbe1f0a9203c3113175b85ec1d1b9e78f1a56e63bad076832d14589": {
       "disposition": "replacement_review_recorded",
       "review": "Independent category grouping and exact-event correction adapter. Staged keyboard correction verified IDs/category totals. Invalidate all active event-range/latest/preferences and analytics caches on success so native notch and dashboard totals update together without a periodic refresh."
+    },
+    "8d120252fcdec957cb8b1db6b936617be8a5d1a559aad98c7225026fe83469c4": {
+      "disposition": "tempo_addition_reviewed",
+      "review": "Independent synthetic demonstration seeder, verified in a new named disposable database. Fixed loopback host and strict tempo_test_demo_ prefix; refuses any existing collection before model initialization. Inserts authored tasks/activity with paired lock/unlock and two-hour manual pause; never deletes, overwrites, connects Reminders or targets production."
+    },
+    "51f1ba2c43176e7e0537564565b5f3add78a71c043476223a2e6a9046bd4ba3e": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "Final source/history/build/install/recovery evidence and artifact hashes checked against tool results. Explicitly distinguish staged/installed observations, Firefox user testing on two websites, inaccessible hover/browser permutations and other outstanding manual checks. Synthetic demo instructions use no personal activity; no private checkpoint contents or paths are published."
+    },
+    "5c99ee117d3a3e46db0fa5548d8fe6d2a0f4e770a9c2d2c089695f72ede4c5d2": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "Final source/history/build/install/recovery evidence and artifact hashes checked against tool results. Explicitly distinguish staged/installed observations, Firefox user testing on two websites, inaccessible hover/browser permutations and other outstanding manual checks. Synthetic demo instructions use no personal activity; no private checkpoint contents or paths are published."
+    },
+    "b0a1be6836cc5fdc0b31f3f70dcb6ddd3eb7dcbe3b17a3f5d31e59481499c980": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "Final source/history/build/install/recovery evidence and artifact hashes checked against tool results. Explicitly distinguish staged/installed observations, Firefox user testing on two websites, inaccessible hover/browser permutations and other outstanding manual checks. Synthetic demo instructions use no personal activity; no private checkpoint contents or paths are published."
+    },
+    "c5ae366ce293563e6923744e8a44807f72f573237ef67ade2931205ce62bd487": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "Final source/history/build/install/recovery evidence and artifact hashes checked against tool results. Explicitly distinguish staged/installed observations, Firefox user testing on two websites, inaccessible hover/browser permutations and other outstanding manual checks. Synthetic demo instructions use no personal activity; no private checkpoint contents or paths are published."
+    },
+    "14eaef0586b8331bb8277f4dbe6800c3bfdc2bf4ade9b9ffd5cfd98d0ad350cd": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "Final source/history/build/install/recovery evidence and artifact hashes checked against tool results. Explicitly distinguish staged/installed observations, Firefox user testing on two websites, inaccessible hover/browser permutations and other outstanding manual checks. Synthetic demo instructions use no personal activity; no private checkpoint contents or paths are published."
+    },
+    "8f4f7a4133141391bfaefded2f5d1b7c32c6d8ada36a2192926e9e2a3f425447": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "Final source/history/build/install/recovery evidence and artifact hashes checked against tool results. Explicitly distinguish staged/installed observations, Firefox user testing on two websites, inaccessible hover/browser permutations and other outstanding manual checks. Synthetic demo instructions use no personal activity; no private checkpoint contents or paths are published."
     }
   }
 }
