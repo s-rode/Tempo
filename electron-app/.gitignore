@@ -1,0 +1,15 @@
+node_modules
+dist
+out
+.DS_Store
+.eslintcache
+*.log*
+
+# Native modules build output
+src/native-modules/**/bin
+src/native-modules/**/build
+
+# Environment variables
+.env
+
+

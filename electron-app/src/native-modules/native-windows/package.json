@@ -1,0 +1,9 @@
+{
+  "name": "native-windows",
+  "__comment__": "C++ module that will bind to NodeJS",
+  "version": "0.1.0",
+  "scripts": {
+    "install": "node-gyp rebuild"
+  },
+  "gypfile": true
+}

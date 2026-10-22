@@ -1,0 +1,394 @@
+{
+  "blobs": {
+    "a842c86fe9db38800c8ce6d6514f6d5f6f262bc93dac653edd1a5f6790913580": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_path": "LICENSE",
+      "review": "Exact licensed content (LICENSE terminal newline ignored)."
+    },
+    "55e0644e877a76f15a3684e6f24975391d9de209c7cdbea798e2d5bce89305eb": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "shared/distractionRules.ts"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "18ed31841f00debc1d575d23c4e26ba2d5042994fcc4ef3c36c2e12a0c46fd81": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "shared/tsconfig.json"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "17fb8e895dc1c192e33aa55b107f5182b2a41aecac9d8678eb3269d99d141417": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/native-modules/native-windows/macos/appFilter.h"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "c170376843ddd14f8695b4f3b6e4a1df7da5673dd66133778c1d2aeda2454c41": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/native-modules/native-windows/macos/iconUtils.h"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "2cb492e6047f83c3f997ec2c66a39544858ec18ed3059bfc1948b33e30aaa15f": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/native-modules/native-windows/macos/sleepAndLockObserver.h"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "9d933542136718b1a83425ce375bc50e1fee3287e882251be057cbcdf5f2745a": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/native-modules/native-windows/macos/titleExtractor.h"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "829a4ee1d1f94bc44b77b317f2bfaa959247a856dbee95b0103a74d7a8788dde": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/lib/constants.ts"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "fbb81bc6c329349f06f975433215ef934111f77372e8902e2d1d347fc29cfde1": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/lib/utils.ts"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "af6efea5a8d072cd53d6f1c6d039701f5bca6762f3badf10bf860ee1c6f88fd8": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/utils/timeMetrics.ts"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "e6aa74f8115cd272b3cfcf9c8386434d531cb9506d492a3a7a6c28ca2e68659c": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/Spinner.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "dd5d9ce047b836604cb46e301fbc59d051ee98126d7f6c104d22dbca3e24c68d": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        ".prettierrc"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "fc8f100e7bf483f27f92f8c30816a14d8a803ec2d8b7427f21bb49729b0b9e03": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/.gitignore"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "c94cdfa8e330fb03c131dffbd3edf6b52239541c0749295725611a9dc941d552": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/.prettierignore"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "911aee00255ccce2af63aab90db20fe23af79fc7b44e7332d187fc295a2b4383": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/.prettierrc.yaml"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "250bba804ca133499c70c14f1b9b6bf7cf7c751825a1f3cc04af8e885f6a14cd": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/components.json"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "b9357981319940ed660b848c7a15ea479915885b7cbe60d6951b5d5cef5b509d": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/postcss.config.js"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "e3768f75fbc0dc2a2ceb87c952b37b971650d5185ee3285bbfe63c7072273a04": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/native-modules/native-windows/package.json"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "4c389d2ab655684db577a9b32a701c77520e234b66c2f5ab67bed128f25940ca": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/assets/base.css"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "fb4e2a0e6a6d214b410cf320d725796a5dca53eacdcef031da125e10ede5f91b": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/assets/electron.svg"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "1afac7392482373ac85cd93d9d92bcf7b5b20a4d89130c58155a389d9c450611": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/assets/main.css"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "0e62c37fa5f5ba85499762705080ead1f9af3954439ece59661c3d389d826cb2": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/assets/wavy-lines.svg"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "ac2a5ecd4d276dd49213557ccf08153fdbb8468449a6fc7366f66204d074984e": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/Versions.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "74fd8ab13d6d1591b1d07385d6c407b337ab7d31ea8ce7bfb28ee5e4ac165268": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/FadeIn.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "e8a37b058770c41922dd8163e72ee0740a68a9f5f903295708f4f3f61c02c5dd": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/Settings/ThemeSwitcher.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "886cbd20ad6fa0a0ff290399b6369163f0da6f57f11c868f86b34ded973526ea": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/badge.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "b260ca7ddc67cfd2be9555e5e77d0eb999553dbdafc845ee81f6070ad1c9efea": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/button.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "370f4832de5b21c2581da461275fb8c01a052c99b0fcbb529f72623cc4c430d5": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/dialog.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "9f7ac1ceb4725d80b674133230e83482b4ac73ca90ce144264bcdadc7b4da1cd": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/dropdown-menu.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "85261fe7a2b1c7fc76cc04a80a87501722fd8b529565d2d897eef579e805e6bf": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/input.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "78ac7ff2c30f0647ac859ae19bb0070352fc9a07ff30bf1907d6751379bdcdd5": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/label.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "e293e56b0a25ca57101bb03c6747e587573b1236ec6fabe2f26c510d379bbdba": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/popover.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "df41e46fff5847f919b639e2547be7f3397f096af881dc6d077ca559f1aeb8a9": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/scroll-area.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "a220245fab156f6d359f7e72d7b57ae0a40da3d3efdd9b788d367e34dc9dd16a": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/select.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "2c71ef12ad2d6b5d9462c109847e4ab102a815c941ff0338272fb846bbca3e7d": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/skeleton.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "1b54e9b11389f10bc6753d66a971644af15546ab2030aacdeda4f28fb2bac0dd": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/switch.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "d3a2f4d8b95a7b5f38ee7f06b4368e535ad2b9a035ecf3296a7a6dd110821558": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/textarea.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "7adff066f2a71303164e4403652a7d86eb926133edcc316b466ee7bceaa4ac01": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/toast.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "a4f775a368af5b50d3a3fae26b5a22273938aeccb6bf1bf4dd14746fce81160e": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/toaster.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "8f60a4e16e4f9c3768dc8eabb1a571c311ec53e5a8809d9e7b44df681b60dffb": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/toggle-group.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "10dacc3c62ccc589206f14e98db3a3896bcd56c83472bacbc64d83f57247a363": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/toggle.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "0e14473557cbee125421ec466f8175280b37cbb29878d977fa9c5c42a8c22f72": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/components/ui/tooltip.tsx"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "0d253c50d3f051838316be6c485d7dc66f0b17788c732576365d124d7cb5e075": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/env.d.ts"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "3716e34badebe5c757552a8ff64f8f3cdfc883e84a6fb2c59c04a252c2db8db5": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/hooks/useCurrentTime.ts"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "bf842f7734b4ec56050d242ddca8fdcd787ce46f9b4bf752200f943496093456": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/hooks/useDarkMode.ts"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "d4960e80b60f8462ad9a668fbcfead73630ce713373a682db185078b488c1cb8": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/src/renderer/src/hooks/useWindowWidth.ts"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "a9347266821bbbea2f6b77c3589e2bb8a95a5a7a56b1cfee306a39bec448717f": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/tailwind.config.js"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "3983835feac8cd22927398f66367953cbe99d53ef5a27a33fe35267f62560a8c": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "electron-app/tsconfig.json"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    },
+    "56983fd7b41d2a3ba8d78c0ab1d5c9c7df483d6de54c831a6ac9288e587d9f2b": {
+      "disposition": "verified_mit_blob",
+      "source_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
+      "source_paths": [
+        "shared/README.md"
+      ],
+      "review": "Exact byte match against the verified licensed archive; third-party notices remain applicable."
+    }
+  }
+}
