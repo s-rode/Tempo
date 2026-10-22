@@ -1,13 +1,11 @@
-# Source provenance and reconstructed history
+# Project origins
 
-Tempo began locally from Cronus v1.0.8 (`58a83848394b9f48d3defefa5e2635a4f322d941`). Publication preparation uses the complete later MIT snapshot at `222adf835a3a210ca5375a3876e7ed1fed31bb9e` as the verified foundation.
+Tempo is a personal macOS focus application derived from Cronus. Its source foundation is the verified MIT-licensed Cronus snapshot at commit `222adf835a3a210ca5375a3876e7ed1fed31bb9e`. The original copyright notice for Moritz Wallawitsch and Arne Strickmann and the MIT permission terms remain in [LICENSE](../LICENSE).
 
-The recovered licensed archive has SHA-256 `acfdb2345131b273650334aaec03b674b5f1d8189c15a10b1ced8780869bc13f`. All 620 blobs were checked against the saved complete upstream Git tree. Its original license text is retained in the root LICENSE.
+Samuel R.'s Tempo contributions include local Ollama classification and correction learning, task-linked focus/Pomodoro sessions, native notch controls, Firefox integration, Apple Reminders planning, analytics, and stability improvements. These contributions are also offered under MIT. Dependencies and assets retain any separate applicable terms described in [third-party notices](THIRD_PARTY_NOTICES.md) and [NOTICE](../NOTICE).
 
-A moved file, split implementation, formatting difference, or changed path is not a finding that older material lacks permission. The source inventory records exact matches separately from block-level review and independent replacements. Content evidence does not establish third-party ownership or resolve the legal scope of a grant over all earlier revisions.
+The development history was reconstructed against the reviewed MIT foundation rather than importing the original recovery repository's ancestry. Feature changes were retained individually where practical; obsolete or dependent steps were consolidated. Original author dates identify the development work; newer committer dates identify reconstruction. Intermediate commits are development steps, not independently verified app releases.
 
-The public development history has been reconstructed rather than importing the older Git ancestry. Samuel's genuine author dates are retained for adapted work; his author identity uses the GitHub noreply address. New committer dates describe the reconstruction. The history mapping accounts for original commits retained, adapted, consolidated, or omitted. Original hashes and private backup refs must not become ancestors or refs here.
+The supplied hourglass icon is retained as Tempo's app icon. The chime is generated from the waveform code in `electron-app/scripts/generate-assets.py`; other application icons are resolved from installed macOS applications at runtime.
 
-The hourglass icon in `electron-app/assets/tempo-icon.png` was supplied by Samuel for this publication preparation; it is retained as the requested Tempo icon. Its supply establishes the requested asset, not a blanket third-party ownership finding. The generated chime source is `electron-app/scripts/generate-assets.py`. Installed macOS app icons are resolved at runtime rather than redistributed as a logo collection. The original unknown-source screenshot/chime binaries are omitted. UI primitives also require shadcn/Radix and dependency notices.
-
-See `publication/source-inventory.json`, `publication/history-map.json`, and `publication/STATUS.md`. An unresolved review entry blocks publication readiness. No similarity score or percentage constitutes clearance.
+Tempo is an independent derivative project, not an official Cronus release.

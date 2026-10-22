@@ -18,7 +18,7 @@ jobs:
       - run: bun install --ignore-scripts --frozen-lockfile
       - run: bun run typecheck
       - run: bun run test
-      - run: python3 scripts/publication-check.py
+      - run: bun run source:check
   macos-arm64:
     runs-on: macos-15
     steps:

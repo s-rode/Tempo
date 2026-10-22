@@ -6,7 +6,7 @@ config = subprocess.check_output(['node', '-e', "const ts=require('typescript'),
 lock = json.loads(config)
 required = {value[0] for value in lock['packages'].values() if isinstance(value, list) and '@' in value[0] and '@workspace:' not in value[0] and '@file:' not in value[0]}
 found = {}
-remote_path = ROOT/'docs/publication/optional-package-metadata.json'
+remote_path = ROOT/'licenses/optional-package-metadata.json'
 remote = json.loads(remote_path.read_text()).get('packages', {}) if remote_path.exists() else {}
 locked = {value[0]: value for value in lock['packages'].values() if isinstance(value, list)}
 
@@ -49,7 +49,7 @@ for identity in sorted(required):
             text = data.decode(errors='replace').replace('\r\n', '\n').replace('\r', '\n')
             notices.append('\n\n## '+identity+' — '+file.name+'\n\n```text\n'+text.rstrip()+'\n```')
     rows.append({'package':identity,'status':'installed_metadata_inspected','declared_license':metadata.get('license',metadata.get('licenses','UNKNOWN')),'notice_files':files})
-(ROOT/'docs/publication/dependency-inventory.json').write_text(json.dumps({'lockfile_sha256':hashlib.sha256((ROOT/'bun.lock').read_bytes()).hexdigest(),'packages':rows},indent=2)+'\n')
+(ROOT/'licenses/dependency-inventory.json').write_text(json.dumps({'lockfile_sha256':hashlib.sha256((ROOT/'bun.lock').read_bytes()).hexdigest(),'packages':rows},indent=2)+'\n')
 (ROOT/'licenses/dependency-notices.md').write_text('# Locked dependency notices\n\nExtracted from the exact installed lockfile versions. Platform-specific optional packages not installed on this machine are listed separately in the inventory. Original package terms remain authoritative.\n'+''.join(notices)+'\n')
 missing = sum(row['status'] == 'not_installed_for_this_platform' for row in rows)
 unknown = sum(row['declared_license'] == 'UNKNOWN' for row in rows)

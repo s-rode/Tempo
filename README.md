@@ -1,12 +1,10 @@
-# Tempo Local
+# Tempo
 
 <img src="electron-app/assets/tempo-icon.png" alt="Tempo hourglass icon" width="96" />
 
 Tempo is a local macOS focus companion built from Cronus, with local AI classification, persisted focus sessions, task planning, Apple Reminders, and native notch timers.
 
-**Prepared locally for publication review.** The source/history audit and fresh-clone build pass; see [verification status](docs/publication/STATUS.md) for completed installed checks and explicit manual acceptance limits. No public repository or release has been created.
-
-Cronus supplies the Electron/macOS monitoring and activity-dashboard foundation. Samuel R’s Tempo development adds the local Ollama pipeline and scoped learning, task-linked focus/Pomodoro sessions, native notch controls, Firefox companion, Reminders planning, and later analytics and stability improvements. The provenance and history records distinguish those contributions from imported source.
+Cronus supplies the Electron/macOS monitoring and activity-dashboard foundation. Samuel R’s Tempo development adds the local Ollama pipeline and scoped learning, task-linked focus/Pomodoro sessions, native notch controls, Firefox companion, Reminders planning, and later analytics and stability improvements. See [project origins](docs/PROVENANCE.md) for attribution and the reconstructed development history.
 
 ## Features
 
@@ -44,8 +42,8 @@ For a portfolio demonstration using authored sample data, follow [the isolated d
 
 ## Provenance
 
-The foundation is the verified MIT Cronus snapshot at `222adf835a3a210ca5375a3876e7ed1fed31bb9e`. Preserve its copyright and license notice. Tempo's added features and publication-port work are described in [PROVENANCE](docs/PROVENANCE.md), with the source inventory and reconstructed-history mapping under `docs/publication/`.
+Tempo is licensed under the [MIT License](LICENSE). Copyright notices cover the original Cronus authors and Samuel R.'s Tempo contributions. Third-party dependencies retain their own terms; see [third-party notices](docs/THIRD_PARTY_NOTICES.md).
 
-See [development history and ongoing review](docs/DEVELOPMENT_HISTORY.md) for the reconstruction and normal development workflow.
+The foundation is the verified MIT Cronus snapshot at `222adf835a3a210ca5375a3876e7ed1fed31bb9e`. See [project origins](docs/PROVENANCE.md) for attribution and history.
 
 This repository is a derivative personal project and is not an upstream Cronus release.

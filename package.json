@@ -23,9 +23,8 @@
     "install:local": "bun run --cwd electron-app install:local",
     "import:legacy": "bun run --cwd server import:legacy",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml}\"",
-    "publication:check": "python3 scripts/publication-check.py",
+    "source:check": "python3 scripts/source-check.py",
     "test:native-lifecycle": "bun run --cwd electron-app test:native-lifecycle",
-    "provenance:inventory": "python3 scripts/source-inventory.py",
     "test:installer": "python3 electron-app/scripts/test_install_local.py"
   },
   "devDependencies": {
