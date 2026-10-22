@@ -23,6 +23,8 @@ Real Ollama evaluation and interactive installed-app acceptance are separate che
 
 ## Install and rollback
 
+The existing Electron profile is `~/Library/Application Support/tempo-electron-app`, including `local-runtime/jwt-secret`, local storage and window preferences. The separate `~/Library/Application Support/Tempo` folder holds the Firefox navigation identity key. Preserve both folders: the display name alone does not identify the Electron profile path.
+
 Before installing, quit Tempo after any active session has ended. Save the installed app bundle, the actual Tempo application-support/user-data directories, Firefox native-host manifest, and a consistent `mongodump` of `tempo_local`. Keep backups outside the repository with restricted permissions; verify database restoration into a disposable database before replacement.
 
 `bun run install:local` checks that Tempo and its server have quit, verifies the staged bundle, saves a verified private copy of the installed app, and replaces it at `/Applications/Tempo.app`. Set `TEMPO_APP_BACKUP_DIR` to choose that bundle-backup parent directory. The database/support-directory checkpoint above is still required. A failed staged or installed signature check leaves or restores the previous app. Verify deep/strict signatures and designated requirement `identifier "com.tempo.local"`; then confirm installed helper/server hashes, existing data, actual browser capture, notch interactions, Reminders, and close/reopen behavior.

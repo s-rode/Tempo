@@ -4293,6 +4293,14 @@
     "db6687b12cffee8d5ffdde94becfe19634b33d3fb5810a88b5eee15d31ddcb31": {
       "disposition": "publication_metadata_reviewed",
       "review": "Enforce LF text checkouts and generate dependency notice text with normalized newline sequences, preserving all license terms and attribution. This repairs fresh-clone source-inventory reproducibility; PNG remains binary."
+    },
+    "3bc95dc75789efe70aef66817d011baa87ea14d357bd2e795ebfb524104f92e8": {
+      "disposition": "replacement_review_recorded",
+      "review": "Preserve the verified existing Electron profile tempo-electron-app and its local-runtime JWT/site identity key; Tempo is the separate Firefox support folder. Explicitly set production/test userData paths and keep test profiles outside the actual production directory. Stopped-app checkpoint includes both folders with matching file hashes."
+    },
+    "bac317797f51a956f0525cd195315ece358f3298688e235ed6e9ed8e26f4925e": {
+      "disposition": "replacement_review_recorded",
+      "review": "Preserve the verified existing Electron profile tempo-electron-app and its local-runtime JWT/site identity key; Tempo is the separate Firefox support folder. Explicitly set production/test userData paths and keep test profiles outside the actual production directory. Stopped-app checkpoint includes both folders with matching file hashes."
     }
   }
 }
