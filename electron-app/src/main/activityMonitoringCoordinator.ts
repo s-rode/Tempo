@@ -1,4 +1,8 @@
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow, powerMonitor } from 'electron'
+import { readFileSync, writeFileSync, renameSync } from 'fs'
+import { join } from 'path'
+import { SystemBoundaryJournal, type SystemBoundary } from './systemBoundaryJournal'
+import { tempoInternalRequest } from './localServer'
 import { randomUUID } from 'crypto'
 import { ActiveWindowDetails } from 'shared/dist/types.js'
 import { nativeWindows } from '../native-modules/native-windows'
@@ -39,6 +43,26 @@ export interface ManualSystemResumeResult {
  * authenticated, so an old hidden/destroyed dashboard cannot freeze Tempo.
  */
 export class ActivityMonitoringCoordinator {
+  private journal: SystemBoundaryJournal | null = null
+  private journalRetry: ReturnType<typeof setInterval> | null = null
+  private readonly powerHandlers = {
+    suspend: () => this.onPowerBoundary('sleep'),
+    resume: () => this.onPowerBoundary('wake'),
+    'lock-screen': () => this.onPowerBoundary('lock'),
+    'unlock-screen': () => this.onPowerBoundary('unlock')
+  }
+  private onPowerBoundary(kind: SystemBoundary['kind']): void {
+    const names = { sleep: 'Sleep', wake: 'Wake', lock: 'Lock', unlock: 'Unlock' }
+    this.onNativeActivity({ ownerName: `System ${names[kind]}`, title: `System ${names[kind]}`,
+      type: 'system', timestamp: Date.now(), captureReason: `system_${kind}` } as ActiveWindowDetails)
+    // Resume through the normal native stability path, even if its workspace
+    // observer missed a wake notification. Never clear an actual screen lock.
+    if (kind === 'wake' || kind === 'unlock') {
+      if (powerMonitor.getSystemIdleState(1) !== 'locked' && !this.systemSuspension.locked) {
+        nativeWindows.resumeAfterSystemSuspension()
+      }
+    }
+  }
   private sequence = 0
   private latestCapture: ActivityCaptureEnvelope | null = null
   private deliveryRetryTimer: ReturnType<typeof setTimeout> | null = null
@@ -61,12 +85,30 @@ export class ActivityMonitoringCoordinator {
   start(): void {
     if (this.started) return
     this.started = true
+    if (import.meta.env.MAIN_VITE_TEMPO_LOCAL_MODE === 'true' && !this.journal) {
+      const path = join(app.getPath('userData'), 'system-boundaries.json')
+      let pending: SystemBoundary[] = []
+      try { pending = JSON.parse(readFileSync(path, 'utf8')) } catch {}
+      this.journal = new SystemBoundaryJournal(pending,
+        (rows) => {
+          writeFileSync(`${path}.tmp`, JSON.stringify(rows), { mode: 0o600 })
+          renameSync(`${path}.tmp`, path)
+        },
+        (boundary) => tempoInternalRequest('/internal/system-boundary', boundary))
+    }
+    for (const [event, listener] of Object.entries(this.powerHandlers)) powerMonitor.on(event as any, listener)
+    this.journalRetry = setInterval(() => void this.journal?.flush(), 30_000)
+    this.journalRetry.unref()
+    void this.journal?.flush()
     nativeWindows.startActiveWindowObserver((details) => this.onNativeActivity(details))
     this.health = { state: this.paused ? 'paused' : 'active' }
   }
 
   stop(): void {
     if (!this.started) return
+    for (const [event, listener] of Object.entries(this.powerHandlers)) powerMonitor.removeListener(event as any, listener)
+    if (this.journalRetry) clearInterval(this.journalRetry)
+    this.journalRetry = null
     nativeWindows.stopActiveWindowObserver()
     this.started = false
     this.rendererReady = false
@@ -155,6 +197,7 @@ export class ActivityMonitoringCoordinator {
 
   private onNativeActivity(details: ActiveWindowDetails | null): void {
     if (!details) return
+    if (details.type !== 'system' && (this.systemSuspension.locked || this.systemSuspension.sleeping)) return
     const now = Date.now()
     this.updateSystemSuspension(details, now)
     const envelope: ActivityCaptureEnvelope = {
@@ -163,6 +206,11 @@ export class ActivityMonitoringCoordinator {
       detectedAtMs: details.timestamp || now,
       committedAtMs: now,
       details
+    }
+    if (details.type === 'system') {
+      const kind = details.ownerName === 'System Sleep' ? 'sleep' : details.ownerName === 'System Wake' ? 'wake'
+        : details.ownerName === 'System Lock' ? 'lock' : details.ownerName === 'System Unlock' ? 'unlock' : null
+      if (kind) this.journal?.enqueue({ captureId: envelope.captureId, kind, timestamp: envelope.detectedAtMs })
     }
     this.latestCapture = envelope
     this.clearDeliveryRetry()

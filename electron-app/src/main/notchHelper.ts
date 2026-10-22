@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
 import { join } from 'path'
+import { freezeNotchClocks } from './freezeNotchClocks'
 import { Category } from 'shared/dist/types'
 
 export interface FloatingStatusUpdate {
@@ -96,6 +97,8 @@ export class NotchHelper {
   private externallyChimedTransitionNoticeIds = new Set<string>()
   /** The state to restore after only the system-owned freeze reasons clear. */
   private trackingStateBeforeSystemSuspension: FloatingStatusUpdate['trackingState'] | null = null
+  private systemFreezeAtMs: number | null = null
+  private awaitingSystemActivityIds: string[] | null = null
   private mainWindow: () => BrowserWindow | null
 
   constructor(mainWindow: () => BrowserWindow | null) {
@@ -171,6 +174,17 @@ export class NotchHelper {
   }
 
   updateStatus(status: FloatingStatusUpdate): void {
+    const newActivity = status.eventIds?.length && status.eventIds.some(id => !this.awaitingSystemActivityIds?.includes(id))
+    if (this.systemFreezeAtMs === null && newActivity) this.awaitingSystemActivityIds = null
+    if ((this.systemFreezeAtMs !== null || this.awaitingSystemActivityIds !== null) && this.lastStatus) {
+      // In-flight renderer updates cannot reopen pre-sleep clocks.
+      const previous = freezeNotchClocks(this.lastStatus, this.systemFreezeAtMs ?? Date.now())
+      status = { ...status, productiveClock: previous.productiveClock,
+        distractedClock: previous.distractedClock, dailyProductiveClock: previous.dailyProductiveClock,
+        dailyUnproductiveClock: previous.dailyUnproductiveClock,
+        ...(this.systemFreezeAtMs !== null ? { trackingState: 'paused', suspendedAtMs: this.systemFreezeAtMs,
+          suspensionReasons: this.lastStatus.suspensionReasons } : {}) }
+    }
     this.lastStatus = status
     const noticeId = status.transitionNotice?.id
     const shouldSuppressNotice = Boolean(
@@ -213,6 +227,8 @@ export class NotchHelper {
     sleeping: boolean
     suspendedAtMs: number | null
   }): void {
+    this.systemFreezeAtMs = state.locked || state.sleeping ? state.suspendedAtMs ?? Date.now() : null
+    if (state.locked || state.sleeping) this.awaitingSystemActivityIds = this.lastStatus?.eventIds || []
     if (!this.lastStatus) return
     const systemReasons = [
       ...(state.locked ? ['screen_locked'] : []),
@@ -243,8 +259,9 @@ export class NotchHelper {
           : restoredState || this.lastStatus.trackingState
 
     if (!systemReasons.length) this.trackingStateBeforeSystemSuspension = null
+    const frozen = freezeNotchClocks(this.lastStatus, state.suspendedAtMs ?? Date.now())
     this.updateStatus({
-      ...this.lastStatus,
+      ...frozen,
       trackingState,
       suspensionReasons,
       suspendedAtMs: state.suspendedAtMs

@@ -139,3 +139,29 @@ describe('distraction sound timing', () => {
     expect(clampDistractionSoundInterval(999_999)).toBe(300_000)
   })
 })
+
+
+test('default browser timers retain the Window receiver when invoked by the scheduler', () => {
+  const originalSchedule = globalThis.setTimeout
+  const originalCancel = globalThis.clearTimeout
+  let scheduled = 0, cancelled = 0
+  try {
+    globalThis.setTimeout = function (this: unknown) {
+      if (this !== globalThis) throw new TypeError('Illegal invocation')
+      scheduled++
+      return 1 as any
+    } as any
+    globalThis.clearTimeout = function (this: unknown) {
+      if (this !== globalThis) throw new TypeError('Illegal invocation')
+      cancelled++
+    } as any
+    const scheduler = new DistractionSoundScheduler(async () => ({ allowed: true, retryAfterMs: 0 }), () => {})
+    scheduler.update(true, 30_000)
+    scheduler.dispose()
+    expect(scheduled).toBe(1)
+    expect(cancelled).toBe(1)
+  } finally {
+    globalThis.setTimeout = originalSchedule
+    globalThis.clearTimeout = originalCancel
+  }
+})

@@ -35,8 +35,8 @@ export class DistractionSoundScheduler {
     private schedule: (
       callback: () => void,
       delayMs: number
-    ) => ReturnType<typeof setTimeout> = setTimeout,
-    private cancel: (timer: ReturnType<typeof setTimeout>) => void = clearTimeout
+    ) => ReturnType<typeof setTimeout> = (callback, delayMs) => globalThis.setTimeout(callback, delayMs),
+    private cancel: (timer: ReturnType<typeof setTimeout>) => void = (timer) => globalThis.clearTimeout(timer)
   ) {}
 
   update(eligible: boolean, intervalMs: number): void {

@@ -413,10 +413,11 @@ export async function saveRuntime(
 
 export async function setSystemSuspension(
   userId: string,
-  kind: 'lock' | 'unlock' | 'sleep' | 'wake'
+  kind: 'lock' | 'unlock' | 'sleep' | 'wake',
+  occurredAtMs = Date.now()
 ) {
   const runtime = await getOrCreateRuntime(userId);
-  const now = Date.now();
+  const now = Math.min(occurredAtMs, Date.now());
   if (kind === 'lock' || kind === 'sleep') {
     freezePhase(runtime, now);
     if (!runtime.systemSuspendedAtMs) runtime.systemSuspendedAtMs = now;
