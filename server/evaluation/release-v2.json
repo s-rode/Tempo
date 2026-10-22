@@ -1,0 +1,2407 @@
+{
+  "version": 2,
+  "policy": "contextual-v2",
+  "evaluationMode": "live-local-model",
+  "results": [
+    {
+      "id": "01-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "study_notes_or_retrieval",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3239
+    },
+    {
+      "id": "01-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3131
+    },
+    {
+      "id": "01-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "study_notes_or_retrieval",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 7129
+    },
+    {
+      "id": "01-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "study_notes_or_retrieval",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2063
+    },
+    {
+      "id": "02-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "study_notes_or_retrieval",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2920
+    },
+    {
+      "id": "02-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3457
+    },
+    {
+      "id": "02-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 4486
+    },
+    {
+      "id": "02-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2038
+    },
+    {
+      "id": "03-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3862
+    },
+    {
+      "id": "03-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3052
+    },
+    {
+      "id": "03-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3435
+    },
+    {
+      "id": "03-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2942
+    },
+    {
+      "id": "04-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "study_notes_or_retrieval",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2906
+    },
+    {
+      "id": "04-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2753
+    },
+    {
+      "id": "04-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2494
+    },
+    {
+      "id": "04-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1808
+    },
+    {
+      "id": "05-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "study_notes_or_retrieval",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 4907
+    },
+    {
+      "id": "05-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3235
+    },
+    {
+      "id": "05-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "study_notes_or_retrieval",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3124
+    },
+    {
+      "id": "05-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "study_notes_or_retrieval",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 4378
+    },
+    {
+      "id": "06-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "read_reference",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 4629
+    },
+    {
+      "id": "06-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2557
+    },
+    {
+      "id": "06-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2477
+    },
+    {
+      "id": "06-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1752
+    },
+    {
+      "id": "07-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3127
+    },
+    {
+      "id": "07-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3317
+    },
+    {
+      "id": "07-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "calculation_or_visualization",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2905
+    },
+    {
+      "id": "07-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "calculation_or_visualization",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2046
+    },
+    {
+      "id": "08-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2771
+    },
+    {
+      "id": "08-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2809
+    },
+    {
+      "id": "08-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2649
+    },
+    {
+      "id": "08-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2007
+    },
+    {
+      "id": "09-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3032
+    },
+    {
+      "id": "09-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2612
+    },
+    {
+      "id": "09-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3356
+    },
+    {
+      "id": "09-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1971
+    },
+    {
+      "id": "10-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3357
+    },
+    {
+      "id": "10-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 5160
+    },
+    {
+      "id": "10-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2669
+    },
+    {
+      "id": "10-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1813
+    },
+    {
+      "id": "11-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2764
+    },
+    {
+      "id": "11-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2623
+    },
+    {
+      "id": "11-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2502
+    },
+    {
+      "id": "11-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1830
+    },
+    {
+      "id": "12-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3245
+    },
+    {
+      "id": "12-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2931
+    },
+    {
+      "id": "12-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2839
+    },
+    {
+      "id": "12-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2093
+    },
+    {
+      "id": "13-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "study_notes_or_retrieval",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2766
+    },
+    {
+      "id": "13-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2623
+    },
+    {
+      "id": "13-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2527
+    },
+    {
+      "id": "13-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1989
+    },
+    {
+      "id": "14-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "read_reference",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3141
+    },
+    {
+      "id": "14-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2615
+    },
+    {
+      "id": "14-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2578
+    },
+    {
+      "id": "14-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1886
+    },
+    {
+      "id": "15-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2815
+    },
+    {
+      "id": "15-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2604
+    },
+    {
+      "id": "15-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2629
+    },
+    {
+      "id": "15-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1972
+    },
+    {
+      "id": "16-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2683
+    },
+    {
+      "id": "16-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2747
+    },
+    {
+      "id": "16-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2857
+    },
+    {
+      "id": "16-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2102
+    },
+    {
+      "id": "17-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "study_notes_or_retrieval",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3736
+    },
+    {
+      "id": "17-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3064
+    },
+    {
+      "id": "17-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2517
+    },
+    {
+      "id": "17-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1783
+    },
+    {
+      "id": "18-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "study_notes_or_retrieval",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2934
+    },
+    {
+      "id": "18-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3034
+    },
+    {
+      "id": "18-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2712
+    },
+    {
+      "id": "18-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2027
+    },
+    {
+      "id": "19-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2747
+    },
+    {
+      "id": "19-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2825
+    },
+    {
+      "id": "19-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2695
+    },
+    {
+      "id": "19-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "coding_or_analysis",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1838
+    },
+    {
+      "id": "20-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2791
+    },
+    {
+      "id": "20-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3010
+    },
+    {
+      "id": "20-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2791
+    },
+    {
+      "id": "20-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1871
+    },
+    {
+      "id": "21-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2982
+    },
+    {
+      "id": "21-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3081
+    },
+    {
+      "id": "21-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "calculation_or_visualization",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3146
+    },
+    {
+      "id": "21-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "calculation_or_visualization",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1984
+    },
+    {
+      "id": "22-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3047
+    },
+    {
+      "id": "22-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2696
+    },
+    {
+      "id": "22-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2866
+    },
+    {
+      "id": "22-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2050
+    },
+    {
+      "id": "23-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3840
+    },
+    {
+      "id": "23-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3360
+    },
+    {
+      "id": "23-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2794
+    },
+    {
+      "id": "23-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2026
+    },
+    {
+      "id": "24-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "calculation_or_visualization",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2924
+    },
+    {
+      "id": "24-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3843
+    },
+    {
+      "id": "24-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2504
+    },
+    {
+      "id": "24-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1839
+    },
+    {
+      "id": "25-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3239
+    },
+    {
+      "id": "25-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3200
+    },
+    {
+      "id": "25-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2843
+    },
+    {
+      "id": "25-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2130
+    },
+    {
+      "id": "26-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3171
+    },
+    {
+      "id": "26-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3024
+    },
+    {
+      "id": "26-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3030
+    },
+    {
+      "id": "26-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2155
+    },
+    {
+      "id": "27-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2777
+    },
+    {
+      "id": "27-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2574
+    },
+    {
+      "id": "27-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2891
+    },
+    {
+      "id": "27-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1845
+    },
+    {
+      "id": "28-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "calculation_or_visualization",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2718
+    },
+    {
+      "id": "28-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3154
+    },
+    {
+      "id": "28-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "calculation_or_visualization",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2924
+    },
+    {
+      "id": "28-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "calculation_or_visualization",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2262
+    },
+    {
+      "id": "29-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "read_reference",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2929
+    },
+    {
+      "id": "29-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2995
+    },
+    {
+      "id": "29-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2740
+    },
+    {
+      "id": "29-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2008
+    },
+    {
+      "id": "30-direct",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "direct",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "drafting_or_problem_solving",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3007
+    },
+    {
+      "id": "30-conflict",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "conflict",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 5855
+    },
+    {
+      "id": "30-opaque",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "opaque",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 4691
+    },
+    {
+      "id": "30-transfer",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "transfer",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": [],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1813
+    }
+  ]
+}

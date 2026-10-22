@@ -1,0 +1,45 @@
+{
+  "name": "tempo-local",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "electron-app",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "setup": "bun install --ignore-scripts --frozen-lockfile && bun scripts/setup-electron.ts && bun run native:rebuild && bun run build:shared && bun run --cwd electron-app build:assets",
+    "native:rebuild": "bun scripts/rebuild-native.ts",
+    "dev": "bun scripts/dev.ts",
+    "build:shared": "bun run --cwd shared build",
+    "build:server": "bun run --cwd server build",
+    "typecheck": "bun run build:shared && bun run build:server && bun run --cwd electron-app typecheck",
+    "test:server": "bun test --cwd server ./src",
+    "test:electron": "cd electron-app && bun test tests src/renderer/src/lib src/renderer/src/utils scripts/*.test.ts",
+    "test": "bun run test:server && bun run test:electron && bun run test:installer",
+    "test:integration": "cd server && bun scripts/verify-local-auth.ts && bun scripts/verify-legacy-import.ts && bun scripts/verify-personalized-classification.ts && bun scripts/verify-system-boundaries.ts && bun scripts/verify-reminders.ts",
+    "test:native": "cd electron-app && bun run test:notch-animation-policy && bun run test:notch-interaction-layout && bun run test:notch-overlap && bun run test:native-lifecycle",
+    "build": "bun run build:shared && bun run build:server && bun run --cwd electron-app build:mac:local",
+    "install:local": "bun run --cwd electron-app install:local",
+    "import:legacy": "bun run --cwd server import:legacy",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml}\"",
+    "publication:check": "python3 scripts/publication-check.py",
+    "test:native-lifecycle": "bun run --cwd electron-app test:native-lifecycle",
+    "provenance:inventory": "python3 scripts/source-inventory.py",
+    "test:installer": "python3 electron-app/scripts/test_install_local.py"
+  },
+  "devDependencies": {
+    "@babel/parser": "^7.27.5",
+    "@babel/types": "^7.27.6",
+    "@types/bun": "^1.2.5",
+    "@types/node": "^24.0.0",
+    "prettier": "^3.5.3"
+  },
+  "description": "Local macOS focus companion derived from Cronus",
+  "license": "MIT",
+  "packageManager": "bun@1.4.0",
+  "engines": {
+    "node": ">=22.23.2 <23",
+    "bun": "1.4.0"
+  }
+}

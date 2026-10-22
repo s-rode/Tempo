@@ -1,0 +1,576 @@
+@layer components {
+  .tempo-reminders {
+    container-type: inline-size;
+    padding-bottom: 14px;
+    border-bottom: 1px solid hsl(var(--border));
+  }
+  .tempo-reminder-header,
+  .tempo-reminder-title,
+  .tempo-reminder-toolbar {
+    display: flex;
+    align-items: center;
+  }
+  .tempo-reminder-header {
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 28px;
+  }
+  .tempo-reminder-title {
+    gap: 7px;
+    min-width: 0;
+  }
+  .tempo-reminder-title h3 {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .tempo-reminder-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 5px;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--muted));
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tempo-reminder-toolbar {
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  button.tempo-reminder-icon-button {
+    position: relative;
+    width: 26px;
+    height: 26px;
+    min-height: 26px;
+    padding: 4px;
+    border-radius: 5px;
+    color: hsl(var(--muted-foreground));
+  }
+  button.tempo-reminder-icon-button svg {
+    width: 14px;
+    height: 14px;
+  }
+  button.tempo-reminder-icon-button:hover,
+  button.tempo-reminder-icon-button[data-state='open'] {
+    color: hsl(var(--foreground));
+    background: hsl(var(--muted));
+  }
+  .tempo-reminder-filter-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--tempo-system-accent);
+  }
+  .tempo-reminder-scope {
+    overflow: hidden;
+    margin: 1px 0 10px;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tempo-reminder-list {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .tempo-reminder-group {
+    min-width: 0;
+  }
+  .tempo-reminder-group-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 3px 0 5px;
+    color: hsl(var(--muted-foreground));
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .tempo-reminder-group-heading > span:last-child {
+    font-weight: 400;
+  }
+  .tempo-reminder-group-heading.is-overdue {
+    color: hsl(var(--destructive));
+  }
+  .tempo-reminder-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    margin: 1px 0;
+    padding: 5px 6px;
+    border-radius: 6px;
+  }
+  .tempo-reminder-row:hover {
+    background: hsl(var(--muted) / 0.7);
+  }
+  .tempo-reminder-row:focus-within,
+  .tempo-reminder-row.is-in-focus {
+    background: hsl(var(--accent) / 0.65);
+  }
+  .tempo-reminder-row.is-in-focus {
+    box-shadow: inset 2px 0 0 var(--tempo-system-accent);
+  }
+  .tempo-reminder-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    border: 0;
+    border-radius: 3px;
+    padding: 0;
+    background: transparent;
+    text-align: left;
+  }
+  .tempo-reminder-name {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    color: hsl(var(--foreground));
+    font-size: 13px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  .tempo-reminder-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 2px;
+    color: hsl(var(--muted-foreground));
+    font-size: 10.5px;
+    line-height: 1.35;
+  }
+  .tempo-reminder-meta > span + span::before {
+    content: '·';
+    margin: 0 5px;
+    color: hsl(var(--muted-foreground));
+  }
+  .tempo-reminder-list-name {
+    overflow: hidden;
+    max-width: 120px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tempo-reminder-due.is-overdue {
+    color: hsl(var(--destructive));
+  }
+  .tempo-reminder-duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tempo-reminder-focus-label {
+    color: hsl(var(--accent-foreground));
+    font-weight: 500;
+  }
+  .tempo-reminder-row-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 2px;
+  }
+  .tempo-reminder-row-more {
+    opacity: 0;
+  }
+  .tempo-reminder-row:hover .tempo-reminder-row-more,
+  .tempo-reminder-row:focus-within .tempo-reminder-row-more,
+  .tempo-reminder-row-more[data-state='open'] {
+    opacity: 1;
+  }
+  button.tempo-reminder-start {
+    visibility: visible;
+    width: 26px;
+    height: 26px;
+    min-height: 26px;
+    padding: 4px;
+    border-radius: 5px;
+    color: hsl(var(--muted-foreground));
+  }
+  button.tempo-reminder-start svg {
+    width: 13px;
+    height: 13px;
+  }
+  button.tempo-reminder-start:not(:disabled):hover,
+  button.tempo-reminder-start[data-state='open'] {
+    color: var(--tempo-system-accent);
+    background: hsl(var(--accent));
+  }
+  .tempo-reminder-active-icon {
+    display: inline-flex;
+    width: 26px;
+    height: 26px;
+    align-items: center;
+    justify-content: center;
+    color: var(--tempo-system-accent);
+  }
+  .tempo-reminder-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 5px 10px;
+    margin-top: 12px;
+  }
+  .tempo-reminder-source {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+  }
+  .tempo-reminder-source:hover {
+    color: var(--tempo-system-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .tempo-reminder-sync {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .tempo-reminder-sync svg {
+    flex-shrink: 0;
+  }
+  .tempo-reminder-sync-dot {
+    width: 4px;
+    height: 4px;
+    flex: 0 0 4px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.6;
+  }
+  .tempo-reminder-sync.has-error {
+    flex-basis: 100%;
+    color: hsl(var(--destructive));
+  }
+  .tempo-reminder-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    padding: 18px 8px 12px;
+    text-align: center;
+  }
+  .tempo-reminder-empty > svg {
+    color: hsl(var(--muted-foreground));
+  }
+  .tempo-reminder-empty h4 {
+    margin-top: 3px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .tempo-reminder-empty p {
+    max-width: 220px;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+  }
+  .tempo-reminder-empty button {
+    height: 26px;
+    margin-top: 4px;
+    font-size: 11px;
+  }
+  .tempo-reminder-menu[data-state] {
+    min-width: 192px;
+    border-radius: 7px;
+  }
+  .tempo-reminder-menu [role='menuitem'] {
+    min-height: 26px;
+    font-size: 12px;
+  }
+  .tempo-reminder-shortcut {
+    margin-left: auto;
+    padding-left: 14px;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+  }
+  .tempo-reminder-popover[data-state] {
+    width: 320px;
+    max-width: calc(100vw - 24px);
+    max-height: var(--radix-popover-content-available-height);
+    overflow-y: auto;
+    padding: 0;
+    border-radius: 10px;
+    background: hsl(var(--popover));
+    box-shadow: 0 8px 28px rgb(0 0 0 / 0.16);
+  }
+  .tempo-reminder-popover-heading {
+    padding: 14px 14px 10px;
+  }
+  .tempo-reminder-popover-heading h4 {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .tempo-reminder-popover-heading p {
+    margin-top: 3px;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .tempo-reminder-detail-title {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow-wrap: anywhere;
+  }
+  .tempo-reminder-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 14px 14px;
+  }
+  .tempo-reminder-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 12px;
+  }
+  .tempo-reminder-field > span {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    font-weight: 500;
+  }
+  .tempo-reminder-field small {
+    color: hsl(var(--muted-foreground));
+    font-size: 10px;
+    font-weight: 400;
+  }
+  .tempo-reminder-field input {
+    height: 28px;
+    border-radius: 5px;
+    font-size: 12px;
+  }
+  .tempo-reminder-field textarea {
+    min-height: 82px;
+    max-height: 200px;
+    resize: vertical;
+    border-radius: 5px;
+    padding: 7px 8px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .tempo-reminder-minutes {
+    position: relative;
+    width: 148px;
+  }
+  .tempo-reminder-minutes input {
+    padding-right: 40px;
+  }
+  .tempo-reminder-minutes > span {
+    position: absolute;
+    right: 10px;
+    top: 6px;
+    pointer-events: none;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+  }
+  .tempo-reminder-field-help,
+  .tempo-reminder-filter-help {
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .tempo-reminder-field-help {
+    margin-top: -5px;
+  }
+  .tempo-reminder-field-error {
+    color: hsl(var(--destructive));
+    font-size: 11px;
+  }
+  .tempo-reminder-inherited {
+    border-top: 1px solid hsl(var(--border));
+    padding-top: 9px;
+    font-size: 11px;
+  }
+  .tempo-reminder-inherited summary {
+    color: hsl(var(--muted-foreground));
+    cursor: default;
+  }
+  .tempo-reminder-inherited p {
+    margin-top: 7px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+  }
+  .tempo-reminder-popover-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    border-top: 1px solid hsl(var(--border));
+    padding: 9px 12px;
+  }
+  .tempo-reminder-popover-footer button {
+    height: 26px;
+    min-height: 26px;
+    padding: 0 9px;
+    font-size: 12px;
+  }
+  .tempo-reminder-local-note {
+    margin-right: auto;
+    color: hsl(var(--muted-foreground));
+    font-size: 10px;
+  }
+  .tempo-reminder-match {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: 29px;
+    margin: 0 14px 12px;
+    padding: 2px;
+    border: 1px solid hsl(var(--border));
+    border-radius: 6px;
+    background: hsl(var(--muted));
+  }
+  .tempo-reminder-match label {
+    position: relative;
+    min-width: 0;
+  }
+  .tempo-reminder-match input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+  }
+  .tempo-reminder-match span {
+    display: flex;
+    height: 23px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+  }
+  .tempo-reminder-match input:checked + span {
+    background: hsl(var(--popover));
+    color: hsl(var(--foreground));
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  }
+  .tempo-reminder-match input:focus-visible + span {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 1px;
+  }
+  .tempo-reminder-rules {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    max-height: min(320px, 48vh);
+    overflow-y: auto;
+    padding: 0 14px;
+  }
+  .tempo-reminder-rule {
+    min-width: 0;
+    border: 1px solid hsl(var(--border));
+    border-radius: 6px;
+    padding: 7px;
+  }
+  .tempo-reminder-rule-line {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .tempo-reminder-rule-line select {
+    flex: 1;
+    min-width: 0;
+    height: 27px;
+    font-size: 12px;
+  }
+  .tempo-reminder-filter-lists {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    max-height: 156px;
+    overflow-y: auto;
+    margin: 9px 2px 2px;
+  }
+  .tempo-reminder-filter-lists label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+  }
+  .tempo-reminder-filter-lists input {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    accent-color: var(--tempo-system-accent);
+  }
+  .tempo-reminder-filter-lists label > span {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .tempo-reminder-filter-lists small {
+    max-width: 80px;
+    overflow: hidden;
+    color: hsl(var(--muted-foreground));
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  button.tempo-reminder-add-condition {
+    height: 27px;
+    margin: 5px 7px 8px;
+    padding: 0 7px;
+    font-size: 11px;
+  }
+  button.tempo-reminder-filter-button {
+    height: 27px;
+    padding: 0 8px;
+    border: 1px solid hsl(var(--border));
+    font-size: 12px;
+  }
+}
+
+@media (hover: none) {
+  .tempo-reminder-row-more {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tempo-reminder-popover[data-state],
+  .tempo-reminder-menu[data-state],
+  .tempo-plan-session-popover[data-state],
+  .tempo-reminder-sync .animate-spin {
+    animation: none !important;
+  }
+}
+@media (prefers-contrast: more) {
+  .tempo-reminder-row:focus-within {
+    outline: 1px solid hsl(var(--foreground));
+  }
+  .tempo-reminder-row-more {
+    opacity: 1;
+  }
+  .tempo-reminder-popover,
+  .tempo-reminder-match,
+  .tempo-reminder-rule {
+    border-color: hsl(var(--foreground));
+  }
+}
+@media (forced-colors: active) {
+  .tempo-reminder-row:focus-within {
+    outline: 1px solid Highlight;
+  }
+  .tempo-reminder-match input:checked + span {
+    outline: 1px solid Highlight;
+  }
+  .tempo-reminder-row-more {
+    opacity: 1;
+  }
+}

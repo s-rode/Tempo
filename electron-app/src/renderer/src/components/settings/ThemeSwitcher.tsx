@@ -25,7 +25,7 @@ export function ThemeSwitcher() {
           }
         },
         onError: (error) => {
-          console.error('Failed to fetch theme settings:', error)
+          console.error('Failed to fetch theme settings:')
           // Optionally, set a default theme or rely on localStorage/context default
           // For now, just logging the error. The context will use its default or localStorage.
         }
@@ -35,7 +35,7 @@ export function ThemeSwitcher() {
   // Update electron app settings mutation
   const updateSettingsMutation = trpc.user.updateElectronAppSettings.useMutation({
     onError: (error) => {
-      console.error('Failed to update theme:', error)
+      console.error('Failed to update theme:')
       // Revert to the previous theme on error
       setTheme(previousTheme)
       // alert('Failed to save theme preference. Please try again.'); // Optional: notify user

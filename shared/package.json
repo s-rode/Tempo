@@ -1,0 +1,29 @@
+{
+  "name": "shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/types.js",
+  "types": "dist/types.d.ts",
+  "exports": {
+    "./reminders": {
+      "types": "./dist/reminders.d.ts",
+      "import": "./dist/reminders.js"
+    },
+    ".": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
+    },
+    "./categories": {
+      "types": "./dist/categories.d.ts",
+      "import": "./dist/categories.js"
+    },
+    "./distractionRules": {
+      "types": "./dist/distractionRules.d.ts",
+      "import": "./dist/distractionRules.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc"
+  }
+}

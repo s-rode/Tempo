@@ -1,0 +1,11 @@
+Tempo Local derives from Cronus, released under MIT at commit
+222adf835a3a210ca5375a3876e7ed1fed31bb9e.
+Copyright (c) 2025 Moritz Wallawitsch, Arne Strickmann.
+The original copyright and MIT permission notice are retained in LICENSE.
+
+Tempo additions and the publication port: Copyright (c) 2026 Samuel R.
+These contributions are offered under the MIT terms in LICENSE, subject to
+separate terms and notices for included third-party dependencies and assets.
+
+The Tempo hourglass icon was supplied by Samuel for use in this project.
+Application icons are resolved from local macOS applications at runtime.

@@ -1,0 +1,307 @@
+{
+  "version": 2,
+  "policy": "contextual-v2",
+  "evaluationMode": "live-local-model",
+  "results": [
+    {
+      "id": "formal-regression",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2786
+    },
+    {
+      "id": "topology-chemistry",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3105
+    },
+    {
+      "id": "trusted-ai-shopping",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2890
+    },
+    {
+      "id": "trusted-ai-other-course",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2896
+    },
+    {
+      "id": "trusted-editor-plugins",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3206
+    },
+    {
+      "id": "trusted-notes-party",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 6055
+    },
+    {
+      "id": "trusted-browser-feed",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2881
+    },
+    {
+      "id": "injection-in-page",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3201
+    },
+    {
+      "id": "off-course-portal",
+      "expected": "distracted",
+      "predicted": "distracted",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "distracted",
+        "assessment": "conflicting",
+        "relation": "none",
+        "matchedGoalRef": null,
+        "targetAlias": "T1",
+        "supportingMode": null,
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2898
+    },
+    {
+      "id": "genuine-reference",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "read_reference",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3121
+    },
+    {
+      "id": "genuine-ai-study",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "focused",
+        "assessment": "relevant",
+        "relation": "supporting",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "study_notes_or_retrieval",
+        "confidence": "high",
+        "categoryAlias": null,
+        "evidenceAliases": ["E2"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 3616
+    },
+    {
+      "id": "genuine-tool-opaque",
+      "expected": "focused",
+      "predicted": "focused",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "study_notes_or_retrieval",
+        "confidence": "medium",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2891
+    },
+    {
+      "id": "no-cross-list",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 2848
+    },
+    {
+      "id": "no-cross-method",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1954
+    },
+    {
+      "id": "no-passive-trust",
+      "expected": "uncertain",
+      "predicted": "uncertain",
+      "scenario": "adversarial",
+      "decision": {
+        "state": "uncertain",
+        "assessment": "opaque",
+        "relation": "none",
+        "matchedGoalRef": "session:test:held-out",
+        "targetAlias": "T1",
+        "supportingMode": "resource_navigation",
+        "confidence": "low",
+        "categoryAlias": null,
+        "evidenceAliases": ["E1"],
+        "learningExampleId": null,
+        "learningSimilarity": "none"
+      },
+      "latencyMs": 1907
+    }
+  ]
+}

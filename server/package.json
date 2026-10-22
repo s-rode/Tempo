@@ -1,0 +1,41 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "Tempo Local loopback API and persistence",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "build": "tsc",
+    "build:local": "bun build --compile --target=bun-darwin-arm64 ./src/index.ts --outfile ../electron-app/build-resources/local-server/tempo-local-server",
+    "start": "bun run ./dist/index.js",
+    "tsc:build": "tsc --outDir ./dist_tsc",
+    "node:start": "node ./dist_tsc/index.js",
+    "test": "bun test src",
+    "classifier:eval": "bun run src/scripts/evaluateClassifier.ts",
+    "classifier:eval:personalized": "bun run src/scripts/evaluatePersonalizedClassifier.ts",
+    "classifier:verify": "bun run scripts/verify-personalized-classification.ts",
+    "import:legacy": "bun scripts/import-legacy.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@trpc/server": "^10.45.0",
+    "@types/jsonwebtoken": "^9.0.8",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.1.1",
+    "uuid": "^9.0.1",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/mongoose": "^5.11.97",
+    "@types/node": "^20.11.16",
+    "@types/uuid": "^9.0.8",
+    "typescript": "^5.3.3"
+  }
+}

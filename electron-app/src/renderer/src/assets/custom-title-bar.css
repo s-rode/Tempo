@@ -1,0 +1,10 @@
+.tempo-toolbar-drag-region {
+  -webkit-app-region: drag;
+}
+
+.tempo-toolbar-drag-region button,
+.tempo-toolbar-drag-region input,
+.tempo-toolbar-drag-region select,
+.tempo-toolbar-drag-region [data-radix-popper-content-wrapper] {
+  -webkit-app-region: no-drag;
+}

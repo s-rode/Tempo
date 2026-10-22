@@ -1,0 +1,41 @@
+appId: com.tempo.local
+productName: Tempo
+directories:
+  output: dist-local
+files:
+  - out/
+mac:
+  target:
+    - target: dir
+      arch:
+        - arm64
+  category: public.app-category.productivity
+  minimumSystemVersion: "14.0"
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  forceCodeSigning: false
+  identity: null
+  icon: build/icon.icns
+  extendInfo:
+    NSRemindersFullAccessUsageDescription: Tempo reads your reminders to display tasks and guide focus sessions. Tempo never changes or completes reminders.
+    NSRemindersUsageDescription: Tempo reads your reminders to display tasks and guide focus sessions. Tempo never changes or completes reminders.
+    NSAppleEventsUsageDescription: Tempo needs to access information from your web browser to track your activity.
+extraResources:
+  - from: src/native-modules/native-windows/build/Release/nativeWindows.node
+    to: native/nativeWindows.node
+  - from: build-resources/local-server/tempo-local-server
+    to: local-server/tempo-local-server
+  - from: public/sounds/distraction.wav
+    to: sounds/distraction.wav
+  - from: build-resources/firefox-host/tempo-firefox-native-host
+    to: firefox-host/tempo-firefox-native-host
+  - from: build-resources/Tempo-Firefox-Companion-UNSIGNED.zip
+    to: firefox-extension/Tempo-Firefox-Companion-UNSIGNED.zip
+extraFiles:
+  - from: build-resources/Tempo Notch Helper.app
+    to: Helpers/Tempo Notch Helper.app
+
+protocols:
+  name: Tempo Local
+  schemes:
+    - tempo

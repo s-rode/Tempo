@@ -1,0 +1,36 @@
+name: Source checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  deterministic:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+      - run: bun install --ignore-scripts --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run test
+      - run: python3 scripts/publication-check.py
+  macos-arm64:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: test "$(uname -m)" = arm64
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+      - run: bun run setup
+      - run: bun run test:native
+      - run: bun run build
+      - run: codesign --verify --deep --strict electron-app/dist-local/mac-arm64/Tempo.app

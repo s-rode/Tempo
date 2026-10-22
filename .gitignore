@@ -1,0 +1,85 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+**/node_modules/
+
+/.pnp
+.pnp.js
+.npm/
+
+# testing
+/coverage
+template/src/__tests__/__snapshots__/
+
+# production
+/build
+client/build
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.development
+.env.production
+.env.production.local
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log
+
+# IDE
+.idea/
+
+# build artifacts
+*.tgz
+my-app*
+/.changelog
+
+# environment variables
+*.env
+
+# Electron app specific
+electron-app/dist/
+electron-app/dist-local/
+electron-app/out/
+electron-app/build-resources/local-server/
+electron-app/build-resources/Tempo Notch Helper.app/
+electron-app/build-resources/firefox-host/
+electron-app/build-resources/Tempo-Firefox-Companion-UNSIGNED.zip
+electron-app/.build/
+
+**/.eslintcache
+electron-app/src/native-modules/**/bin/
+electron-app/src/native-modules/**/build/
+
+# Server specific build artifacts
+server/dist/
+server/dist_tsc/
+
+# Shared package specific build artifacts
+shared/dist/
+shared/dist_tsc/
+
+# TypeScript build info files (can be in various locations)
+**/*.tsbuildinfo
+server/server.log
+server/.*.bun-build
+
+
+build-assets/
+
+# Generated assets and disposable local test state
+electron-app/build/icon.icns
+electron-app/build/icon.png
+electron-app/resources/icon.png
+electron-app/public/sounds/distraction.wav
+.tempo-dev/
+.publication-test/
+
+# Local Python tooling caches
+**/__pycache__/
+*.pyc
