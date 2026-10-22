@@ -2,13 +2,13 @@
   "source_head": "ed7fd69c65510c76aa868cb9056672319d395005",
   "licensed_commit": "222adf835a3a210ca5375a3876e7ed1fed31bb9e",
   "counts": {
-    "publication_metadata_reviewed": 31,
+    "publication_metadata_reviewed": 33,
     "verified_mit_blob": 40,
     "attributable_tempo_addition_reviewed": 167,
     "third_party_terms_recorded": 4,
     "publication_port_addition": 2,
     "user_supplied_asset": 1,
-    "replacement_review_recorded": 39,
+    "replacement_review_recorded": 38,
     "reviewed_mit_adaptation": 54,
     "tempo_addition_reviewed": 8
   },
@@ -21,6 +21,12 @@
       "licensed_exact_paths": [],
       "review_note": "Pinned tested Bun 1.4.0.",
       "previous_sha256": "78b591400c56b7b67b8cb3b2b8a8e65e9093897f02ce0878e6b5405c68620fa7"
+    },
+    {
+      "path": ".gitattributes",
+      "status": "publication_metadata_reviewed",
+      "review_note": "Enforce LF text checkouts and generate dependency notice text with normalized newline sequences, preserving all license terms and attribution. This repairs fresh-clone source-inventory reproducibility; PNG remains binary.",
+      "sha256": "23302dd90b8bb74b44d365fafef8df20f809b61cb347023951ecf60a88a29651"
     },
     {
       "path": ".github/workflows/ci.yml",
@@ -2536,10 +2542,10 @@
     },
     {
       "path": "licenses/dependency-notices.md",
-      "sha256": "38033732bb80f1c70ae964867a3621394ce989a940dd8c8a1ca4bf94481105c8",
+      "sha256": "be1cae6624f9b61b063c6423417d325e10fbbd0a6eeeaf2cedb20a0d70453b8e",
       "status": "third_party_terms_recorded",
       "licensed_exact_paths": [],
-      "review_note": "Original installed package license/notice text retained by exact locked identity. This is attribution material under original terms, not claimed Tempo authorship.",
+      "review_note": "Earlier exact-lock license/notice text; reviewed against the current notice file with identical text lines despite newline normalization. Original third-party terms and attribution are retained, not claimed Tempo authorship.",
       "previous_sha256": "38033732bb80f1c70ae964867a3621394ce989a940dd8c8a1ca4bf94481105c8"
     },
     {
@@ -2562,10 +2568,10 @@
     },
     {
       "path": "scripts/dependency-notices.py",
-      "sha256": "d3d841908498764de3f5f37173f77a5a730684ee0bbd8ea2192d4fcf942af3b5",
-      "status": "replacement_review_recorded",
+      "sha256": "db6687b12cffee8d5ffdde94becfe19634b33d3fb5810a88b5eee15d31ddcb31",
+      "status": "publication_metadata_reviewed",
       "licensed_exact_paths": [],
-      "review_note": "Independent exact-lock dependency inventory enumerates root/workspace/nested packages, retains installed license/notice text and hashes, and verifies saved optional-platform registry integrity against lockfile SHA512. It does not install packages or fetch network content.",
+      "review_note": "Enforce LF text checkouts and generate dependency notice text with normalized newline sequences, preserving all license terms and attribution. This repairs fresh-clone source-inventory reproducibility; PNG remains binary.",
       "previous_sha256": "d3d841908498764de3f5f37173f77a5a730684ee0bbd8ea2192d4fcf942af3b5"
     },
     {

@@ -4285,6 +4285,14 @@
     "df616a03f0ff806b8c35371a6e964cde9b178350aef3659ed3633d62675b25a8": {
       "disposition": "publication_metadata_reviewed",
       "review": "Updated validation documentation records the completed fixed-fixture actual local inference comparison separately from historical saved reports, deterministic replay and outstanding installed browser/native acceptance. Model/report hashes and limits are linked."
+    },
+    "23302dd90b8bb74b44d365fafef8df20f809b61cb347023951ecf60a88a29651": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "Enforce LF text checkouts and generate dependency notice text with normalized newline sequences, preserving all license terms and attribution. This repairs fresh-clone source-inventory reproducibility; PNG remains binary."
+    },
+    "db6687b12cffee8d5ffdde94becfe19634b33d3fb5810a88b5eee15d31ddcb31": {
+      "disposition": "publication_metadata_reviewed",
+      "review": "Enforce LF text checkouts and generate dependency notice text with normalized newline sequences, preserving all license terms and attribution. This repairs fresh-clone source-inventory reproducibility; PNG remains binary."
     }
   }
 }
