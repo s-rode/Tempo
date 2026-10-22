@@ -1242,12 +1242,12 @@
     },
     {
       "path": "electron-app/src/renderer/src/components/ActivitiesByCategoryWidget.tsx",
-      "sha256": "1f79e145706a78d87fd5caf669d3d8eb47c2977d81de77d9e97100a33aa2e57f",
+      "sha256": "68b1b786efbe1f0a9203c3113175b85ec1d1b9e78f1a56e63bad076832d14589",
       "status": "replacement_review_recorded",
       "licensed_exact_paths": [],
       "baseline_comparison": "no_identical_blob_or_same_path",
       "original_first_path_commit": "8b93cdac7a6708ab5282141defc7a6c39595a02f",
-      "review_note": "Independent category grouping/selection and correction adapter over current activity data; preserves filters, exact event IDs, root action IDs and remembering semantics.",
+      "review_note": "Independent category grouping and exact-event correction adapter. Staged keyboard correction verified IDs/category totals. Invalidate all active event-range/latest/preferences and analytics caches on success so native notch and dashboard totals update together without a periodic refresh.",
       "evidence": "Publication-port implementation and compatibility/call-site review; build/tests and desktop acceptance are tracked separately."
     },
     {

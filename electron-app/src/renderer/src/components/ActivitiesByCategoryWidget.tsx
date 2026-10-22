@@ -24,6 +24,7 @@ interface Props {
 
 function ActivitiesByCategoryWidget(props: Props) {
   const { token } = useAuth()
+  const cache = trpc.useContext()
   const query = trpc.category.getCategories.useQuery(
     { token: token || '' },
     { enabled: Boolean(token) }
@@ -48,6 +49,12 @@ function ActivitiesByCategoryWidget(props: Props) {
   const move = trpc.activeWindowEvents.recategorizeBlock.useMutation({
     onSuccess: (_result, variables) => {
       props.refetchEvents()
+      // The notch and analytics use other date-range keys than this widget.
+      // Refresh them on the correction itself, without adding a heartbeat.
+      void cache.activeWindowEvents.getEventsForDateRange.invalidate()
+      void cache.activeWindowEvents.getLatestEvent.invalidate()
+      void cache.activeWindowEvents.getScopedPreferences.invalidate()
+      void cache.analytics.getPeriod.invalidate()
       toast({
         title: 'Activity Moved',
         description: `Selected activity block moved to ${categories?.find((category) => category._id === variables.newCategoryId)?.name || 'another category'}.`
