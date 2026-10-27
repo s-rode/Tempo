@@ -80,7 +80,7 @@ const api = {
     ipcRenderer.on('classification-relevance-check', listener)
     return () => ipcRenderer.removeListener('classification-relevance-check', listener)
   },
-  getAudioDataUrl: () => ipcRenderer.invoke('get-audio-data-url'),
+  getAudioDataUrl: (sound?: import('shared').DistractionSoundId) => ipcRenderer.invoke('get-audio-data-url', sound),
   claimDistractionSound: (intervalMs: number) =>
     ipcRenderer.invoke('claim-distraction-sound', intervalMs),
   logToFile: (message: string, data?: object) => ipcRenderer.send('log-to-file', message, data),

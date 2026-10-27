@@ -8,4 +8,4 @@ The vendored shadcn-style UI primitives derive from the MIT-licensed shadcn/ui p
 
 Electron distributions include Chromium and other third-party notices. Those generated distribution notices must remain in local builds. MongoDB, Ollama, model weights, and macOS frameworks are separate prerequisites rather than vendored source. Installing those components does not change their terms.
 
-The hourglass app icon was supplied by Samuel for Tempo. Other application icons are looked up from installed macOS applications at runtime. The replacement chime is generated from the original waveform code in this repository; it does not sample the recovered MP3.
+The hourglass app icon was supplied by Samuel for Tempo. Other application icons are looked up from installed macOS applications at runtime. Distraction alert sounds are read from the user’s macOS installation at runtime. Apple’s sound recordings are not bundled or redistributed in this repository or app.

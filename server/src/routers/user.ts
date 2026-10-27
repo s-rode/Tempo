@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { User } from '../models/user';
 import { publicProcedure, router } from '../trpc';
 import { verifyToken } from './auth';
+import { DISTRACTION_SOUNDS, DEFAULT_DISTRACTION_SOUND, resolveDistractionSound } from '../../../shared/distractionSound';
 
 export const userRouter = router({
   updateElectronAppSettings: publicProcedure
@@ -11,6 +12,7 @@ export const userRouter = router({
         calendarZoomLevel: z.number().min(40).max(120).optional(),
         theme: z.enum(['light', 'dark', 'system']).optional(),
         playDistractionSound: z.boolean().optional(),
+        distractionSound: z.enum(DISTRACTION_SOUNDS.map((sound) => sound.id) as ['pop', ...Array<(typeof DISTRACTION_SOUNDS)[number]['id']>]).optional(),
         distractionSoundInterval: z.number().min(5).max(300).optional(),
         showDistractionNotifications: z.boolean().optional(),
         showDistractionNotchAlerts: z.boolean().optional(),
@@ -67,6 +69,7 @@ export const userRouter = router({
         calendarZoomLevel: 60,
         theme: 'system',
         playDistractionSound: true,
+        distractionSound: DEFAULT_DISTRACTION_SOUND,
         distractionSoundInterval: 30,
         showDistractionNotifications: true,
         showDistractionNotchAlerts: true,
@@ -85,6 +88,7 @@ export const userRouter = router({
       return {
         ...defaultSettings,
         ...(user.electronAppSettings || {}),
+        distractionSound: resolveDistractionSound(user.electronAppSettings?.distractionSound).id,
       };
     }),
 });

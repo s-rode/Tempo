@@ -25,8 +25,6 @@ extraResources:
     to: native/nativeWindows.node
   - from: build-resources/local-server/tempo-local-server
     to: local-server/tempo-local-server
-  - from: public/sounds/distraction.wav
-    to: sounds/distraction.wav
   - from: build-resources/firefox-host/tempo-firefox-native-host
     to: firefox-host/tempo-firefox-native-host
   - from: build-resources/Tempo-Firefox-Companion-UNSIGNED.zip

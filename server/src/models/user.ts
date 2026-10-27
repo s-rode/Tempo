@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { DISTRACTION_SOUNDS, DEFAULT_DISTRACTION_SOUND } from '../../../shared/distractionSound';
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -61,6 +62,11 @@ const userSchema = new mongoose.Schema({
     playDistractionSound: {
       type: Boolean,
       default: true,
+    },
+    distractionSound: {
+      type: String,
+      enum: DISTRACTION_SOUNDS.map((sound) => sound.id),
+      default: DEFAULT_DISTRACTION_SOUND,
     },
     distractionSoundInterval: {
       type: Number,

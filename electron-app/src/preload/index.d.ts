@@ -157,7 +157,7 @@ declare global {
         episode: { key: string; eventId: string; application: string } | null
       ) => void
       onClassificationRelevanceCheck: (callback: (eventId: string) => void) => () => void
-      getAudioDataUrl: () => Promise<string | null>
+      getAudioDataUrl: (sound?: import('shared').DistractionSoundId) => Promise<string | null>
       claimDistractionSound: (
         intervalMs: number
       ) => Promise<import('shared').DistractionSoundPermit>

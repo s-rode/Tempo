@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Category } from 'shared'
+import { resolveDistractionSound } from 'shared'
 import { useAuth } from '../contexts/AuthContext'
 import { trpc } from '../utils/trpc'
 import {
@@ -17,7 +18,9 @@ export function useDistractionSound(
     { token: token || '' },
     { enabled: !!token }
   )
-  const [audio, setAudio] = useState<HTMLAudioElement | null>(null)
+  const [loaded, setLoaded] = useState<{ id: string; audio: HTMLAudioElement } | null>(null)
+  const sound = resolveDistractionSound(settings?.distractionSound).id
+  const audio = loaded?.id === sound ? loaded.audio : null
   const scheduler = useRef<DistractionSoundScheduler | null>(null)
   const eligible = canPlayDistractionSound(
     settings?.playDistractionSound === true,
@@ -31,15 +34,15 @@ export function useDistractionSound(
     if (!eligible || audio) return
     let cancelled = false
     void window.api
-      .getAudioDataUrl()
+      .getAudioDataUrl(sound)
       .then((url) => {
-        if (url && !cancelled) setAudio(new Audio(url))
+        if (url && !cancelled) setLoaded({ id: sound, audio: new Audio(url) })
       })
       .catch(() => {})
     return () => {
       cancelled = true
     }
-  }, [eligible, audio])
+  }, [eligible, audio, sound])
 
   useEffect(() => {
     if (!audio) return

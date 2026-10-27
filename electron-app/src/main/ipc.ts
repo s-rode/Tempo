@@ -20,6 +20,7 @@ import { FloatingStatusUpdate, NotchHelper } from './notchHelper'
 import { ActivityMonitoringCoordinator } from './activityMonitoringCoordinator'
 import { DistractionReminderGate } from './distractionNoticePolicy'
 import { DistractionSoundGate } from './distractionSoundGate'
+import { loadDistractionSound } from './distractionSounds'
 
 interface Windows {
   mainWindow: BrowserWindow | null
@@ -244,16 +245,11 @@ export function registerIpcHandlers(
     SERVER_URL: runtime.serverUrl
   }))
 
-  ipcMain.handle('get-audio-data-url', async () => {
+  ipcMain.handle('get-audio-data-url', async (_event, sound?: unknown) => {
     try {
-      const audioFilePath = app.isPackaged
-        ? join(process.resourcesPath, 'sounds', 'distraction.wav')
-        : join(app.getAppPath(), 'public', 'sounds', 'distraction.wav')
-      const buffer = await fs.readFile(audioFilePath)
-      const base64 = buffer.toString('base64')
-      return `data:audio/wav;base64,${base64}`
-    } catch (error) {
-      console.error('Error reading audio file for data URL:', error)
+      return await loadDistractionSound(sound)
+    } catch {
+      console.error('Could not load the selected macOS alert sound.')
       return null
     }
   })

@@ -1,7 +1,7 @@
 import type { PersonalizedEventMetadata } from './classification';
 export type * from './classification';
-export { clampDistractionSoundInterval } from './distractionSound';
-export type { DistractionSoundPermit } from './distractionSound';
+export { clampDistractionSoundInterval, DISTRACTION_SOUNDS, DEFAULT_DISTRACTION_SOUND, resolveDistractionSound } from './distractionSound';
+export type { DistractionSoundPermit, DistractionSoundId } from './distractionSound';
 
 export interface User {
   id: string;
@@ -14,6 +14,7 @@ export interface User {
   tokenVersion?: number;
   hasCompletedOnboarding?: boolean;
   electronAppSettings?: {
+    distractionSound?: import('./distractionSound').DistractionSoundId;
     calendarZoomLevel?: number;
     sessionTransitionAlerts?: boolean;
     playSessionTransitionChime?: boolean;

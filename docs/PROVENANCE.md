@@ -6,6 +6,6 @@ Samuel R.'s Tempo contributions include local Ollama classification and correcti
 
 The development history was reconstructed against the reviewed MIT foundation rather than importing the original recovery repository's ancestry. Feature changes were retained individually where practical; obsolete or dependent steps were consolidated. Original author dates identify the development work; newer committer dates identify reconstruction. Intermediate commits are development steps, not independently verified app releases.
 
-The supplied hourglass icon is retained as Tempo's app icon. The chime is generated from the waveform code in `electron-app/scripts/generate-assets.py`; other application icons are resolved from installed macOS applications at runtime.
+The supplied hourglass icon is retained as Tempo's app icon. Distraction alerts use macOS system sounds at runtime without bundling their recordings; other application icons are resolved from installed macOS applications at runtime.
 
 Tempo is an independent derivative project, not an official Cronus release.
