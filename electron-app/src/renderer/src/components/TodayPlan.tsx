@@ -1,3 +1,4 @@
+import { useDashboardVisibility } from '../hooks/useDashboardVisibility'
 import {
   Check,
   ChevronDown,
@@ -57,9 +58,10 @@ const isSameLocalDay = (left: Date, right = new Date()): boolean =>
 /** Native list-style plan for the selected calendar day. */
 export function TodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): ReactElement {
   const { token } = useAuth()
+  const dashboardVisible = useDashboardVisibility()
   const { data: plan } = trpc.goals.getDailyPlan.useQuery(
     { token: token || '', dateMs: selectedDate.getTime() },
-    { enabled: !!token, refetchInterval: 60_000 }
+    { enabled: !!token && dashboardVisible, refetchInterval: 60_000 }
   )
   if (plan?.source === 'reminder')
     return (
@@ -74,6 +76,7 @@ export function TodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): Re
 
 function ManualTodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): ReactElement {
   const { token } = useAuth()
+  const dashboardVisible = useDashboardVisibility()
   const utils = trpc.useContext()
   const inputRef = useRef<HTMLInputElement>(null)
   const [draft, setDraft] = useState('')
@@ -93,7 +96,7 @@ function ManualTodayPlan({ selectedDate, openRequest = 0 }: TodayPlanProps): Rea
   const dateMs = selectedDate.getTime()
   const { data: plan, isLoading } = trpc.goals.getDailyPlan.useQuery(
     { token: token || '', dateMs },
-    { enabled: !!token }
+    { enabled: !!token && dashboardVisible }
   )
   const { data: planning } = trpc.goals.getPlanning.useQuery(
     { token: token || '' },

@@ -49,6 +49,18 @@ export function createMainWindow(
     }
   })
 
+  // backgroundThrottling stays disabled for capture/classification delivery.
+  // Publish actual window visibility separately for presentation-only clocks.
+  const publishVisibility = () => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send(
+      'dashboard-visibility-changed', mainWindow.isVisible() && !mainWindow.isMinimized()
+    )
+  }
+  mainWindow.on('show', publishVisibility)
+  mainWindow.on('hide', publishVisibility)
+  mainWindow.on('minimize', publishVisibility)
+  mainWindow.on('restore', publishVisibility)
+
   let dockHideTimer: ReturnType<typeof setTimeout> | undefined
   let lastDockHideAt = 0
   const hideDock = () => {

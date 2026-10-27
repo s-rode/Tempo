@@ -11,12 +11,12 @@ interface SyncUpdate {
 }
 interface Dependencies {
   readState: () => Promise<SyncState>
-  writeState: (update: SyncUpdate) => Promise<void>
+  writeState: (update: SyncUpdate) => Promise<boolean | void>
   permission: () => ReminderPermission
   requestAccess: () => Promise<ReminderPermission>
   fetch: () => Promise<ReminderSnapshot>
   observe: (callback: () => void) => void
-  changed: () => void
+  changed: (contextChanged?: boolean) => void
 }
 
 /** Main-process owner; user actions supersede in-flight fetches immediately. */
@@ -49,8 +49,8 @@ export class ReminderSyncCoordinator {
     if (!state.enabled || this.stopped || generation !== this.generation || refreshVersion !== this.refreshVersion) return
     const permission = this.deps.permission()
     if (permission !== 'granted') {
-      await this.deps.writeState({ enabled: true, permission, error: 'permission_denied' })
-      this.deps.changed()
+      const contextChanged = await this.deps.writeState({ enabled: true, permission, error: 'permission_denied' })
+      this.deps.changed(contextChanged !== false)
       return
     }
     this.observe()
@@ -69,8 +69,8 @@ export class ReminderSyncCoordinator {
     // Recheck permission after the asynchronous fetch, before accepting data.
     if (this.deps.permission() !== 'granted')
       update = { enabled: true, permission: this.deps.permission(), error: 'permission_denied' }
-    await this.deps.writeState(update)
-    this.deps.changed()
+    const contextChanged = await this.deps.writeState(update)
+    this.deps.changed(contextChanged !== false)
   }
   public refresh(): Promise<void> {
     const generation = this.generation

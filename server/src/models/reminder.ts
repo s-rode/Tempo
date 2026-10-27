@@ -10,6 +10,7 @@ const integrationSchema = new mongoose.Schema(
       enum: ['not_determined', 'granted', 'denied'],
       default: 'not_determined',
     },
+    syncCalendarKey: { type: String, default: null },
     lastSuccessAtMs: { type: Number, default: null },
     error: { type: String, default: null },
     filter: {

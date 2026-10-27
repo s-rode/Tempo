@@ -1,5 +1,6 @@
 import { TrendingDown, TrendingUp } from 'lucide-react'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { useDashboardVisibility } from '../../hooks/useDashboardVisibility'
 import { useAuth } from '../../contexts/AuthContext'
 import { formatDuration } from '../../lib/activityByCategoryWidgetHelpers'
 import { trpc } from '../../utils/trpc'
@@ -204,8 +205,11 @@ export function DashboardFocusCard() {
     { enabled: !!token }
   )
   const comparisonMode = (settings?.focusComparisonMode || 'all_active_days') as FocusComparisonMode
+  const visible = useDashboardVisibility()
   const [comparisonAtMs, setComparisonAtMs] = useState(() => Date.now())
   useEffect(() => {
+    if (!visible) return
+    setComparisonAtMs(Date.now())
     // The comparison is rendered to the minute. Align the one local refresh
     // to that boundary instead of keeping an arbitrary thirty-second poll.
     let timer: number | undefined
@@ -220,7 +224,7 @@ export function DashboardFocusCard() {
     return () => {
       if (timer !== undefined) window.clearTimeout(timer)
     }
-  }, [])
+  }, [visible])
 
   const now = useMemo(() => new Date(comparisonAtMs), [comparisonAtMs])
   const weekStart = startOfWeek(now)
@@ -236,7 +240,7 @@ export function DashboardFocusCard() {
       comparisonAtMs,
       focusComparisonMode: comparisonMode
     },
-    { enabled: !!token, refetchOnWindowFocus: true }
+    { enabled: !!token && visible, refetchOnWindowFocus: true }
   )
   const weekDays = useMemo(
     () =>

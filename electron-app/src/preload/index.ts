@@ -24,12 +24,18 @@ export interface PermissionInfo {
 
 // Custom APIs for renderer
 const api = {
+  getDashboardVisibility: (): Promise<boolean> => ipcRenderer.invoke('get-dashboard-visibility'),
+  onDashboardVisibilityChanged: (callback: (visible: boolean) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, visible: boolean) => callback(visible)
+    ipcRenderer.on('dashboard-visibility-changed', listener)
+    return () => ipcRenderer.removeListener('dashboard-visibility-changed', listener)
+  },
   connectReminders: (): Promise<void> => ipcRenderer.invoke('reminders-connect'),
   disconnectReminders: (): Promise<void> => ipcRenderer.invoke('reminders-disconnect'),
   refreshReminders: (): Promise<void> => ipcRenderer.invoke('reminders-refresh'),
   openReminders: (): Promise<void> => ipcRenderer.invoke('reminders-open'),
-  onRemindersChanged: (callback: () => void) => {
-    const listener = () => callback()
+  onRemindersChanged: (callback: (contextChanged: boolean) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, contextChanged: boolean) => callback(contextChanged !== false)
     ipcRenderer.on('reminders-changed', listener)
     return () => ipcRenderer.removeListener('reminders-changed', listener)
   },

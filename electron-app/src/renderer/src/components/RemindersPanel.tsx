@@ -1,3 +1,4 @@
+import { useDashboardVisibility } from '../hooks/useDashboardVisibility'
 import {
   ListChecks,
   SlidersHorizontal,
@@ -157,10 +158,13 @@ export function RemindersSettings() {
 
 function useReminderClock(): number {
   const [now, setNow] = useState(Date.now)
+  const visible = useDashboardVisibility()
   useEffect(() => {
+    if (!visible) return
+    setNow(Date.now())
     const timer = setInterval(() => setNow(Date.now()), 30_000)
     return () => clearInterval(timer)
-  }, [])
+  }, [visible])
   return now
 }
 

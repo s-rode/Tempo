@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import type {
@@ -277,15 +278,22 @@ export async function remindersChanged(userId: string): Promise<void> {
 export const applyReminderSync = (
   userId: string,
   input: z.infer<typeof reminderSyncSchema>
-): Promise<void> => serializeReminderMutation(userId, () => persistReminderSync(userId, input));
+): Promise<boolean> => serializeReminderMutation(userId, () => persistReminderSync(userId, input));
 
 async function persistReminderSync(
   userId: string,
   input: z.infer<typeof reminderSyncSchema>
-): Promise<void> {
+): Promise<boolean> {
   if (input.snapshot && input.permission !== 'granted')
     throw new Error('Snapshot requires Reminders permission.');
+  const previous = await getReminderIntegration(userId);
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const syncCalendarKey = `${zone}:${calendarDay(new Date(), zone)}`;
+  let contextChanged = !previous || previous.enabled !== input.enabled ||
+    previous.permission !== input.permission || previous.error !== (input.error || null) ||
+    previous.syncCalendarKey !== syncCalendarKey;
   const update: Record<string, unknown> = {
+    syncCalendarKey,
     enabled: input.enabled,
     permission: input.permission,
     error: input.error || null,
@@ -297,7 +305,20 @@ async function persistReminderSync(
       if (!lists.has(entry.listId)) throw new Error('Incomplete reminder snapshot.');
       reminders.set(entry.sourceId, entry);
     }
-    if (reminders.size)
+    // EventKit ordering is not stable. Compare by identity before rewriting
+    // Apple data, touching metadata, or canceling/restarting model work.
+    const nextLists = [...lists.values()];
+    const nextReminders = [...reminders.values()];
+    const sameLists = isDeepStrictEqual(
+      [...(previous?.lists || [])].sort((a, b) => a.id.localeCompare(b.id)),
+      [...nextLists].sort((a, b) => a.id.localeCompare(b.id))
+    );
+    const sameReminders = isDeepStrictEqual(
+      [...(previous?.reminders || [])].sort((a, b) => a.sourceId.localeCompare(b.sourceId)),
+      [...nextReminders].sort((a, b) => a.sourceId.localeCompare(b.sourceId))
+    );
+    contextChanged ||= !sameLists || !sameReminders;
+    if (!sameReminders && reminders.size)
       await ReminderMetadataModel.bulkWrite(
         [...reminders.values()].map((entry) => ({
           updateOne: {
@@ -315,12 +336,13 @@ async function persistReminderSync(
           },
         }))
       );
-    update.lists = [...lists.values()];
-    update.reminders = [...reminders.values()];
+    if (!sameLists) update.lists = nextLists;
+    if (!sameReminders) update.reminders = nextReminders;
     update.lastSuccessAtMs = Date.now();
   }
   await ReminderIntegrationModel.updateOne({ userId }, { $set: update }, { upsert: true });
-  await remindersChanged(userId);
+  if (contextChanged) await remindersChanged(userId);
+  return contextChanged;
 }
 
 export async function getReminderStatus(userId: string) {

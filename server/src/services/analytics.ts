@@ -62,16 +62,32 @@ export const calculatePeriodAnalytics = (
   endDateMs: number,
   nowMs = Date.now()
 ): PeriodAnalytics => {
+  return calculatePreparedAnalytics(prepareAnalytics(events, categories), startDateMs, endDateMs, nowMs);
+};
+
+const prepareAnalytics = (events: ActiveWindowEvent[], categories: Category[]) => {
   // `.lean()` deliberately bypasses the schema's toJSON transform, so Mongo
   // returns category `_id`s as ObjectIds here while activity events store the
   // reference as a string. Normalize at the analytics boundary.
   const normalizedCategories = categories.map((category) => ({ ...category, _id: String(category._id) }));
   const categoriesById = new Map(normalizedCategories.map((category) => [category._id, category]));
+  return {
+    sorted: [...events].sort((left, right) => (left.timestamp || 0) - (right.timestamp || 0)),
+    categoriesById,
+  };
+};
+
+const calculatePreparedAnalytics = (
+  { sorted, categoriesById }: ReturnType<typeof prepareAnalytics>,
+  startDateMs: number,
+  endDateMs: number,
+  nowMs: number
+): PeriodAnalytics => {
   const days = new Map<number, AnalyticsDay>();
   const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, ...emptyDuration() }));
   const periodCategoryTotals = new Map<string, AnalyticsDay['categoryTotals'][number]>();
   const totals = { ...emptyDuration(), trackedMs: 0, appSwitches: 0 };
-  const sorted = [...events].sort((left, right) => (left.timestamp || 0) - (right.timestamp || 0));
+  const dayCategoryTotals = new Map<number, Map<string, AnalyticsDay['categoryTotals'][number]>>();
 
   const ensureDay = (timestamp: number) => {
     const key = dayStart(timestamp);
@@ -83,10 +99,20 @@ export const calculatePeriodAnalytics = (
   };
   for (let cursor = startDateMs; cursor < endDateMs; cursor = nextBoundary(cursor)) ensureDay(cursor);
 
+  // Only the immediate predecessor can overlap the range. Retain it so a
+  // window spanning midnight and a system boundary remain authoritative.
+  let low = 0;
+  let high = sorted.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if ((sorted[middle].timestamp || 0) < startDateMs) low = middle + 1;
+    else high = middle;
+  }
   let previousApp: string | null = null;
-  for (let index = 0; index < sorted.length; index += 1) {
+  for (let index = Math.max(0, low - 1); index < sorted.length; index += 1) {
     const event = sorted[index];
     const timestamp = event.timestamp || 0;
+    if (timestamp >= endDateMs || timestamp >= nowMs) break;
     const isSystem = event.type === 'system' || SYSTEM_EVENT_NAMES.has(event.ownerName);
     if (isSystem) {
       previousApp = null;
@@ -127,39 +153,22 @@ export const calculatePeriodAnalytics = (
         };
         existing.durationMs += durationMs;
         periodCategoryTotals.set(category._id, existing);
+        let dayCategories = dayCategoryTotals.get(day.startDateMs);
+        if (!dayCategories) {
+          dayCategories = new Map();
+          dayCategoryTotals.set(day.startDateMs, dayCategories);
+        }
+        const dayEntry = dayCategories.get(category._id) || { ...existing, durationMs: 0 };
+        dayEntry.durationMs += durationMs;
+        dayCategories.set(category._id, dayEntry);
       }
       sliceStart = sliceEnd;
     }
   }
 
   for (const day of days.values()) {
-    const dayCategories = new Map<string, AnalyticsDay['categoryTotals'][number]>();
-    for (const event of sorted) {
-      const timestamp = event.timestamp || 0;
-      if (timestamp < day.startDateMs || timestamp >= nextBoundary(day.startDateMs) || !event.categoryId) continue;
-      const category = categoriesById.get(String(event.categoryId));
-      if (!category) continue;
-      dayCategories.set(category._id, dayCategories.get(category._id) || {
-        categoryId: category._id, name: category.name, color: category.color, isProductive: category.isProductive, durationMs: 0
-      });
-    }
-    // Populate day category totals from overlap calculations rather than from
-    // event starts, so long unchanged activities are represented accurately.
-    for (let index = 0; index < sorted.length; index += 1) {
-      const event = sorted[index];
-      if (event.type === 'system' || !event.categoryId) continue;
-      const category = categoriesById.get(String(event.categoryId));
-      if (!category) continue;
-      const overlapStart = Math.max(event.timestamp || 0, day.startDateMs, startDateMs);
-      const overlapEnd = Math.min(sorted[index + 1]?.timestamp ?? nowMs, (event.timestamp || 0) + MAX_CONTINUOUS_ACTIVITY_MS, nextBoundary(day.startDateMs), endDateMs, nowMs);
-      if (overlapEnd <= overlapStart) continue;
-      const entry = dayCategories.get(category._id) || {
-        categoryId: category._id, name: category.name, color: category.color, isProductive: category.isProductive, durationMs: 0
-      };
-      entry.durationMs += overlapEnd - overlapStart;
-      dayCategories.set(category._id, entry);
-    }
-    day.categoryTotals = [...dayCategories.values()].filter((entry) => entry.durationMs > 0).sort((a, b) => b.durationMs - a.durationMs);
+    day.categoryTotals = [...(dayCategoryTotals.get(day.startDateMs)?.values() || [])]
+      .sort((a, b) => b.durationMs - a.durationMs);
   }
 
   return {
@@ -182,13 +191,14 @@ export const averageMatchingWeekdayByTime = (args: {
   const cutoffHours = comparison.getHours();
   const cutoffMinutes = comparison.getMinutes();
   const cutoffSeconds = comparison.getSeconds();
+  const prepared = prepareAnalytics(args.events, args.categories);
   const samples: number[] = [];
   for (let offset = 7; samples.length < (args.sampleLimit || 4) && offset <= 70; offset += 7) {
     const start = new Date(comparisonStart);
     start.setDate(start.getDate() - offset);
     const end = new Date(start);
     end.setHours(cutoffHours, cutoffMinutes, cutoffSeconds, comparison.getMilliseconds());
-    const result = calculatePeriodAnalytics(args.events, args.categories, start.getTime(), end.getTime(), args.nowMs ?? Date.now());
+    const result = calculatePreparedAnalytics(prepared, start.getTime(), end.getTime(), args.nowMs ?? Date.now());
     if (result.totals.trackedMs > 0) samples.push(result.totals.focusedMs);
   }
   return {
@@ -212,13 +222,14 @@ export const averageActiveDaysByTime = (args: {
 }) => {
   const comparison = new Date(args.comparisonAtMs);
   const comparisonStart = dayStart(args.comparisonAtMs);
+  const prepared = prepareAnalytics(args.events, args.categories);
   const samples: number[] = [];
   for (let offset = 1; samples.length < (args.sampleLimit || 4) && offset <= 70; offset += 1) {
     const start = new Date(comparisonStart);
     start.setDate(start.getDate() - offset);
     const end = new Date(start);
     end.setHours(comparison.getHours(), comparison.getMinutes(), comparison.getSeconds(), comparison.getMilliseconds());
-    const result = calculatePeriodAnalytics(args.events, args.categories, start.getTime(), end.getTime(), args.nowMs ?? Date.now());
+    const result = calculatePreparedAnalytics(prepared, start.getTime(), end.getTime(), args.nowMs ?? Date.now());
     if (result.totals.trackedMs > 0) samples.push(result.totals.focusedMs);
   }
   return {
@@ -249,6 +260,7 @@ export const averageComparableDaysByTime = (args: {
     const candidateWeekday = candidate.getDay();
     return (candidateWeekday === 0 || candidateWeekday === 6) === comparisonIsWeekend;
   };
+  const prepared = prepareAnalytics(args.events, args.categories);
   const samples: number[] = [];
   for (let offset = 1; samples.length < (args.sampleLimit || 4) && offset <= 70; offset += 1) {
     const start = new Date(comparisonStart);
@@ -256,7 +268,7 @@ export const averageComparableDaysByTime = (args: {
     if (!matchesComparison(start)) continue;
     const end = new Date(start);
     end.setHours(comparison.getHours(), comparison.getMinutes(), comparison.getSeconds(), comparison.getMilliseconds());
-    const result = calculatePeriodAnalytics(args.events, args.categories, start.getTime(), end.getTime(), args.nowMs ?? Date.now());
+    const result = calculatePreparedAnalytics(prepared, start.getTime(), end.getTime(), args.nowMs ?? Date.now());
     if (result.totals.trackedMs > 0) samples.push(result.totals.focusedMs);
   }
   return {

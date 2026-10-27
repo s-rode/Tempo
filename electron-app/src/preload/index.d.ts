@@ -59,11 +59,13 @@ declare global {
   interface Window {
     electron: CustomElectronAPI // Use the custom, more specific type
     api: {
+      getDashboardVisibility: () => Promise<boolean>
+      onDashboardVisibilityChanged: (callback: (visible: boolean) => void) => () => void
       connectReminders: () => Promise<void>
       disconnectReminders: () => Promise<void>
       refreshReminders: () => Promise<void>
       openReminders: () => Promise<void>
-      onRemindersChanged: (callback: () => void) => () => void
+      onRemindersChanged: (callback: (contextChanged: boolean) => void) => () => void
       onActiveWindowChanged: (callback: (details: ActiveWindowDetails) => void) => () => void // Return type for cleanup function
       onActivityCapture: (
         callback: (capture: {

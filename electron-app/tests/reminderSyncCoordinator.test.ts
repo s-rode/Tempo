@@ -11,6 +11,7 @@ function setup(enabled = false) {
     writeState: jest.fn(async (update: any) => {
       updates.push(update)
       enabled = update.enabled
+      return true
     }),
     permission: () => permission,
     requestAccess: jest.fn(async () => {
@@ -69,6 +70,13 @@ describe('main-process reminder synchronization', () => {
     expect(deps.requestAccess).toHaveBeenCalledTimes(1)
     expect(deps.observe).toHaveBeenCalledTimes(1)
     expect(updates.at(-1).snapshot).toEqual({ lists: [], reminders: [] })
+  })
+  test('unchanged successful sync updates freshness without requesting activity recapture', async () => {
+    const { coordinator, deps } = setup(true)
+    deps.writeState.mockResolvedValueOnce(false)
+    await coordinator.refresh()
+    expect(deps.changed).toHaveBeenCalledWith(false)
+    expect(deps.fetch).toHaveBeenCalledTimes(1)
   })
   test('failed fetch reports staleness without replacing a snapshot', async () => {
     const { coordinator, deps, updates } = setup(true)

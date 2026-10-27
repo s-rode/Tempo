@@ -19,6 +19,31 @@ describe('Tempo analytics interval aggregation', () => {
     expect(result.days[0].focusedMs).toBe(hour);
   });
 
+  test('daily category totals include carry-in across midnight and stop at system boundaries', () => {
+    const events = [
+      event(monday - hour, 'Editor', 'work'),
+      { ...event(monday + hour, 'System Sleep', null), type: 'system' as const },
+      event(monday + 25 * hour, 'Browser', 'distraction'),
+    ];
+    const result = calculatePeriodAnalytics(events, categories, monday, monday + 2 * day, monday + 2 * day);
+    expect(result.days[0].categoryTotals.map(row => [row.categoryId, row.durationMs])).toEqual([['work', hour]]);
+    expect(result.days[1].categoryTotals.map(row => [row.categoryId, row.durationMs])).toEqual([['distraction', 4 * hour]]);
+    expect(result.categoryTotals.reduce((total, row) => total + row.durationMs, 0)).toBe(result.totals.trackedMs);
+  });
+
+  test('range lookup retains the last equal-timestamp boundary and does not mutate inputs', () => {
+    const events = [
+      event(monday + hour, 'Editor', 'work'),
+      { ...event(monday + hour, 'System Sleep', null), type: 'system' as const },
+      event(monday + 4 * hour, 'Browser', 'distraction'),
+    ];
+    const original = [...events];
+    const result = calculatePeriodAnalytics(events, categories, monday + 2 * hour, monday + 3 * hour, monday + day);
+    expect(result.totals.trackedMs).toBe(0);
+    expect(result.days[0].categoryTotals).toEqual([]);
+    expect(events).toEqual(original);
+  });
+
   test('does not turn a missed overnight boundary into a full day of focus', () => {
     const result = calculatePeriodAnalytics([event(monday + 9 * hour, 'RemNote', 'work')], categories, monday, monday + day, monday + day);
     expect(result.totals.focusedMs).toBe(4 * hour);

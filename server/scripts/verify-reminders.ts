@@ -70,6 +70,25 @@ try {
     permission: 'granted',
     snapshot: { lists, reminders: [item, item] },
   });
+  // A successful heartbeat preserves freshness without rewriting Apple data,
+  // touching metadata, or treating harmless EventKit ordering as a goal edit.
+  const metadataBefore = await ReminderMetadataModel.find({ userId }).lean();
+  const changed = await applyReminderSync(userId, {
+    enabled: true, permission: 'granted',
+    snapshot: { lists: [...lists].reverse(), reminders: [item] },
+  });
+  assert.equal(changed, false);
+  assert.deepEqual(await ReminderMetadataModel.find({ userId }).lean(), metadataBefore);
+  await ReminderIntegrationModel.updateOne({ userId }, { $set: { syncCalendarKey: 'previous-day' } });
+  assert.equal(await applyReminderSync(userId, {
+    enabled: true, permission: 'granted', snapshot: { lists, reminders: [item] },
+  }), true, 'calendar/timezone changes still recompute due-date goal context');
+  assert.equal(await applyReminderSync(userId, {
+    enabled: true, permission: 'granted', error: 'fetch_failed',
+  }), true, 'sync errors remain visible');
+  assert.equal(await applyReminderSync(userId, {
+    enabled: true, permission: 'granted', snapshot: { lists, reminders: [item] },
+  }), true, 'successful recovery still refreshes context');
   const plan = await getDailyPlan(userId);
   assert.equal(plan.source, 'reminder');
   assert.equal(plan.tasks.length, 1);

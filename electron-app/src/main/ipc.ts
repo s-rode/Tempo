@@ -181,6 +181,11 @@ export function registerIpcHandlers(
     shell.showItemInFolder(packagePath)
   })
 
+  ipcMain.handle('get-dashboard-visibility', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    return Boolean(window && window.isVisible() && !window.isMinimized())
+  })
+
   ipcMain.handle('get-floating-window-visibility', () => {
     return notchHelper.visible
   })

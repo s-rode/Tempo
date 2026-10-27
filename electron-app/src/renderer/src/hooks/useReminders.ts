@@ -20,8 +20,9 @@ export function useRemindersAvailable(): boolean {
 export function useRefreshReminderViews() {
   const { token } = useAuth()
   const utils = trpc.useContext()
-  return () => {
+  return (contextChanged = true) => {
     void utils.reminders.getStatus.invalidate()
+    if (!contextChanged) return
     void utils.goals.getDailyPlan.invalidate()
     void utils.goals.getActiveContext.invalidate()
     void utils.focusRuntime.getState.invalidate()

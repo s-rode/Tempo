@@ -8,16 +8,17 @@ export function startReminderIntegration(): () => void {
   const coordinator = new ReminderSyncCoordinator({
     readState: () => tempoInternalRequest('/internal/reminders'),
     writeState: async (update) => {
-      await tempoInternalRequest('/internal/reminders', update)
+      const result = await tempoInternalRequest<{ contextChanged: boolean }>('/internal/reminders', update)
+      return result.contextChanged
     },
     permission: () => nativeWindows.getRemindersPermission(),
     requestAccess: () => nativeWindows.requestRemindersAccess(),
     fetch: () => nativeWindows.fetchReminders(),
     observe: (callback) => nativeWindows.startRemindersObserver(callback),
-    changed: () => {
+    changed: (contextChanged = true) => {
       for (const window of BrowserWindow.getAllWindows())
-        window.webContents.send('reminders-changed')
-      nativeWindows.refreshActiveWindow()
+        window.webContents.send('reminders-changed', contextChanged)
+      if (contextChanged) nativeWindows.refreshActiveWindow()
     }
   })
   ipcMain.handle('reminders-connect', () => coordinator.connect())

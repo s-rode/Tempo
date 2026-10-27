@@ -17,6 +17,7 @@
     "test:server": "bun test --isolate --cwd server ./src",
     "test:electron": "cd electron-app && bun test tests src/renderer/src/lib src/renderer/src/utils scripts/*.test.ts",
     "test": "bun run test:server && bun run test:electron && bun run test:installer",
+    "benchmark:analytics": "bun server/scripts/benchmark-analytics.ts",
     "test:integration": "cd server && bun scripts/verify-local-auth.ts && bun scripts/verify-legacy-import.ts && bun scripts/verify-personalized-classification.ts && bun scripts/verify-system-boundaries.ts && bun scripts/verify-reminders.ts",
     "test:native": "cd electron-app && bun run test:notch-animation-policy && bun run test:notch-interaction-layout && bun run test:notch-overlap && bun run test:native-lifecycle",
     "build": "bun run build:shared && bun run build:server && bun run --cwd electron-app build:mac:local",

@@ -1,3 +1,4 @@
+import { useDashboardVisibility } from '../hooks/useDashboardVisibility'
 import { Coffee, Focus, Pause, Pencil, Play, Timer, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
@@ -68,6 +69,7 @@ export function FocusRuntimeControls({
   quickActionRequest = 0
 }: FocusRuntimeControlsProps) {
   const { token } = useAuth()
+  const dashboardVisible = useDashboardVisibility()
   const [goal, setGoal] = useState('')
   const [selectedTaskId, setSelectedTaskId] = useState('')
   const [duration, setDuration] = useState(30)
@@ -79,7 +81,7 @@ export function FocusRuntimeControls({
   const utils = trpc.useContext()
   const { data: dailyPlan } = trpc.goals.getDailyPlan.useQuery(
     { token: token || '' },
-    { enabled: !!token && open, refetchInterval: 60_000 }
+    { enabled: !!token && open && dashboardVisible, refetchInterval: 60_000 }
   )
   const activePlanTasks = useMemo(
     () =>
@@ -199,21 +201,11 @@ export function FocusRuntimeControls({
     }
   }, [open])
   useEffect(() => {
-    if (!open || !runtime?.taskProgress || runtime.trackingState !== 'active') return
-    let interval: number | undefined
-    const refreshVisibility = () => {
-      window.clearInterval(interval)
-      if (document.hidden) return
-      setClockNow(Date.now())
-      interval = window.setInterval(() => setClockNow(Date.now()), 1000)
-    }
-    refreshVisibility()
-    document.addEventListener('visibilitychange', refreshVisibility)
-    return () => {
-      window.clearInterval(interval)
-      document.removeEventListener('visibilitychange', refreshVisibility)
-    }
-  }, [open, runtime?.taskProgress?.taskId, runtime?.trackingState])
+    if (!dashboardVisible || !open || !runtime?.taskProgress || runtime.trackingState !== 'active') return
+    setClockNow(Date.now())
+    const interval = window.setInterval(() => setClockNow(Date.now()), 1000)
+    return () => window.clearInterval(interval)
+  }, [dashboardVisible, open, runtime?.taskProgress?.taskId, runtime?.trackingState])
 
   if (!token || !runtime) return null
   const phase = runtime.currentPhase

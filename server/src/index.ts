@@ -139,18 +139,19 @@ app.all('/internal/reminders', async (req, res) => {
       res.sendStatus(503);
       return;
     }
+    let contextChanged = false;
     if (req.method === 'POST') {
       const input = reminderSyncSchema.safeParse(req.body);
       if (!input.success) {
         res.status(400).json({ error: 'Invalid reminder snapshot' });
         return;
       }
-      await applyReminderSync(String(user._id), input.data);
+      contextChanged = await applyReminderSync(String(user._id), input.data);
     } else if (req.method !== 'GET') {
       res.sendStatus(405);
       return;
     }
-    res.json(await getReminderStatus(String(user._id)));
+    res.json({ ...await getReminderStatus(String(user._id)), contextChanged });
   } catch {
     res.status(500).json({ error: 'Reminder synchronization failed' });
   }
