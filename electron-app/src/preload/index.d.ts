@@ -151,8 +151,9 @@ declare global {
       }) => void
       onFloatingFocusCommand: (
         callback: (command: {
-          action: 'pause' | 'resume' | 'skipBreak' | 'endRun' | 'finishTask' | 'extendTask10'
+          action: 'pause' | 'resume' | 'skipBreak' | 'endRun' | 'finishTask' | 'extendSession'
           durationMinutes?: number
+          noticeId?: string
         }) => void
       ) => () => void
       updateRelevanceEpisode: (

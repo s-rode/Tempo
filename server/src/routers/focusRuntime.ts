@@ -9,6 +9,7 @@ import {
   completeRun,
   createCustomRun,
   createPomodoroRun,
+  continueFinishedSession,
   extendTaskRun,
   currentPhase,
   freezePhase,
@@ -21,7 +22,8 @@ import {
   type TodayPlanTaskSource,
 } from '../services/focusRuntime';
 import { cancelPendingEnrichment } from '../services/categorization/enrichmentScheduler';
-import { FocusRunHistoryModel } from '../models/focusRuntime';
+import { FocusRunHistoryModel, FocusRuntimeModel } from '../models/focusRuntime';
+import { armFocusRuntimeDeadline } from '../services/focusRuntimeScheduler';
 import { getCurrentDailyPlanTask, resolveEffectiveGoalContext } from '../services/goalPlans';
 import { GoalPlanModel } from '../models/goalPlan';
 import { getReminderTasks } from '../services/reminders';
@@ -518,5 +520,55 @@ export const focusRuntimeRouter = router({
         runtime.acknowledgedTransitionNoticeId = runtime.transitionNotice.id;
       await saveRuntime(runtime);
       return runtimeSnapshot(runtime);
+    }),
+  addSessionTime: publicProcedure
+    .input(tokenInput.extend({ noticeId: z.string().uuid(), minutes: taskMinutes }))
+    .mutation(async ({ input }) => {
+      const userId = verifyToken(input.token).userId;
+      const runtime = await runtimeFor(input.token);
+      const notice = runtime.transitionNotice;
+      let extended = false;
+      if (notice?.id === input.noticeId) {
+        if (notice.kind === 'task_target_reached' && runtime.run?.id === notice.runId) {
+          extended = extendTaskRun(runtime, input.minutes);
+          if (extended) runtime.acknowledgedTransitionNoticeId = notice.id;
+        } else if (!runtime.run && ['focus_complete', 'pomodoro_complete'].includes(notice.kind)) {
+          const history = await FocusRunHistoryModel.findOne({
+            userId,
+            runId: notice.runId,
+            outcome: 'completed',
+          }).lean();
+          extended = continueFinishedSession(runtime, history?.run, input.noticeId, input.minutes);
+        }
+      }
+      if (!extended)
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message:
+            'This session can no longer be extended. Open Tempo to check the current session.',
+        });
+      // Reading archived history awaits I/O. Refuse to overwrite a session
+      // started or changed while that lookup was in progress.
+      const updated = await FocusRuntimeModel.findOneAndUpdate(
+        { userId, revision: runtime.revision },
+        {
+          $set: {
+            run: runtime.run,
+            acknowledgedTransitionNoticeId: runtime.acknowledgedTransitionNoticeId,
+          },
+          $inc: { revision: 1 },
+        },
+        { new: true }
+      );
+      if (!updated)
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'The focus session changed. Try adding time again.',
+        });
+      await armFocusRuntimeDeadline(userId);
+      cancelPendingEnrichment(userId);
+      cancelPendingGoalSupportProfiles(userId);
+      await scheduleActiveGoalProfile(userId);
+      return runtimeSnapshot(updated);
     }),
 });

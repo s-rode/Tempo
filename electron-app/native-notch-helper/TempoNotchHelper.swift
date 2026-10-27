@@ -50,6 +50,10 @@ struct FocusTransitionNotice: Codable, Equatable {
   let occurredAtMs: Double
   let goal: String?
   let breakDurationMs: Double?
+
+  var canAddTime: Bool {
+    ["focus_complete", "pomodoro_complete", "task_target_reached"].contains(kind)
+  }
 }
 
 /**
@@ -253,7 +257,7 @@ final class NotchController: NSObject, ObservableObject {
 
   var expandedContentHeight: CGFloat {
     if presentedTransitionNotice != nil {
-      return presentedTransitionNotice?.kind == "task_target_reached" ? 170 : normalExpandedPanelHeight
+      return presentedTransitionNotice?.canAddTime == true ? 170 : normalExpandedPanelHeight
     }
     if presentedDistractionNotice != nil {
       return distractionNoticeExpandedPanelHeight
@@ -408,6 +412,11 @@ final class NotchController: NSObject, ObservableObject {
     // waiting for the next one-second display tick.
     now = Date()
     refreshBackgroundWork()
+    if let notice = presentedTransitionNotice, notice.canAddTime,
+       (notice.kind == "task_target_reached" && next.taskCheckpointReached != true) ||
+       (notice.kind != "task_target_reached" && next.runtimeMode != nil && next.runtimeMode != "normal") {
+      dismissTransientControls()
+    }
     if next.trackingState == "paused" { pausePickerOpen = false }
     if next.showDistractionNotchAlerts == false {
       clearDistractionNotice()
@@ -451,6 +460,9 @@ final class NotchController: NSObject, ObservableObject {
       NSSound(named: NSSound.Name("Glass"))?.play()
     }
     setExpanded(true)
+    // Completion needs a decision. Keep its actions available until the user
+    // adds time, hides the card, or dismisses it with Escape.
+    if notice.canAddTime { return }
     let work = DispatchWorkItem { [weak self] in
       guard let self else { return }
       self.presentedTransitionNotice = nil
@@ -674,8 +686,12 @@ final class NotchController: NSObject, ObservableObject {
   func requestFocusAction(_ action: String, durationMinutes: Int? = nil) {
     var payload: [String: Any] = ["action": action]
     if let durationMinutes { payload["durationMinutes"] = durationMinutes }
+    if action == "extendSession" {
+      guard let notice = presentedTransitionNotice, notice.canAddTime else { return }
+      payload["noticeId"] = notice.id
+    }
     emit(type: "focusCommand", extra: payload)
-    if action == "finishTask" || action == "extendTask10" { dismissTransientControls() }
+    if action == "finishTask" || action == "extendSession" { dismissTransientControls() }
   }
 
   func requestPause(minutes: Int) {
@@ -1253,12 +1269,12 @@ struct NotchRootView: View {
   private var transitionMessage: String {
     guard let notice = transitionNotice else { return "" }
     switch notice.kind {
-    case "focus_complete": return notice.goal.map { "Completed: \($0)" } ?? "Your focus session is complete."
+    case "focus_complete": return notice.goal.map { "Time’s up for \($0). Need more time?" } ?? "Your focus timer is done. Need more time?"
     case "break_started":
       let duration = max(1, Int((notice.breakDurationMs ?? 0) / 60_000))
       return "Take your \(duration)-minute break before the next block."
     case "break_complete": return notice.goal.map { "Back to \($0). Your next work block has started." } ?? "Choose one clear goal for your next work block."
-    case "pomodoro_complete": return "All four work blocks and the long break are complete."
+    case "pomodoro_complete": return "Your Pomodoro is complete. Add time to keep working on your last goal."
     case "task_target_reached": return notice.goal.map { "Finished with \($0)?" } ?? "Finished with this task?"
     default: return ""
     }
@@ -1371,15 +1387,32 @@ struct NotchRootView: View {
             Button("I’m finished") { controller.requestFocusAction("finishTask") }
               .buttonStyle(NotchActionStyle(tone: .productive))
               .accessibilityLabel("Finish this planned task and check it off")
-            Button("+10 min") { controller.requestFocusAction("extendTask10") }
-              .buttonStyle(NotchActionStyle(tone: .neutral))
-              .accessibilityLabel("Add ten minutes of work to this task session")
           } else if transitionNotice?.kind == "break_complete" && transitionNotice?.goal == nil {
             Button("Set next goal") { controller.emit(type: "openFocusGoal") }
               .buttonStyle(NotchActionStyle(tone: .productive))
               .accessibilityLabel("Open Tempo to set the next Pomodoro goal")
           } else {
             openWindowButton
+          }
+          if transitionNotice?.canAddTime == true {
+            Menu {
+              ForEach([5, 10, 15, 30], id: \.self) { minutes in
+                Button("+\(minutes) min") {
+                  controller.requestFocusAction("extendSession", durationMinutes: minutes)
+                }
+              }
+            } label: {
+              Text("Add time")
+            }
+            .menuStyle(.borderedButton)
+            .controlSize(.small)
+            // The notch is always a dark surface, independently of the
+            // desktop appearance. Native menu labels must follow it too.
+            .environment(\.colorScheme, .dark)
+            .fixedSize()
+            .accessibilityLabel("Add more time to this focus session")
+            .accessibilityIdentifier("tempo-add-session-time")
+            .help("Continue the same goal for another 5, 10, 15, or 30 minutes")
           }
           if transitionNotice?.kind == "break_started" {
             Button("Skip break") { controller.requestFocusAction("skipBreak") }

@@ -115,7 +115,7 @@ export function MainAppContent() {
   const skipBreakMutation = trpc.focusRuntime.skipBreak.useMutation()
   const endFocusMutation = trpc.focusRuntime.endRun.useMutation()
   const finishTaskMutation = trpc.focusRuntime.finishTaskSession.useMutation()
-  const extendTaskMutation = trpc.focusRuntime.extendTaskSession.useMutation()
+  const addSessionTimeMutation = trpc.focusRuntime.addSessionTime.useMutation()
   const resumeSystemSuspensionMutation = trpc.focusRuntime.resumeSystemSuspension.useMutation()
 
   // The server-owned scheduler is authoritative. This one-shot refresh only
@@ -264,24 +264,42 @@ export function MainAppContent() {
         skipBreakMutation.mutate({ token }, { onSuccess: syncRuntime })
       } else if (command.action === 'endRun') {
         endFocusMutation.mutate({ token }, { onSuccess: syncRuntime })
-      } else if (command.action === 'finishTask' || command.action === 'extendTask10') {
+      } else if (
+        command.action === 'extendSession' &&
+        command.noticeId &&
+        command.durationMinutes
+      ) {
+        addSessionTimeMutation.mutate(
+          { token, noticeId: command.noticeId, minutes: command.durationMinutes },
+          {
+            onSuccess: (state) => {
+              syncRuntime(state)
+              void focusRuntimeUtils.focusRuntime.getTimelineRuns.invalidate()
+              void focusRuntimeUtils.goals.getActiveContext.invalidate()
+              void window.api?.refreshCurrentActivity()
+            },
+            onError: (error) =>
+              toast({
+                title: 'Could not add time',
+                description: error.message,
+                variant: 'destructive'
+              })
+          }
+        )
+      } else if (command.action === 'finishTask') {
         const runId = focusRuntime?.run?.id
         if (!runId || !focusRuntime?.taskProgress?.checkpointAtMs) return
-        if (command.action === 'finishTask') {
-          finishTaskMutation.mutate(
-            { token, runId },
-            {
-              onSuccess: (state) => {
-                syncRuntime(state)
-                void focusRuntimeUtils.goals.getDailyPlan.invalidate()
-                void focusRuntimeUtils.goals.getActiveContext.invalidate()
-                void window.api?.refreshCurrentActivity()
-              }
+        finishTaskMutation.mutate(
+          { token, runId },
+          {
+            onSuccess: (state) => {
+              syncRuntime(state)
+              void focusRuntimeUtils.goals.getDailyPlan.invalidate()
+              void focusRuntimeUtils.goals.getActiveContext.invalidate()
+              void window.api?.refreshCurrentActivity()
             }
-          )
-        } else {
-          extendTaskMutation.mutate({ token, runId, minutes: 10 }, { onSuccess: syncRuntime })
-        }
+          }
+        )
       }
     })
   }, [
@@ -292,7 +310,7 @@ export function MainAppContent() {
     skipBreakMutation,
     endFocusMutation,
     finishTaskMutation,
-    extendTaskMutation,
+    addSessionTimeMutation,
     focusRuntime
   ])
 

@@ -75,8 +75,9 @@ type NotchEvent =
   | {
       version: 5
       type: 'focusCommand'
-      action: 'pause' | 'resume' | 'skipBreak' | 'endRun' | 'finishTask' | 'extendTask10'
+      action: 'pause' | 'resume' | 'skipBreak' | 'endRun' | 'finishTask' | 'extendSession'
       durationMinutes?: number
+      noticeId?: string
     }
   | { version: 5; type: 'error'; code: string }
 

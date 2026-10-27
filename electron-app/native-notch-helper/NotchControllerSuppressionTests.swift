@@ -2,6 +2,42 @@
 // extension can inspect pending work without adding a production testing API.
 extension NotchController {
   @MainActor
+  static func testCompletionActions() {
+    func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
+      guard condition() else {
+        fputs("Notch completion test failed: \(message)\n", stderr)
+        exit(1)
+      }
+    }
+    let panel = TempoNotchPanel(contentRect: CGRect(x: -5000, y: -5000, width: 520, height: 194),
+                               styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+    panel.isReleasedWhenClosed = false
+    let controller = NotchController(panel: panel, geometry: resolveGeometry())
+    let host = PassthroughHostingView(rootView: AnyView(EmptyView()), controller: controller)
+    controller.host = host
+    panel.contentView = host
+    defer { controller.hide() }
+    for kind in ["focus_complete", "pomodoro_complete", "task_target_reached"] {
+      var payload = try! JSONSerialization.jsonObject(with: JSONEncoder().encode(controller.status)) as! [String: Any]
+      payload["runtimeMode"] = kind == "task_target_reached" ? "custom" : "normal"
+      payload["taskCheckpointReached"] = kind == "task_target_reached"
+      payload["transitionNotice"] = ["id": kind, "kind": kind, "runId": "run", "phaseId": "phase",
+                                     "phaseIndex": 0, "occurredAtMs": 1, "goal": "Review notes"]
+      controller.apply(status: try! JSONDecoder().decode(StatusPayload.self,
+        from: JSONSerialization.data(withJSONObject: payload)))
+      expect(controller.expanded && controller.presentedTransitionNotice?.canAddTime == true,
+             "\(kind) automatically expands with continuation actions")
+      expect(controller.expandedContentHeight == 170 && panel.acceptsKeyboardControls,
+             "completion reserves room for controls and accepts keyboard input")
+      expect(controller.transitionAlertWork == nil || controller.transitionAlertWork?.isCancelled == true,
+             "completion actions never expire while choosing a duration")
+      controller.requestFocusAction("extendSession", durationMinutes: 15)
+      expect(controller.presentedTransitionNotice == nil, "choosing extra time dismisses the card")
+    }
+    print("Notch completion action tests passed")
+  }
+
+  @MainActor
   static func testPillSuppression() {
     func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
       guard condition() else {
@@ -180,6 +216,7 @@ struct NotchControllerSuppressionTestMain {
   static func main() {
     NSApplication.shared.setActivationPolicy(.prohibited)
     NotchController.testPillSuppression()
+    NotchController.testCompletionActions()
     NotchController.testBatteryLifecycle()
     NotchOverlapMonitor.testBatteryLifecycle()
   }

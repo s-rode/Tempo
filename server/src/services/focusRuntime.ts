@@ -604,4 +604,42 @@ export const extendTaskRun = (runtime: RuntimeDocument, minutes: number, now = D
   return true;
 };
 
+/** Continue a naturally finished session without charging the gap after its timer. */
+export const continueFinishedSession = (
+  runtime: RuntimeDocument,
+  finishedRun: any,
+  noticeId: string,
+  minutes: number,
+  now = Date.now()
+) => {
+  const notice = runtime.transitionNotice;
+  if (
+    runtime.run?.state === 'active' ||
+    !Number.isInteger(minutes) ||
+    minutes < 1 ||
+    minutes > 720 ||
+    notice?.id !== noticeId ||
+    !['focus_complete', 'pomodoro_complete'].includes(notice?.kind) ||
+    finishedRun?.id !== notice.runId ||
+    finishedRun?.state !== 'completed' ||
+    taskTargetFor(finishedRun)
+  )
+    return false;
+  const lastWork = [...finishedRun.phases].reverse().find((entry: any) => entry.kind === 'work');
+  if (!lastWork?.goal) return false;
+  // The finished run stays in history. A new work segment preserves its goal
+  // and provenance, while starting both accounting and the deadline at now.
+  runtime.run = createCustomRun(lastWork.goal, minutes, now);
+  runtime.run.phases[0].todayPlanTask = lastWork.todayPlanTask || null;
+  runtime.run.phases[0].goalHistory[0].todayPlanTask = lastWork.todayPlanTask || null;
+  if (
+    runtime.manualPauseUntilMs ||
+    hasSystemSuspension(runtime) ||
+    runtime.awaitingSystemResumeCapture
+  )
+    freezePhase(runtime, now);
+  runtime.acknowledgedTransitionNoticeId = notice.id;
+  return true;
+};
+
 export { currentPhase, freezePhase, resumePhase, completeRun, shouldAwaitFreshSystemCapture };

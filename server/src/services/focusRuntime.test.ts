@@ -4,6 +4,7 @@ import {
   createCustomRun,
   createPomodoroRun,
   extendTaskRun,
+  continueFinishedSession,
   runtimeSnapshot,
   freezePhase,
   resumePhase,
@@ -34,7 +35,9 @@ describe('estimated task work time', () => {
     expect(runtime.run.state).toBe('active');
     advanceRuntime(runtime, targetAt + 11 * 60_000, { emitTransitionNotice: true });
     expect(runtime.transitionNotice.id).toBe(noticeId);
-    expect(runtimeSnapshot(runtime, targetAt + 11 * 60_000).taskProgress?.workElapsedMs).toBe(56 * 60_000);
+    expect(runtimeSnapshot(runtime, targetAt + 11 * 60_000).taskProgress?.workElapsedMs).toBe(
+      56 * 60_000
+    );
     expect(runtimeSnapshot(runtime, targetAt + 11 * 60_000).nextDeadlineAtMs).toBeNull();
     expect(extendTaskRun(runtime, 10, targetAt + 11 * 60_000)).toBe(true);
     expect(runtime.run.taskTarget.estimatedMinutes).toBe(45);
@@ -46,8 +49,13 @@ describe('estimated task work time', () => {
 
   test('task Pomodoro schedules exact 30/5/15 and automatically resumes after break', () => {
     const runtime = runtimeWith(createPomodoroRun('Flashcards', 1_000, source, 45, 45));
-    expect(runtime.run.phases.map((phase: any) => [phase.kind, phase.plannedDurationMs / 60_000]))
-      .toEqual([['work', 30], ['short_break', 5], ['work', 15]]);
+    expect(
+      runtime.run.phases.map((phase: any) => [phase.kind, phase.plannedDurationMs / 60_000])
+    ).toEqual([
+      ['work', 30],
+      ['short_break', 5],
+      ['work', 15],
+    ]);
     advanceRuntime(runtime, 1_000 + 30 * 60_000, { emitTransitionNotice: true });
     expect(runtime.run.currentPhaseIndex).toBe(1);
     advanceRuntime(runtime, 1_000 + 35 * 60_000, { emitTransitionNotice: true });
@@ -90,8 +98,13 @@ describe('estimated task work time', () => {
 
   test('a long Pomodoro extension inserts only necessary intermediate breaks', () => {
     const runtime = runtimeWith(createPomodoroRun('Exercises', 1_000, source, 90, 90));
-    expect(runtime.run.phases.map((phase: any) => phase.kind))
-      .toEqual(['work', 'short_break', 'work', 'short_break', 'work']);
+    expect(runtime.run.phases.map((phase: any) => phase.kind)).toEqual([
+      'work',
+      'short_break',
+      'work',
+      'short_break',
+      'work',
+    ]);
     runtime.run.currentPhaseIndex = 4;
     runtime.run.phases[0].activeElapsedMs = 30 * 60_000;
     runtime.run.phases[0].state = 'completed';
@@ -105,8 +118,14 @@ describe('estimated task work time', () => {
     final.activeElapsedMs = 30 * 60_000;
     runtime.run.taskTarget.checkpointAtMs = 31 * 60_000;
     expect(extendTaskRun(runtime, 40, 31 * 60_000)).toBe(true);
-    expect(runtime.run.phases.slice(5).map((phase: any) => [phase.kind, phase.plannedDurationMs / 60_000]))
-      .toEqual([['short_break', 5], ['work', 10]]);
+    expect(
+      runtime.run.phases
+        .slice(5)
+        .map((phase: any) => [phase.kind, phase.plannedDurationMs / 60_000])
+    ).toEqual([
+      ['short_break', 5],
+      ['work', 10],
+    ]);
     expect(final.plannedDurationMs).toBe(60 * 60_000);
   });
 
@@ -118,6 +137,95 @@ describe('estimated task work time', () => {
     runtime.manualPauseUntilMs = null;
     resumePhase(runtime, 71_000);
     expect(runtimeSnapshot(runtime, 81_000).taskProgress?.workElapsedMs).toBe(20_000);
+  });
+});
+
+describe('continuing a finished focus session', () => {
+  const finishedCustom = () => {
+    const runtime = runtimeWith(createCustomRun('Review probability notes', 15, 1_000));
+    advanceRuntime(runtime, 901_000, { emitTransitionNotice: true });
+    const finished = structuredClone(runtime.run);
+    runtime.run = null; // Normal reconciliation has archived the completed run.
+    return { runtime, finished };
+  };
+
+  test('continues the same goal from the click without changing history or charging the gap', () => {
+    const { runtime, finished } = finishedCustom();
+    const before = structuredClone(finished);
+    const noticeId = runtime.transitionNotice.id;
+    // Delivery acknowledgement happens before the user acts on the notch.
+    runtime.acknowledgedTransitionNoticeId = noticeId;
+    expect(continueFinishedSession(runtime, finished, noticeId, 10, 1_501_000)).toBe(true);
+    const snapshot = runtimeSnapshot(runtime, 1_501_000);
+    expect(snapshot.mode).toBe('custom');
+    expect(snapshot.currentPhase?.goal).toBe('Review probability notes');
+    expect(snapshot.currentPhase?.activeElapsedMs).toBe(0);
+    expect(snapshot.phaseRemainingMs).toBe(600_000);
+    expect(snapshot.nextDeadlineAtMs).toBe(2_101_000);
+    expect(snapshot.transitionNotice).toBeNull();
+    expect(finished).toEqual(before);
+    expect(runtime.run.id).not.toBe(finished.id);
+    advanceRuntime(runtime, 2_101_000, { emitTransitionNotice: true });
+    expect(runtime.transitionNotice.kind).toBe('focus_complete');
+    expect(runtime.transitionNotice.id).not.toBe(noticeId);
+  });
+
+  test('rejects stale notices, unrelated history, duplicate clicks, and invalid durations', () => {
+    const { runtime, finished } = finishedCustom();
+    const noticeId = runtime.transitionNotice.id;
+    expect(continueFinishedSession(runtime, finished, 'stale', 10)).toBe(false);
+    expect(continueFinishedSession(runtime, { ...finished, id: 'other' }, noticeId, 10)).toBe(
+      false
+    );
+    expect(
+      continueFinishedSession(runtime, { ...finished, state: 'cancelled' }, noticeId, 10)
+    ).toBe(false);
+    for (const minutes of [0, -1, 1.5, 721, NaN])
+      expect(continueFinishedSession(runtime, finished, noticeId, minutes)).toBe(false);
+    expect(runtime.run).toBeNull();
+    expect(continueFinishedSession(runtime, finished, noticeId, 5, 1_501_000)).toBe(true);
+    const newRunId = runtime.run.id;
+    expect(continueFinishedSession(runtime, finished, noticeId, 5, 1_501_001)).toBe(false);
+    expect(runtime.run.id).toBe(newRunId);
+  });
+
+  test('continues the last Pomodoro goal with just the requested work block', () => {
+    const run = createPomodoroRun('First goal', 1_000);
+    run.phases[6].goal = 'Last goal';
+    run.phases[6].todayPlanTask = { taskId: 'task-123', dateKey: '2026-10-27' };
+    run.currentPhaseIndex = 7;
+    Object.assign(run.phases[7], { state: 'running', runningSinceMs: 1_000 });
+    const runtime = runtimeWith(run);
+    advanceRuntime(runtime, 1_801_000, { emitTransitionNotice: true });
+    const finished = structuredClone(runtime.run);
+    runtime.run = null;
+    expect(
+      continueFinishedSession(runtime, finished, runtime.transitionNotice.id, 30, 1_901_000)
+    ).toBe(true);
+    expect(runtime.run.kind).toBe('custom');
+    expect(runtime.run.phases).toHaveLength(1);
+    expect(runtime.run.phases[0].goal).toBe('Last goal');
+    expect(runtime.run.phases[0].todayPlanTask).toEqual(run.phases[6].todayPlanTask);
+    expect(runtime.run.taskTarget).toBeNull();
+    expect(runtimeSnapshot(runtime, 1_901_000).phaseRemainingMs).toBe(30 * 60_000);
+  });
+
+  test('honors sleep, fresh-capture gates, and manual pauses when continuing', () => {
+    for (const suspension of [
+      { systemSleeping: true },
+      { systemLocked: true },
+      { awaitingSystemResumeCapture: true },
+      { manualPauseUntilMs: 2_000_000 },
+    ]) {
+      const { runtime, finished } = finishedCustom();
+      Object.assign(runtime, suspension);
+      expect(
+        continueFinishedSession(runtime, finished, runtime.transitionNotice.id, 10, 1_501_000)
+      ).toBe(true);
+      expect(runtime.run.phases[0].state).toBe('suspended');
+      expect(runtime.run.phases[0].runningSinceMs).toBeNull();
+      expect(runtimeSnapshot(runtime, 1_601_000).currentPhase?.activeElapsedMs).toBe(0);
+    }
   });
 });
 
@@ -135,8 +243,9 @@ describe('focus transition notices', () => {
     manuallyPaused.manualPauseUntilMs = 61_000;
     expect(shouldAwaitFreshSystemCapture(manuallyPaused, 1_000)).toBe(false);
 
-    const onBreak = runtimeWith(createPomodoroRun('Flashcards', 1_000,
-      { taskId: 'task-123', dateKey: '2026-10-04' }, 45, 45));
+    const onBreak = runtimeWith(
+      createPomodoroRun('Flashcards', 1_000, { taskId: 'task-123', dateKey: '2026-10-04' }, 45, 45)
+    );
     onBreak.run.currentPhaseIndex = 1;
     onBreak.run.phases[1].state = 'running';
     expect(shouldAwaitFreshSystemCapture(onBreak, 1_000)).toBe(false);
