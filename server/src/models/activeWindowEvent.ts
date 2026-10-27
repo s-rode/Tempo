@@ -46,6 +46,7 @@ const activeWindowEventSchema = new Schema({
   activitySummary: { type: String, maxlength: 120 },
   categoryId: { type: String, required: false, index: true },
   categoryReasoning: { type: String },
+  nudgeVersion: { type: String, default: null },
   nudgeTitle: { type: String, maxlength: 80 },
   nudgeBody: { type: String, maxlength: 180 },
   classificationStatus: {

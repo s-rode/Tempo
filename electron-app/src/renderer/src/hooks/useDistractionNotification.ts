@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { ActiveWindowEvent, Category } from 'shared'
+import { type ActiveWindowEvent, type Category } from 'shared'
 import { useAuth } from '../contexts/AuthContext'
 import {
+  DistractionNudgeLoader,
   distractionNotificationCopy,
   distractionNotificationIntervalMs
 } from '../lib/distractionNudge'
@@ -22,6 +23,9 @@ export const useDistractionNotification = (
     { token: token || '' },
     { enabled: !!token, staleTime: 300000 }
   )
+  const prepareNudge = trpc.activeWindowEvents.prepareDistractionNotification.useMutation()
+  const copyLoader = useRef(new DistractionNudgeLoader())
+  const lastAttemptRef = useRef<number | null>(null)
   const lastNotifiedRef = useRef<number | null>(null)
   const distractionStartRef = useRef<number | null>(null)
   const activeDistractionKeyRef = useRef<string | null>(null)
@@ -37,6 +41,7 @@ export const useDistractionNotification = (
     if ((electronSettings as any)?.showDistractionNotifications === false || !canNudge || !trackingActive) {
       distractionStartRef.current = null
       lastNotifiedRef.current = null
+      lastAttemptRef.current = null
       activeDistractionKeyRef.current = null
       return
     }
@@ -47,6 +52,7 @@ export const useDistractionNotification = (
       activeDistractionKeyRef.current = distractionKey
       distractionStartRef.current = Date.now()
       lastNotifiedRef.current = null
+      lastAttemptRef.current = null
     }
     if (!distractionStartRef.current) distractionStartRef.current = Date.now()
     const intervalMs = distractionNotificationIntervalMs(
@@ -54,11 +60,25 @@ export const useDistractionNotification = (
     )
     const primaryGoal = sessionGoal || goalContext?.primaryGoal || 'your current goal'
 
-    const notify = () => {
+    let cancelled = false
+    const notify = async () => {
       const now = Date.now()
       if (!latestEvent || !distractionStartRef.current || now - distractionStartRef.current < intervalMs) return
-      if (lastNotifiedRef.current && now - lastNotifiedRef.current <= intervalMs) return
-      const { title, body } = distractionNotificationCopy(latestEvent, primaryGoal)
+      if (lastNotifiedRef.current && now - lastNotifiedRef.current < intervalMs) return
+      let copy = distractionNotificationCopy(latestEvent, primaryGoal)
+      if (token && latestEvent.eventId) {
+        const key = `${latestEvent.eventId}:${latestEvent.goalContextFingerprint || ''}:${primaryGoal}`
+        const prepared = await copyLoader.current.load(key, () =>
+          prepareNudge.mutateAsync({ token, eventId: latestEvent.eventId! })
+        )
+        if (cancelled) return
+        lastAttemptRef.current = Date.now()
+        // The server rejected a stale activity, changed goal, pause or setting.
+        if (prepared === null) return
+        if (prepared.copy) copy = prepared.copy
+      }
+      if (cancelled) return
+      const { title, body } = copy
       // This is deliberately an opaque, ephemeral key. It lets the main
       // process prevent duplicate alerts across a renderer reload without
       // storing activity text, URLs, OCR, prompts, or model output.
@@ -74,17 +94,17 @@ export const useDistractionNotification = (
         title,
         body
       })
-      lastNotifiedRef.current = now
+      lastNotifiedRef.current = Date.now()
     }
-    let cancelled = false
     let timeoutId: number | null = null
     const scheduleNext = () => {
       const nextDeliveryAt =
-        (lastNotifiedRef.current || distractionStartRef.current || Date.now()) + intervalMs
+        (Math.max(lastAttemptRef.current || 0, lastNotifiedRef.current || 0) || distractionStartRef.current || Date.now()) + intervalMs
       timeoutId = window.setTimeout(() => {
         if (cancelled) return
-        notify()
-        if (!cancelled) scheduleNext()
+        void notify().finally(() => {
+          if (!cancelled) scheduleNext()
+        })
       }, Math.max(0, nextDeliveryAt - Date.now()))
     }
     scheduleNext()
@@ -92,5 +112,5 @@ export const useDistractionNotification = (
       cancelled = true
       if (timeoutId !== null) window.clearTimeout(timeoutId)
     }
-  }, [categoryDetails, latestEvent, electronSettings, goalContext, trackingActive, sessionGoal])
+  }, [categoryDetails, latestEvent, electronSettings, goalContext, trackingActive, sessionGoal, token, prepareNudge.mutateAsync])
 }

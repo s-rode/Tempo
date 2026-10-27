@@ -76,6 +76,7 @@ export interface ActiveWindowDetails {
   activityLabel?: string | null;
   activitySummary?: string | null;
   categoryReasoning?: string | null;
+  nudgeVersion?: string | null;
   nudgeTitle?: string | null;
   nudgeBody?: string | null;
   /** Opaque delivery ID used only to make foreground-capture retries idempotent. */
@@ -229,3 +230,5 @@ export interface FocusRuntimeSnapshot {
 }
 /** Bump whenever a packaged local server must not be reused across app updates. */
 export const TEMPO_LOCAL_SERVER_API_VERSION = '2026-10-tempo-local-publication-v1';
+
+export { usableDistractionNudge, type DistractionNudge } from './distractionNudge';

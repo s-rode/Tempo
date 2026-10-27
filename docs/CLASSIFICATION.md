@@ -36,6 +36,19 @@ Uncertain time receives no productive credit or distraction sound. After two con
 
 Distraction audio uses a main-process cooldown across captures and renderer remounts. Pending classifications, productive activity, and tracking pauses cancel playback without resetting that cooldown. A recurring deadline maintains the selected sound interval on an unchanged distracted page; no one-second sound polling is used. Distraction notifications are silent so system notification sounds cannot bypass the separate sound setting. Session transition chimes retain their own controls.
 
+Distraction reminders can use a short message written by the local model for the current app/window and effective goal. Generation happens only when a reminder is due, with notifications enabled and a confirmed distracting category. General activity enrichment produces labels and summaries without generating unused notification copy. Old messages without the current copy version are replaced lazily.
+
+The notification request is limited to 112 output tokens and eight seconds, with no inference retry loop. A successful message is stored on its activity event; recurring reminders reuse it without another request. Concurrent requests share one attempt, and failed attempts are remembered for that activity/goal. A new foreground capture cancels optional generation before classification starts. The server rechecks the latest event, goal, category, settings and suspension state after generation; the renderer also discards late responses after its activity changes. Technical classification failures, productive/uncertain activity, disabled notifications and paused tracking do not generate messages. No goal means no speculative personalized message. Unavailable or invalid model output retains the existing short fallback.
+
+Notification input contains bounded app/window metadata and the supplied goal, without page body text or OCR. Generated messages are derived text, not authoritative evidence about conversations or intent. The prompt asks for the broad distraction and a concrete next step toward the actual goal, in the goal's language. Both Notification Center and the optional notch notice receive the same copy and retain the selected reminder interval and sound settings.
+
+Synthetic local-model wording/latency checks and isolated persistence/cancellation checks can be run from the repository root:
+
+```sh
+bun server/scripts/evaluate-distraction-nudges.ts /tmp/tempo-nudge-evaluation.json
+bun server/scripts/verify-distraction-nudges.ts
+```
+
 Unclassified and pending activity also has a visible **Choose category** control. Its category chooser labels productive and distracting choices explicitly. Opening or cancelling it changes no history or learning. If an upload has no saved event, saving a category prepares an observation without another model call or captured page text. It records the goal context at the explicit observation time, rather than inventing context for an earlier failed capture. Existing events retain their original historical context. Retries reuse the same capture identity, and a late model result cannot overwrite an explicit correction.
 
 ## Optional reviews and diagnostics

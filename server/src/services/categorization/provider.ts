@@ -1,3 +1,4 @@
+import { usableDistractionNudge, type DistractionNudge } from '../../../../shared/distractionNudge';
 import { z } from 'zod';
 import {
   ActiveWindowDetails,
@@ -9,6 +10,7 @@ import {
   buildPersonalizedActivityPromptInput,
   buildToolProfilePromptInput,
   buildEnrichmentPromptInput,
+  buildDistractionNudgePromptInput,
   buildGoalSupportProfilePromptInput,
   buildGoalRelationPromptInput,
   buildSemanticActivityPromptInput,
@@ -50,7 +52,7 @@ export type ClassificationFailureCode =
   | 'enrichment_failed';
 
 export type CoreClassificationDecision = z.infer<typeof CoreClassificationDecisionSchema>;
-export type ClassificationEnrichment = z.infer<typeof EnrichmentSchema>;
+export type ClassificationEnrichment = z.infer<typeof EnrichmentSchema> & { nudgeTitle: null; nudgeBody: null };
 type ActivityContext = Pick<
   ActiveWindowDetails,
   'ownerName' | 'title' | 'url' | 'siteHost' | 'content' | 'contentSource' | 'type' | 'browser'
@@ -124,6 +126,7 @@ export interface ClassificationProvider {
     learningExamples?: LearningExampleForPrompt[],
     personalized?: boolean
   ): Promise<SemanticActivityProviderResult>;
+  distractionNudge(goal: string, activity: Pick<ActiveWindowDetails, 'ownerName' | 'title'>, signal?: AbortSignal): Promise<DistractionNudge | null>;
   enrich(
     goals: EffectiveGoalContext,
     category: PromptCategory,
@@ -282,10 +285,8 @@ const enrichmentResponseSchema = {
     activityLabel: { type: 'string', maxLength: 48 },
     activitySummary: { type: 'string', maxLength: 80 },
     reasoning: { type: 'string', maxLength: 100 },
-    nudgeTitle: { type: ['string', 'null'], maxLength: 60 },
-    nudgeBody: { type: ['string', 'null'], maxLength: 120 },
   },
-  required: ['activityLabel', 'activitySummary', 'reasoning', 'nudgeTitle', 'nudgeBody'],
+  required: ['activityLabel', 'activitySummary', 'reasoning'],
 };
 
 const boundedNumber = (
@@ -453,6 +454,7 @@ async function chat(
   timeoutMs: number,
   externalSignal?: AbortSignal
 ): Promise<{ content: string | null; failure?: ClassificationFailureCode }> {
+  if (externalSignal?.aborted) return { content: null, failure: 'timeout' };
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const onAbort = () => controller.abort();
@@ -855,6 +857,22 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     };
   }
 
+  async distractionNudge(
+    goal: string,
+    activity: Pick<ActiveWindowDetails, 'ownerName' | 'title'>,
+    signal?: AbortSignal
+  ): Promise<DistractionNudge | null> {
+    const result = await chat(buildDistractionNudgePromptInput(goal, activity), {
+      type: 'object', additionalProperties: false,
+      properties: { distraction: { type: 'string', maxLength: 40 }, title: { type: 'string', maxLength: 60 }, body: { type: 'string', maxLength: 180 } },
+      required: ['distraction', 'title', 'body'],
+    }, Math.min(112, ollamaConfig().numPredict), 8000, signal);
+    if (!result.content) return null;
+    const parsed = z.object({ distraction: z.string().min(1).max(40), title: z.string().min(1).max(60), body: z.string().min(1).max(180) })
+      .safeParse(parseStructuredResponse(result.content));
+    return parsed.success ? usableDistractionNudge(parsed.data.title, parsed.data.body) : null;
+  }
+
   async enrich(
     goals: EffectiveGoalContext,
     category: PromptCategory,
@@ -876,8 +894,8 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       activityLabel: clip(parsed.data.activityLabel, 48),
       activitySummary: clip(parsed.data.activitySummary, 80),
       reasoning: clip(parsed.data.reasoning.split(/\s+/).slice(0, 12).join(' '), 100),
-      nudgeTitle: parsed.data.nudgeTitle ? clip(parsed.data.nudgeTitle, 60) : null,
-      nudgeBody: parsed.data.nudgeBody ? clip(parsed.data.nudgeBody, 120) : null,
+      nudgeTitle: null,
+      nudgeBody: null,
     };
   }
 

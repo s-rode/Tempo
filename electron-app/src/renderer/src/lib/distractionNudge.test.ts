@@ -46,3 +46,22 @@ describe('distraction notification copy', () => {
     expect(copy.body).toContain('take the next useful step now')
   })
 })
+
+describe('on-demand notification preparation', () => {
+  test('coalesces calls and remembers unavailable-model fallback for the activity', async () => {
+    const { DistractionNudgeLoader } = await import('./distractionNudge')
+    const loader = new DistractionNudgeLoader()
+    let calls = 0
+    const prepare = async () => { calls++; throw new Error('offline') }
+    await Promise.all([loader.load('event:goal', prepare), loader.load('event:goal', prepare)])
+    expect(await loader.load('event:goal', prepare)).toEqual({ copy: null })
+    expect(calls).toBe(1)
+    await loader.load('event:new-goal', prepare)
+    expect(calls).toBe(2)
+  })
+
+  test('preserves a server veto instead of turning stale activity into a fallback alert', async () => {
+    const { DistractionNudgeLoader } = await import('./distractionNudge')
+    expect(await new DistractionNudgeLoader().load('old-event', async () => null)).toBeNull()
+  })
+})

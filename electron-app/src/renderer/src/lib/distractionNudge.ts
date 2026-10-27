@@ -1,4 +1,4 @@
-import type { ActiveWindowEvent } from 'shared'
+import { usableDistractionNudge, type DistractionNudge, type ActiveWindowEvent } from 'shared'
 
 export const MIN_DISRUPTION_NOTIFICATION_INTERVAL_MS = 60_000
 
@@ -12,15 +12,6 @@ const clip = (value: string, limit: number): string => {
   if (normalized.length <= limit) return normalized
   const boundary = normalized.lastIndexOf(' ', limit - 1)
   return `${normalized.slice(0, boundary > 12 ? boundary : limit).trim()}…`
-}
-
-const hasUsefulLocalNudge = (title: string, body: string): boolean => {
-  const normalized = `${title} ${body}`.toLocaleLowerCase()
-  return !(
-    normalized.includes('currently marked as distracting') ||
-    normalized.startsWith('return to:') ||
-    normalized.includes('distraction: distracting')
-  )
 }
 
 export function distractionNotificationIntervalMs(intervalSeconds: number | null | undefined): number {
@@ -38,11 +29,8 @@ export function distractionNotificationCopy(
   event: Pick<ActiveWindowEvent, 'ownerName' | 'title' | 'activityLabel' | 'nudgeTitle' | 'nudgeBody'>,
   goal: string | null | undefined
 ): NotificationCopy {
-  const modelTitle = event.nudgeTitle?.trim() || ''
-  const modelBody = event.nudgeBody?.trim() || ''
-  if (modelTitle && modelBody && hasUsefulLocalNudge(modelTitle, modelBody)) {
-    return { title: clip(modelTitle, 80), body: clip(modelBody, 180) }
-  }
+  const model = usableDistractionNudge(event.nudgeTitle, event.nudgeBody)
+  if (model) return { title: clip(model.title, 80), body: clip(model.body, 180) }
 
   const activity = clip(event.ownerName || event.activityLabel || event.title || 'this distraction', 42)
   const goalReference = goal?.trim()
@@ -54,5 +42,19 @@ export function distractionNotificationCopy(
       `This is not moving ${goalReference} forward. Close ${activity} and take the next useful step now.`,
       180
     )
+  }
+}
+
+export type PreparedDistractionNotification = { copy: DistractionNudge | null } | null
+
+/** One preparation per activity/goal, including fallback after a network failure. */
+export class DistractionNudgeLoader {
+  private current: { key: string; promise: Promise<PreparedDistractionNotification> } | null = null
+
+  load(key: string, prepare: () => Promise<PreparedDistractionNotification>) {
+    if (this.current?.key === key) return this.current.promise
+    const promise = Promise.resolve().then(prepare).catch(() => ({ copy: null }))
+    this.current = { key, promise }
+    return promise
   }
 }

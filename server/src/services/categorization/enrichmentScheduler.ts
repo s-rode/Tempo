@@ -1,3 +1,4 @@
+import { cancelDistractionNudge } from './distractionNudgeRequests';
 import { ActiveWindowDetails } from '../../../../shared/types';
 import { ActiveWindowEventModel } from '../../models/activeWindowEvent';
 import { CategoryModel } from '../../models/category';
@@ -29,6 +30,7 @@ const offGoalSummary = (value: string): string => {
 
 /** Called as soon as a newer capture exists, before it begins core inference. */
 export function beginEnrichmentCapture(userId: string): number {
+  cancelDistractionNudge(userId);
   cancelPendingEnrichment(userId);
   const next = (generationByUser.get(userId) || 0) + 1;
   generationByUser.set(userId, next);
@@ -136,15 +138,11 @@ async function runEnrichment(
             // copy is never mistaken for an honest off-goal explanation.
             activityLabel: `Distracted by ${pending.activity.ownerName?.trim() || pending.activity.title?.trim() || 'this activity'}`,
             activitySummary: offGoalSummary(enrichment.activitySummary),
-            nudgeTitle: enrichment.nudgeTitle,
-            nudgeBody: enrichment.nudgeBody,
           }
         : {
             activityLabel: enrichment.activityLabel,
             activitySummary: enrichment.activitySummary,
             categoryReasoning: enrichment.reasoning,
-            nudgeTitle: enrichment.nudgeTitle,
-            nudgeBody: enrichment.nudgeBody,
           };
     await ActiveWindowEventModel.updateOne(
       {

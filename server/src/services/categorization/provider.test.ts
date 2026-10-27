@@ -310,13 +310,13 @@ describe('OllamaClassificationProvider', () => {
     });
   });
 
-  test('creates a direct local distraction nudge only in the deferred enrichment request', async () => {
+  test('background enrichment only describes activity and leaves notification generation on demand', async () => {
     process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
     globalThis.fetch = (async (_url: unknown, init: RequestInit | undefined) => {
       const request = JSON.parse(String(init?.body));
       expect(request.options.num_predict).toBe(96);
-      expect(request.messages[1].content).toContain('direct interruption notification');
-      expect(request.messages[1].content).toContain('Both nudge fields must be non-null');
+      expect(request.format.required).toEqual(['activityLabel', 'activitySummary', 'reasoning']);
+      expect(request.messages[1].content).toContain('no notification copy');
       return new Response(
         JSON.stringify({
           message: {
@@ -339,11 +339,35 @@ describe('OllamaClassificationProvider', () => {
       { name: 'Distraction', description: 'Unrelated entertainment', isProductive: false },
       activity
     );
-    expect(result).toMatchObject({
-      nudgeTitle: 'Close Instagram',
-      nudgeBody:
-        'Scrolling is borrowing time from your exam prep. Close it and open your notes now.',
-    });
+    expect(result).toMatchObject({ nudgeTitle: null, nudgeBody: null });
+  });
+
+  test('creates notification-only copy with a bounded request and no page-content input', async () => {
+    globalThis.fetch = (async (_url: unknown, init: RequestInit | undefined) => {
+      const request = JSON.parse(String(init?.body));
+      expect(request.options.num_predict).toBe(112);
+      expect(request.think).toBe(false);
+      expect(Object.keys(request.format.properties)).toEqual(['distraction', 'title', 'body']);
+      expect(JSON.parse(request.messages[1].content)).toEqual({
+        application: 'WhatsApp', windowTitle: 'WhatsApp', goal: 'Solve the statistics exercise sheet',
+      });
+      return new Response(JSON.stringify({ message: { content: JSON.stringify({
+        distraction: 'chatting', title: 'Put the chat aside', body: 'Leave the messages for later and solve the next statistics exercise.',
+      }) } }));
+    }) as typeof fetch;
+    expect(await new OllamaClassificationProvider().distractionNudge(
+      'Solve the statistics exercise sheet', { ownerName: 'WhatsApp', title: 'WhatsApp' }
+    )).toEqual({ title: 'Put the chat aside', body: 'Leave the messages for later and solve the next statistics exercise.' });
+  });
+
+  test('does not start an already-cancelled notification request', async () => {
+    let calls = 0;
+    globalThis.fetch = (async () => { calls++; throw new Error('must not run'); }) as unknown as typeof fetch;
+    const controller = new AbortController(); controller.abort();
+    expect(await new OllamaClassificationProvider().distractionNudge(
+      'Study', { ownerName: 'Chat', title: 'Chat' }, controller.signal
+    )).toBeNull();
+    expect(calls).toBe(0);
   });
 
   test('derives a bounded local profile from the goal alone', async () => {

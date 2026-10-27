@@ -1,3 +1,4 @@
+import { prepareDistractionNotification } from '../services/categorization/distractionNudge';
 import { snapshotGoalContext } from '../services/goalPlans';
 import { CorrectionActionModel, PreferenceControlModel } from '../models/correctionAction';
 import {
@@ -94,6 +95,10 @@ const activeWindowEventInputSchema = z.object({
 });
 
 export const activeWindowEventsRouter = router({
+  prepareDistractionNotification: publicProcedure
+    .input(z.object({ token: z.string(), eventId: z.string().regex(/^[a-f0-9]{24}$/i) }))
+    .mutation(({ input }) => prepareDistractionNotification(verifyToken(input.token).userId, input.eventId)),
+
   ...classificationLearningProcedures,
   // An explicit relevance choice must work even if the original upload never
   // reached persistence. Observe the activity now; do not invent past context.
