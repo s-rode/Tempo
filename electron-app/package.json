@@ -4,7 +4,7 @@
   "private": true,
   "description": "Local macOS activity classification, focus sessions, and native notch timers",
   "main": "./out/main/index.js",
-  "author": "Samuel R",
+  "author": "s-rode",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

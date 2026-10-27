@@ -33,7 +33,7 @@ def content_issue(path, data):
     text = data.decode('utf-8', errors='replace')
     if re.search(r'(?:sk-[A-Za-z0-9_-]{32,}|gh[pousr]_[A-Za-z0-9]{30,}|(?:AKIA|ASIA)[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{35}|-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----)', text):
         return 'credential-shaped content'
-    if ('/Users/' + 'samuel/') in text:
+    if re.search('/' + r'Users/[A-Za-z0-9_.-]+/', text):
         return 'private absolute filesystem path'
     return None
 
@@ -43,7 +43,7 @@ def self_test():
                  'app.dmg', 'dist/Tempo.app/Contents/MacOS/Tempo', 'cached.pyc']:
         assert content_issue(path, b'')
     assert content_issue('file.ts', ('sk-' + 'A' * 40).encode())
-    assert content_issue('file.ts', ('/Users/' + 'samuel/private').encode())
+    assert content_issue('file.ts', ('/' + 'Users/example/private').encode())
     assert content_issue('.env.local.example', b'KEY=replace-me') is None
     assert content_issue('file.ts', b'export const example = true') is None
 

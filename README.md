@@ -121,4 +121,4 @@ The companion source is in [`electron-app/firefox-extension`](electron-app/firef
 
 Tempo builds on the verified MIT-licensed Cronus snapshot at `222adf835a3a210ca5375a3876e7ed1fed31bb9e`, by Moritz Wallawitsch and Arne Strickmann. It is an independent derivative project.
 
-Tempo's contributions by Samuel R. are also licensed under **[MIT](LICENSE)**. Original copyright notices are preserved; dependencies retain their own terms. See [NOTICE](NOTICE) and [third-party notices](docs/THIRD_PARTY_NOTICES.md).
+Tempo's contributions by s-rode are also licensed under **[MIT](LICENSE)**. Original copyright notices are preserved; dependencies retain their own terms. See [NOTICE](NOTICE) and [third-party notices](docs/THIRD_PARTY_NOTICES.md).
