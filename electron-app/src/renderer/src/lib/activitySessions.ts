@@ -61,6 +61,7 @@ export interface TimelineChapter {
   label: string
   summary?: string
   focusGoal?: TimelineFocusGoal
+  boundaryReason?: string
 }
 
 /** A local, user-owned focus run returned solely for the daily timeline. */
@@ -97,6 +98,7 @@ export interface TimelineFocusGoal {
   adherence: FocusGoalAdherence
   adherenceLabel: string
   isLead: boolean
+  runIds?: string[]
 }
 
 /** A privacy-preserving, app-level view of a compact timeline chapter. */
@@ -106,41 +108,233 @@ export interface TimelineChapterAppUsage {
   sessionCount: number
 }
 
-const CHAPTER_MAX_MS = 30 * 60 * 1000
-const CHAPTER_GAP_MS = 5 * 60 * 1000
+export const TIMELINE_GAP_MS = 5 * 60 * 1000
+const BRIEF_ACTIVITY_MS = 2 * 60 * 1000
 
-/** Groups chronological sessions for presentation only; source events stay exact. */
-export const buildTimelineChapters = (sessions: ActivitySessionBlock[]): TimelineChapter[] => {
+/** Presentation boundaries follow recorded goals, sustained activity changes and gaps.
+ * Splitting a session changes only its displayed slice; original events remain intact.
+ */
+export const buildTimelineChapters = (
+  sessions: ActivitySessionBlock[],
+  runs?: FocusTimelineRun[],
+  nowMs = Date.now()
+): TimelineChapter[] => {
+  const candidates = focusGoalCandidates(runs || [], nowMs)
+  const boundaries = [
+    ...new Set(candidates.flatMap((goal) => [goal.startTime.getTime(), goal.endTime.getTime()]))
+  ].sort((a, b) => a - b)
+  const slices = [...sessions]
+    .sort((a, b) => +a.startTime - +b.startTime)
+    .flatMap((session) => {
+      const start = +session.startTime
+      const end = +session.endTime
+      const points = [start, ...boundaries.filter((point) => point > start && point < end), end]
+      return points
+        .slice(0, -1)
+        .map((point, index) => {
+          const sliceEnd = points[index + 1]
+          const sourceBlocks = session.sourceBlocks.flatMap((block) => {
+            const clippedStart = Math.max(point, +block.startTime)
+            const clippedEnd = Math.min(sliceEnd, +block.endTime)
+            if (clippedEnd <= clippedStart) return []
+            return [
+              {
+                ...block,
+                startTime: new Date(clippedStart),
+                endTime: new Date(clippedEnd),
+                durationMs:
+                  (block.durationMs * (clippedEnd - clippedStart)) /
+                  Math.max(1, +block.endTime - +block.startTime)
+              }
+            ]
+          })
+          const slice =
+            points.length === 2
+              ? session
+              : {
+                  ...session,
+                  startTime: new Date(
+                    sourceBlocks.length
+                      ? Math.min(...sourceBlocks.map((block) => +block.startTime))
+                      : point
+                  ),
+                  endTime: new Date(
+                    sourceBlocks.length
+                      ? Math.max(...sourceBlocks.map((block) => +block.endTime))
+                      : sliceEnd
+                  ),
+                  activeDurationMs: sessionContributionWithin(session, point, sliceEnd),
+                  sourceBlocks
+                }
+          const goal = candidates.find(
+            (candidate) => +candidate.startTime <= point && +candidate.endTime >= sliceEnd
+          )
+          return { session: slice, goal, key: '' }
+        })
+        .filter((item) => item.session.activeDurationMs > 0)
+    })
+
+  // A sustained distracted/uncertain stretch gets its own block, even during
+  // a timer. Brief checks stay visible inside the surrounding goal instead.
+  for (let index = 0; index < slices.length; ) {
+    let end = index + 1
+    const first = slices[index]
+    while (
+      end < slices.length &&
+      slices[end].goal?.phaseId === first.goal?.phaseId &&
+      slices[end].session.isProductive === first.session.isProductive &&
+      +slices[end].session.startTime - +slices[end - 1].session.endTime < TIMELINE_GAP_MS
+    )
+      end += 1
+    const duration = slices
+      .slice(index, end)
+      .reduce((total, item) => total + item.session.activeDurationMs, 0)
+    for (let cursor = index; cursor < end; cursor += 1) {
+      const item = slices[cursor]
+      const session = item.session
+      item.key =
+        item.goal && (session.isProductive === true || duration < BRIEF_ACTIVITY_MS)
+          ? `goal:${item.goal.phaseId}`
+          : session.activeDurationMs < BRIEF_ACTIVITY_MS && !item.goal
+            ? 'brief'
+            : `activity:${session.displayKey}:${session.label.trim().toLowerCase()}:${String(session.isProductive)}`
+    }
+    index = end
+  }
+
+  const labels = new Map(
+    slices.map(({ key, session }) => [key, { label: session.label, summary: session.summary }])
+  )
+  // Seconds between a timer ending and the next activity are transitions,
+  // not a separate chapter. Keep their source sessions in the neighboring block.
+  for (let index = 0; index < slices.length; ) {
+    if (slices[index].key !== 'brief') {
+      index += 1
+      continue
+    }
+    let end = index + 1
+    while (
+      end < slices.length &&
+      slices[end].key === 'brief' &&
+      +slices[end].session.startTime - +slices[end - 1].session.endTime < TIMELINE_GAP_MS
+    )
+      end += 1
+    const duration = slices
+      .slice(index, end)
+      .reduce((sum, item) => sum + item.session.activeDurationMs, 0)
+    const previous = slices[index - 1]
+    const next = slices[end]
+    const neighbor =
+      previous && +slices[index].session.startTime - +previous.session.endTime < TIMELINE_GAP_MS
+        ? previous
+        : next && +next.session.startTime - +slices[end - 1].session.endTime < TIMELINE_GAP_MS
+          ? next
+          : undefined
+    if (duration < BRIEF_ACTIVITY_MS && neighbor) {
+      for (let cursor = index; cursor < end; cursor += 1) slices[cursor].key = neighbor.key
+    }
+    index = end
+  }
+
+  // A quick excursion followed by a return belongs to the same activity.
+  for (let index = 1; index < slices.length - 1; index += 1) {
+    const previous = slices[index - 1]
+    let end = index
+    let duration = 0
+    while (
+      end < slices.length &&
+      duration < BRIEF_ACTIVITY_MS &&
+      slices[end].key !== previous.key &&
+      slices[end].goal?.phaseId === previous.goal?.phaseId &&
+      +slices[end].session.startTime - +slices[end - 1].session.endTime < TIMELINE_GAP_MS
+    ) {
+      duration += slices[end].session.activeDurationMs
+      end += 1
+    }
+    if (
+      end < slices.length &&
+      slices[end].key === previous.key &&
+      duration < BRIEF_ACTIVITY_MS &&
+      +slices[end].session.startTime - +slices[end - 1].session.endTime < TIMELINE_GAP_MS
+    ) {
+      for (let cursor = index; cursor < end; cursor += 1) slices[cursor].key = previous.key
+    }
+  }
+
   const chapters: TimelineChapter[] = []
-  for (const session of sessions) {
+  let previousKey: string | undefined
+  for (const { session, key } of slices) {
     const current = chapters[chapters.length - 1]
-    const canAppend =
-      current &&
-      session.startTime.getTime() - current.endTime.getTime() < CHAPTER_GAP_MS &&
-      session.endTime.getTime() - current.startTime.getTime() <= CHAPTER_MAX_MS
-    if (canAppend && current) current.sessions.push(session)
-    else
+    const gap = current ? +session.startTime - +current.endTime : 0
+    if (!current || gap >= TIMELINE_GAP_MS || key !== previousKey) {
       chapters.push({
-        id: `chapter:${session.startTime.getTime()}`,
+        id: `chapter:${+session.startTime}:${chapters.length}`,
         startTime: session.startTime,
         endTime: session.endTime,
-        sessions: [session],
+        sessions: [],
         focusedMs: 0,
         distractedMs: 0,
         uncertainMs: 0,
-        label: '',
-        summary: undefined
+        label: key === 'brief' ? 'Short activities' : labels.get(key)?.label || session.label,
+        summary: key === 'brief' ? undefined : labels.get(key)?.summary,
+        boundaryReason: !current
+          ? 'Start of tracked activity'
+          : gap >= TIMELINE_GAP_MS
+            ? 'Resumed after a gap'
+            : key.startsWith('goal:')
+              ? previousKey?.startsWith('goal:')
+                ? 'Focus session or goal changed'
+                : 'Focus session activity'
+              : session.isProductive === false
+                ? 'Distracting activity'
+                : session.isProductive === undefined
+                  ? 'Uncertain activity'
+                  : 'Activity changed'
       })
+    }
     const target = chapters[chapters.length - 1]
-    target.endTime = session.endTime
+    target.sessions.push(session)
+    target.endTime = new Date(Math.max(+target.endTime, +session.endTime))
     if (session.isProductive === true) target.focusedMs += session.activeDurationMs
     else if (session.isProductive === false) target.distractedMs += session.activeDurationMs
     else target.uncertainMs += session.activeDurationMs
+    previousKey = key
   }
-  return chapters.map((chapter) => {
-    const primary = [...chapter.sessions].sort((a, b) => b.activeDurationMs - a.activeDurationMs)[0]
-    return { ...chapter, label: primary.label, summary: primary.summary }
-  })
+  const annotated = attachFocusGoalsToTimelineChapters(chapters, runs, nowMs)
+  const grouped: TimelineChapter[] = []
+  for (const chapter of annotated) {
+    const previous = grouped[grouped.length - 1]
+    const goal = chapter.focusGoal
+    const previousGoal = previous?.focusGoal
+    if (
+      goal?.kind === 'custom' &&
+      previousGoal?.kind === 'custom' &&
+      goal.goal.trim().toLowerCase() === previousGoal.goal.trim().toLowerCase() &&
+      +chapter.startTime - +previous.endTime < TIMELINE_GAP_MS
+    ) {
+      previous.endTime = new Date(Math.max(+previous.endTime, +chapter.endTime))
+      previous.sessions.push(...chapter.sessions)
+      previous.focusedMs += chapter.focusedMs
+      previous.distractedMs += chapter.distractedMs
+      previous.uncertainMs += chapter.uncertainMs
+      previous.focusGoal = {
+        ...previousGoal,
+        endTime: goal.endTime,
+        runIds: [
+          ...new Set([
+            ...(previousGoal.runIds || [previousGoal.runId]),
+            ...(goal.runIds || [goal.runId])
+          ])
+        ],
+        focusedMs: previous.focusedMs,
+        distractedMs: previous.distractedMs,
+        uncertainMs: previous.uncertainMs,
+        observedMs: previous.focusedMs + previous.distractedMs + previous.uncertainMs,
+        ...adherenceFor(previous.focusedMs, previous.distractedMs, previous.uncertainMs)
+      }
+    } else grouped.push({ ...chapter, sessions: [...chapter.sessions] })
+  }
+  return grouped
 }
 
 type FocusGoalCandidate = Omit<TimelineFocusGoal, 'isLead'>
@@ -162,6 +356,15 @@ const sessionContributionWithin = (
   startMs: number,
   endMs: number
 ) => {
+  const sources = session.sourceBlocks
+  const sourceTotal = sources.reduce((total, block) => total + block.durationMs, 0)
+  if (sources.length && Math.abs(sourceTotal - session.activeDurationMs) < 1) {
+    return sources.reduce((total, block) => {
+      const span = Math.max(1, +block.endTime - +block.startTime)
+      const overlap = intervalOverlapMs(+block.startTime, +block.endTime, startMs, endMs)
+      return total + Math.min(block.durationMs, (block.durationMs * overlap) / span)
+    }, 0)
+  }
   const sessionStart = session.startTime.getTime()
   const sessionEnd = session.endTime.getTime()
   const overlap = intervalOverlapMs(sessionStart, sessionEnd, startMs, endMs)
@@ -259,7 +462,7 @@ const focusGoalCandidates = (runs: FocusTimelineRun[], nowMs: number): FocusGoal
             runId: run.id,
             // Treat each goal boundary as its own lead annotation. A phase can
             // therefore show the task that was actually active for a chapter.
-            phaseId: `${phase.id}:${segmentIndex}`,
+            phaseId: `${run.id}:${phase.id}:${segmentIndex}`,
             phaseIndex,
             kind: run.kind,
             goal: segment.goal.trim(),
@@ -279,10 +482,8 @@ const focusGoalCandidates = (runs: FocusTimelineRun[], nowMs: number): FocusGoal
   )
 
 /**
- * Joins explicit Custom Focus/Pomodoro work phases onto existing timeline
- * chapters. It neither changes chapter grouping nor adds a new inference
- * step; the accompanying adherence state comes strictly from the classified
- * activity already shown in the chapter rail.
+ * Annotates explicit work phases. Adherence always describes this block's
+ * classified activity, so its score and durations agree with the visible rail.
  */
 export const attachFocusGoalsToTimelineChapters = (
   chapters: TimelineChapter[],
@@ -292,25 +493,6 @@ export const attachFocusGoalsToTimelineChapters = (
   if (!runs?.length || !chapters.length) return chapters
   const candidates = focusGoalCandidates(runs, nowMs)
   if (!candidates.length) return chapters
-
-  for (const candidate of candidates) {
-    const startMs = candidate.startTime.getTime()
-    const endMs = candidate.endTime.getTime()
-    for (const chapter of chapters) {
-      for (const session of chapter.sessions) {
-        const contribution = sessionContributionWithin(session, startMs, endMs)
-        if (!contribution) continue
-        candidate.observedMs += contribution
-        if (session.isProductive === true) candidate.focusedMs += contribution
-        else if (session.isProductive === false) candidate.distractedMs += contribution
-        else candidate.uncertainMs += contribution
-      }
-    }
-    Object.assign(
-      candidate,
-      adherenceFor(candidate.focusedMs, candidate.distractedMs, candidate.uncertainMs)
-    )
-  }
 
   const chapterCandidates = chapters.map((chapter) => {
     const matching = candidates
@@ -331,6 +513,7 @@ export const attachFocusGoalsToTimelineChapters = (
     // focus-led. A distracted or uncertain detour stays honest and standalone.
     if (
       !strongest ||
+      strongest.overlapMs < (chapter.focusedMs + chapter.distractedMs + chapter.uncertainMs) / 2 ||
       strongest.focusedMs <= 0 ||
       strongest.focusedMs <= strongest.distractedMs ||
       strongest.focusedMs < strongest.uncertainMs
@@ -354,6 +537,11 @@ export const attachFocusGoalsToTimelineChapters = (
       ...chapter,
       focusGoal: {
         ...focusGoal,
+        focusedMs: chapter.focusedMs,
+        distractedMs: chapter.distractedMs,
+        uncertainMs: chapter.uncertainMs,
+        observedMs: chapter.focusedMs + chapter.distractedMs + chapter.uncertainMs,
+        ...adherenceFor(chapter.focusedMs, chapter.distractedMs, chapter.uncertainMs),
         isLead: firstChapterForPhase.get(focusGoal.phaseId) === index
       }
     }
@@ -361,9 +549,8 @@ export const attachFocusGoalsToTimelineChapters = (
 }
 
 /**
- * Timeline chapters intentionally contain no page-level drill-down. Aggregate
- * their retained sessions by application so a user can understand the block
- * without turning a compact day into a browser-history list.
+ * App totals support a concise block summary; retained sessions provide the
+ * chronological activity detail when the block is expanded.
  */
 export const summarizeTimelineChapterApps = (
   chapter: TimelineChapter
@@ -528,7 +715,10 @@ const foldBriefProductiveSessions = (sessions: ActivitySessionBlock[]): Activity
   return sessions.filter((_, index) => !folded.has(index))
 }
 
-export const buildActivitySessions = (blocks: ProcessedEventBlock[]): ActivitySessionBlock[] => {
+export const buildActivitySessions = (
+  blocks: ProcessedEventBlock[],
+  { foldBrief = true }: { foldBrief?: boolean } = {}
+): ActivitySessionBlock[] => {
   const sorted = removeHistoricalFirefoxCaptureDuplicates(blocks)
     .filter((block) => block.durationMs > 0)
     .sort((left, right) => left.startTime.getTime() - right.startTime.getTime())
@@ -539,7 +729,7 @@ export const buildActivitySessions = (blocks: ProcessedEventBlock[]): ActivitySe
     if (openSession && canMerge(openSession, block)) mergeIntoSession(openSession, block)
     else sessions.push(makeSession(block))
   }
-  return foldBriefProductiveSessions(sessions)
+  return foldBrief ? foldBriefProductiveSessions(sessions) : sessions
 }
 
 export const buildDayActivitySummaries = (

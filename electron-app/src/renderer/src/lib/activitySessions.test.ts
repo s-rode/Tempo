@@ -42,6 +42,34 @@ const block = (overrides: Partial<ProcessedEventBlock> = {}): ProcessedEventBloc
   }
 }
 
+const focusRun = (minutes = 90): FocusTimelineRun => ({
+  endedAtMs: base + minutes * 60_000,
+  outcome: 'completed',
+  run: {
+    id: 'run',
+    kind: 'custom',
+    state: 'completed',
+    currentPhaseIndex: 0,
+    startedAtMs: base,
+    completedAtMs: base + minutes * 60_000,
+    phases: [
+      {
+        id: 'phase',
+        kind: 'work',
+        goal: 'Review lecture',
+        startedAtMs: base,
+        completedAtMs: base + minutes * 60_000,
+        plannedDurationMs: minutes * 60_000,
+        activeElapsedMs: minutes * 60_000,
+        runningSinceMs: null,
+        state: 'completed',
+        productiveMs: 0,
+        distractedMs: 0
+      }
+    ]
+  }
+})
+
 describe('activity sessions', () => {
   test('merges consecutive Firefox OCR fingerprints with the same page title', () => {
     const first = block({ activityKey: 'firefox:first' })
@@ -210,7 +238,7 @@ describe('activity sessions', () => {
     expect(summaries[0].sessions).toHaveLength(2)
   })
 
-  test('groups short activity switches into a readable 30-minute chapter', () => {
+  test('keeps sustained activity changes separate without an explicit goal', () => {
     const first = block({ durationMs: 10 * 60_000, endTime: new Date(base + 10 * 60_000) })
     const second = block({
       ownerName: 'RemNote',
@@ -222,12 +250,12 @@ describe('activity sessions', () => {
       originalEvent: { ...first.originalEvent, ownerName: 'RemNote', type: 'window', browser: null }
     })
     const chapters = buildTimelineChapters(buildActivitySessions([first, second]))
-    expect(chapters).toHaveLength(1)
-    expect(chapters[0].focusedMs).toBe(20 * 60_000)
-    expect(chapters[0].sessions).toHaveLength(2)
+    expect(chapters).toHaveLength(2)
+    expect(chapters.map((chapter) => chapter.focusedMs)).toEqual([10 * 60_000, 10 * 60_000])
+    expect(chapters[1].boundaryReason).toBe('Activity changed')
   })
 
-  test('summarizes a chapter by application without exposing page-level sessions', () => {
+  test('summarizes a focus block by application while preserving its activity sequence', () => {
     const firefox = block({ durationMs: 10 * 60_000, endTime: new Date(base + 10 * 60_000) })
     const remNote = block({
       ownerName: 'RemNote',
@@ -243,7 +271,9 @@ describe('activity sessions', () => {
         browser: null
       }
     })
-    const chapter = buildTimelineChapters(buildActivitySessions([firefox, remNote]))[0]
+    const chapter = buildTimelineChapters(buildActivitySessions([firefox, remNote]), [
+      focusRun()
+    ])[0]
     expect(summarizeTimelineChapterApps(chapter)).toEqual([
       { appName: 'Firefox', durationMs: 10 * 60_000, sessionCount: 1 },
       { appName: 'RemNote', durationMs: 5 * 60_000, sessionCount: 1 }
@@ -312,17 +342,20 @@ describe('activity sessions', () => {
       }
     ]
 
-    const chapters = attachFocusGoalsToTimelineChapters(
-      buildTimelineChapters(buildActivitySessions([productive, distraction])),
+    const chapters = buildTimelineChapters(
+      buildActivitySessions([productive, distraction]),
       runs,
       base + 20 * 60_000
     )
+    expect(chapters).toHaveLength(2)
+    expect(chapters[1].distractedMs).toBe(5 * 60_000)
+    expect(chapters[1].focusGoal).toBeUndefined()
 
     expect(chapters[0].focusGoal).toMatchObject({
       goal: 'Review graphical models',
       focusedMs: 15 * 60_000,
-      distractedMs: 5 * 60_000,
-      adherence: 'mostly_on_track',
+      distractedMs: 0,
+      adherence: 'on_track',
       isLead: true
     })
   })
@@ -491,4 +524,188 @@ describe('activity sessions', () => {
     expect(chapters[0].focusGoal?.goal).toBe('Review flashcards')
     expect(chapters[1].focusGoal?.goal).toBe('Practice interview questions')
   })
+})
+
+describe('meaningful timeline boundaries', () => {
+  const at = (minute: number, duration: number, overrides: Partial<ProcessedEventBlock> = {}) =>
+    block({
+      startTime: new Date(base + minute * 60_000),
+      endTime: new Date(base + (minute + duration) * 60_000),
+      durationMs: duration * 60_000,
+      ...overrides
+    })
+  const sessions = (blocks: ProcessedEventBlock[]) =>
+    buildActivitySessions(blocks, { foldBrief: false })
+
+  test('keeps a 70-minute goal together across apps and the old 30-minute boundary', () => {
+    const input = sessions([
+      at(0, 25),
+      at(25, 20, {
+        ownerName: 'Notes',
+        originalEvent: { ...block().originalEvent, browser: null }
+      }),
+      at(45, 25)
+    ])
+    const chapters = buildTimelineChapters(input, [focusRun()])
+    expect(chapters).toHaveLength(1)
+    expect(chapters[0].focusedMs).toBe(70 * 60_000)
+    expect(chapters[0].focusGoal?.goal).toBe('Review lecture')
+    expect(input).toHaveLength(3)
+  })
+
+  test('splits a continuous app session exactly at goal changes and conserves duration', () => {
+    const run = focusRun(40)
+    run.run.phases[0].goalHistory = [
+      { goal: 'First task', todayPlanTask: null, startedAtMs: base },
+      { goal: 'Second task', todayPlanTask: null, startedAtMs: base + 15 * 60_000 }
+    ]
+    const input = sessions([at(0, 40)])
+    const chapters = buildTimelineChapters(input, [run])
+    expect(chapters.map((chapter) => chapter.focusGoal?.goal)).toEqual([
+      'First task',
+      'Second task'
+    ])
+    expect(chapters.map((chapter) => chapter.focusedMs)).toEqual([15 * 60_000, 25 * 60_000])
+    expect(input[0].activeDurationMs).toBe(40 * 60_000)
+    expect(input[0].endTime).toEqual(new Date(base + 40 * 60_000))
+  })
+
+  test('keeps activity outside a recorded focus boundary separate', () => {
+    const chapters = buildTimelineChapters(sessions([at(0, 60)]), [focusRun(30)])
+    expect(chapters).toHaveLength(2)
+    expect(chapters[0].focusGoal?.goal).toBe('Review lecture')
+    expect(chapters[1].focusGoal).toBeUndefined()
+    expect(chapters[1].focusedMs).toBe(30 * 60_000)
+  })
+
+  test('retains brief interruptions inside a goal with honest per-block totals', () => {
+    const input = sessions([
+      at(0, 10),
+      at(10, 1, { ownerName: 'Mail', categoryId: 'distraction', isProductive: false }),
+      at(11, 10)
+    ])
+    const chapters = buildTimelineChapters(input, [focusRun()])
+    expect(chapters).toHaveLength(1)
+    expect(chapters[0].distractedMs).toBe(60_000)
+    expect(chapters[0].sessions).toHaveLength(3)
+    expect(chapters[0].focusGoal?.observedMs).toBe(21 * 60_000)
+  })
+
+  test('does not hide a sustained distraction made of many short app visits', () => {
+    const input = sessions([
+      at(0, 10),
+      at(10, 1, { ownerName: 'Mail', categoryId: 'distraction', isProductive: false }),
+      at(11, 1, { ownerName: 'Chat', categoryId: 'distraction', isProductive: false }),
+      at(12, 10)
+    ])
+    const chapters = buildTimelineChapters(input, [focusRun()])
+    expect(
+      chapters
+        .filter((chapter) => !chapter.focusGoal)
+        .reduce((total, chapter) => total + chapter.distractedMs, 0)
+    ).toBe(2 * 60_000)
+    expect(chapters[chapters.length - 1].focusGoal?.goal).toBe('Review lecture')
+  })
+
+  test('bridges a quick return visit outside focus without losing the excursion', () => {
+    const chapters = buildTimelineChapters(
+      sessions([
+        at(0, 10),
+        at(10, 1, { activityLabel: 'Quick reference', title: 'Other page' }),
+        at(11, 10)
+      ])
+    )
+    expect(chapters).toHaveLength(1)
+    expect(chapters[0].sessions).toHaveLength(3)
+    expect(chapters[0].focusedMs).toBe(21 * 60_000)
+  })
+
+  test('uses block totals after a gap rather than repeating the whole phase score', () => {
+    const chapters = buildTimelineChapters(sessions([at(0, 10), at(15, 20)]), [focusRun()])
+    expect(chapters).toHaveLength(2)
+    expect(chapters.map((chapter) => chapter.focusGoal?.focusedMs)).toEqual([
+      10 * 60_000,
+      20 * 60_000
+    ])
+    expect(chapters[1].boundaryReason).toBe('Resumed after a gap')
+  })
+})
+
+test('a goal change during an untracked gap allocates only the recorded activity on each side', () => {
+  const first = block({ durationMs: 10 * 60_000, endTime: new Date(base + 10 * 60_000) })
+  const next = block({
+    startTime: new Date(base + 12 * 60_000),
+    endTime: new Date(base + 22 * 60_000),
+    durationMs: 10 * 60_000
+  })
+  const run = focusRun(22)
+  run.run.phases[0].goalHistory = [
+    { goal: 'Before gap', todayPlanTask: null, startedAtMs: base },
+    { goal: 'After gap', todayPlanTask: null, startedAtMs: base + 11 * 60_000 }
+  ]
+  const input = buildActivitySessions([first, next], { foldBrief: false })
+  expect(input).toHaveLength(1)
+  const chapters = buildTimelineChapters(input, [run])
+  expect(chapters.map((chapter) => chapter.focusedMs)).toEqual([10 * 60_000, 10 * 60_000])
+  expect(chapters[0].endTime).toEqual(new Date(base + 10 * 60_000))
+  expect(chapters[1].startTime).toEqual(new Date(base + 12 * 60_000))
+  expect(chapters[1].sessions[0].sourceBlocks[0].eventIds).toEqual(next.eventIds)
+})
+
+test('keeps seconds-long timer-boundary transitions with the preceding block, conserving every state', () => {
+  const run = focusRun(10)
+  const input = buildActivitySessions(
+    [
+      block({ durationMs: 10 * 60_000, endTime: new Date(base + 10 * 60_000) }),
+      block({
+        startTime: new Date(base + 10 * 60_000),
+        durationMs: 200,
+        endTime: new Date(base + 10 * 60_000 + 200)
+      }),
+      block({
+        startTime: new Date(base + 10 * 60_000 + 200),
+        durationMs: 1000,
+        endTime: new Date(base + 10 * 60_000 + 1200),
+        ownerName: 'Chat',
+        isProductive: undefined,
+        categoryId: 'uncertain'
+      }),
+      block({
+        startTime: new Date(base + 10 * 60_000 + 1200),
+        durationMs: 2000,
+        endTime: new Date(base + 10 * 60_000 + 3200),
+        ownerName: 'Mail',
+        isProductive: false,
+        categoryId: 'distraction'
+      })
+    ],
+    { foldBrief: false }
+  )
+  const chapters = buildTimelineChapters(input, [run])
+  expect(chapters).toHaveLength(1)
+  expect(chapters[0].focusedMs).toBe(600200)
+  expect(chapters[0].distractedMs).toBe(2000)
+  expect(chapters[0].uncertainMs).toBe(1000)
+  expect(chapters[0].focusGoal?.goal).toBe('Review lecture')
+})
+
+test('keeps the same goal together across timer restarts but retains distinct goals and gaps', () => {
+  const first = focusRun(20)
+  const second = focusRun(40)
+  second.run.id = 'next-run'
+  second.run.phases[0].startedAtMs = base + 20 * 60_000
+  const third = focusRun(60)
+  third.run.id = 'third-run'
+  third.run.phases[0].startedAtMs = base + 40 * 60_000
+  const input = buildActivitySessions(
+    [block({ durationMs: 60 * 60_000, endTime: new Date(base + 60 * 60_000) })],
+    { foldBrief: false }
+  )
+  const chapters = buildTimelineChapters(input, [first, second, third])
+  expect(chapters).toHaveLength(1)
+  expect(chapters[0].focusGoal?.runIds).toEqual(['run', 'next-run', 'third-run'])
+  expect(chapters[0].focusedMs).toBe(60 * 60_000)
+  expect(chapters[0].focusGoal?.focusedMs).toBe(60 * 60_000)
+  third.run.phases[0].goal = 'A different task'
+  expect(buildTimelineChapters(input, [first, second, third])).toHaveLength(2)
 })

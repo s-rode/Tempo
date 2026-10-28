@@ -4,7 +4,6 @@ import { ActiveWindowEvent, Category } from 'shared'
 import { useAuth } from '../contexts/AuthContext'
 import {
   ActivitySessionBlock,
-  attachFocusGoalsToTimelineChapters,
   buildActivitySessions,
   buildTimelineChapters,
   type FocusTimelineRun
@@ -76,7 +75,8 @@ export function DashboardView({
   )
 
   const { startDateMs, endDateMs } = useMemo(
-    () => calendarPeriod(selectedDate, viewMode), [selectedDate, viewMode]
+    () => calendarPeriod(selectedDate, viewMode),
+    [selectedDate, viewMode]
   )
 
   const inspectorMaxWidth = Math.max(
@@ -119,7 +119,6 @@ export function DashboardView({
   const { data: categoriesData, isLoading: isLoadingCategories } =
     trpc.category.getCategories.useQuery({ token: token || '' }, { enabled: !!token })
   const categories = categoriesData as Category[] | undefined
-
 
   const {
     data: eventsData,
@@ -173,16 +172,12 @@ export function DashboardView({
   const daySessions = useMemo(
     () =>
       viewMode === 'day' && calendarProcessedEvents
-        ? buildActivitySessions(calendarProcessedEvents)
+        ? buildActivitySessions(calendarProcessedEvents, { foldBrief: false })
         : [],
     [calendarProcessedEvents, viewMode]
   )
   const dayChapters = useMemo(
-    () =>
-      attachFocusGoalsToTimelineChapters(
-        buildTimelineChapters(daySessions),
-        focusTimelineRuns as FocusTimelineRun[] | undefined
-      ),
+    () => buildTimelineChapters(daySessions, focusTimelineRuns as FocusTimelineRun[] | undefined),
     [daySessions, focusTimelineRuns]
   )
 
