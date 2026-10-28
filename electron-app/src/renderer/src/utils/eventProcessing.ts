@@ -35,7 +35,7 @@ export function generateProcessedEventBlocks(
     )
     const endTime = new Date(startTime.getTime() + durationMs)
 
-    if (SYSTEM_EVENT_NAMES.includes(event.ownerName)) {
+    if (event.type === 'system' || SYSTEM_EVENT_NAMES.includes(event.ownerName)) {
       openBlock = null
       continue
     }

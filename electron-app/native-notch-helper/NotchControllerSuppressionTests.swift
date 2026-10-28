@@ -2,6 +2,31 @@
 // extension can inspect pending work without adding a production testing API.
 extension NotchController {
   @MainActor
+  static func testCalendarPrompt() {
+    func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
+      guard condition() else { fputs("Calendar notch test failed: \(message)\n", stderr); exit(1) }
+    }
+    let panel = TempoNotchPanel(contentRect: CGRect(x: -5000, y: -5000, width: 520, height: 194),
+      styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+    panel.isReleasedWhenClosed = false
+    let controller = NotchController(panel: panel, geometry: resolveGeometry())
+    let host = PassthroughHostingView(rootView: AnyView(EmptyView()), controller: controller)
+    controller.host = host; panel.contentView = host
+    defer { controller.hide() }
+    let now = Date().timeIntervalSince1970 * 1000
+    let originalTrackingState = controller.status.trackingState
+    controller.presentCalendarNotice(CalendarPauseNotice(id: "calendar-preview", title: "Lecture", calendarName: "University", startMs: now + 600_000, endMs: now + 4_200_000, preview: true))
+    expect(controller.expanded && controller.presentedCalendarNotice != nil, "calendar prompt expands")
+    expect(controller.expandedContentHeight == 184 && panel.acceptsKeyboardControls, "calendar prompt has room and keyboard access")
+    controller.respondToCalendar("pause")
+    expect(controller.presentedCalendarNotice == nil, "an explicit choice dismisses the prompt")
+    expect(controller.status.trackingState == originalTrackingState, "preview never changes tracking state")
+    controller.presentCalendarNotice(CalendarPauseNotice(id: "expired", title: "Old event", calendarName: "Calendar", startMs: now - 3_600_000, endMs: now - 1, preview: nil))
+    expect(controller.presentedCalendarNotice == nil, "ended events cannot present stale prompts")
+    print("Calendar notch prompt tests passed")
+  }
+
+  @MainActor
   static func testCompletionActions() {
     func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
       guard condition() else {
@@ -217,6 +242,7 @@ struct NotchControllerSuppressionTestMain {
     NSApplication.shared.setActivationPolicy(.prohibited)
     NotchController.testPillSuppression()
     NotchController.testCompletionActions()
+    NotchController.testCalendarPrompt()
     NotchController.testBatteryLifecycle()
     NotchOverlapMonitor.testBatteryLifecycle()
   }

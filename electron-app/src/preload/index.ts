@@ -24,6 +24,24 @@ export interface PermissionInfo {
 
 // Custom APIs for renderer
 const api = {
+  getAppleCalendarStatus: (range?: {startMs: number; endMs: number}): Promise<import('shared/calendar').CalendarStatus> => ipcRenderer.invoke('calendar-status', range),
+  connectAppleCalendar: (): Promise<import('shared/calendar').CalendarStatus> => ipcRenderer.invoke('calendar-connect'),
+  updateCalendarPreferences: (preferences: Partial<import('shared/calendar').CalendarPreferences>): Promise<import('shared/calendar').CalendarStatus> => ipcRenderer.invoke('calendar-preferences', preferences),
+  refreshAppleCalendar: (): Promise<import('shared/calendar').CalendarStatus> => ipcRenderer.invoke('calendar-refresh'),
+  respondToCalendarEvent: (id: string, action: 'pause' | 'keep'): Promise<void> => ipcRenderer.invoke('calendar-respond', id, action),
+  resumeCalendarTracking: (): Promise<void> => ipcRenderer.invoke('calendar-resume'),
+  previewCalendarPrompt: (): Promise<void> => ipcRenderer.invoke('calendar-preview'),
+  openAppleCalendar: (): Promise<void> => ipcRenderer.invoke('calendar-open'),
+  onAppleCalendarChanged: (callback: () => void) => {
+    const listener = () => callback()
+    ipcRenderer.on('calendar-changed', listener)
+    return () => ipcRenderer.removeListener('calendar-changed', listener)
+  },
+  onCalendarRuntimeChanged: (callback: () => void) => {
+    const listener = () => callback()
+    ipcRenderer.on('calendar-runtime-changed', listener)
+    return () => ipcRenderer.removeListener('calendar-runtime-changed', listener)
+  },
   getDashboardVisibility: (): Promise<boolean> => ipcRenderer.invoke('get-dashboard-visibility'),
   onDashboardVisibilityChanged: (callback: (visible: boolean) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, visible: boolean) => callback(visible)

@@ -4,6 +4,7 @@ import { useDarkMode } from '../hooks/useDarkMode'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 import type { ActivitySessionBlock, TimelineChapter } from '../lib/activitySessions'
 import type { ProcessedEventBlock } from './DashboardView'
+import { DayCalendarComparison } from './DayCalendarComparison'
 import CompactDayTimeline from './CompactDayTimeline'
 import { Button } from './ui/button'
 import { Label } from './ui/label'
@@ -213,6 +214,7 @@ const CalendarWidget = ({
 
       {viewMode === 'day' ? (
         <div className="flex-1 overflow-y-auto">
+          <DayCalendarComparison date={selectedDate} sessions={daySessions} onSelectSession={onSelectSession} />
           <CompactDayTimeline
             sessions={daySessions}
             chapters={dayChapters}

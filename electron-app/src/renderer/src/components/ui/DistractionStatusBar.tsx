@@ -556,6 +556,12 @@ const DistractionStatusBar = ({
     )
   }
 
+  if (runtimeSuspensionReasons.includes('calendar_event')) {
+    return <section className="tempo-inspector-section" aria-label="Tracking paused for a calendar event" aria-live="polite">
+      <div className="flex items-center justify-between gap-3"><div><p className="text-[11px] font-medium uppercase tracking-[.12em] text-muted-foreground">Calendar pause</p><p className="mt-0.5 text-sm text-foreground">Tracking resumes at {new Date(focusRuntime?.suspension?.pausedUntilMs || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}. Your focus timer is paused too.</p></div><Button variant="outline" size="xs" onClick={() => void window.api.resumeCalendarTracking()}>Resume now</Button></div>
+    </section>
+  }
+
   if (runtimeHasManualPause) {
     return (
       <section

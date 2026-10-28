@@ -1,3 +1,4 @@
+import { startCalendarIntegration } from './calendar'
 import { runtime } from './runtime'
 import { is, optimizer } from '@electron-toolkit/utils'
 import { app, BrowserWindow, screen, session } from 'electron'
@@ -25,6 +26,7 @@ let firefoxNavigationBridge: FirefoxNavigationBridge | null
 let monitoring: ActivityMonitoringCoordinator | null
 let isQuitting = false
 let stopReminders: (() => void) | undefined
+let stopCalendars: (() => void) | undefined
 
 function App() {
   async function initializeApp() {
@@ -94,6 +96,7 @@ function App() {
     registerIpcHandlers({ mainWindow }, notchHelper, monitoring)
     monitoring.start()
     stopReminders = startReminderIntegration()
+    stopCalendars = startCalendarIntegration(notchHelper, monitoring)
 
     // Handle app activation (e.g., clicking the dock icon on macOS)
     app.on('activate', () => {
@@ -140,6 +143,7 @@ function App() {
   app.on('before-quit', () => {
     isQuitting = true
     stopReminders?.()
+    stopCalendars?.()
     monitoring?.stop()
     notchHelper?.stop()
     firefoxNavigationBridge?.stop()

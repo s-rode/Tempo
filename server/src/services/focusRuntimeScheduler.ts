@@ -18,7 +18,8 @@ const clearDeadline = (userId: string) => {
 const deadlineFor = (runtime: any): number | null => {
   if (runtime.systemLocked || runtime.systemSleeping || runtime.awaitingSystemResumeCapture)
     return null;
-  if (runtime.manualPauseUntilMs) return runtime.manualPauseUntilMs;
+  const pauses = [runtime.manualPauseUntilMs, runtime.calendarPauseUntilMs].filter((value) => typeof value === 'number');
+  if (pauses.length) return Math.min(...pauses);
   const phase = currentPhase(runtime);
   if (!phase || phase.state !== 'running' || !phase.runningSinceMs) return null;
   if (runtime.run?.taskTarget?.checkpointAtMs) return null;
@@ -68,7 +69,7 @@ export async function armFocusRuntimeDeadline(userId: string): Promise<void> {
  * stale completion alert for time the user never observed Tempo running.
  */
 export async function initializeFocusRuntimeScheduler(): Promise<void> {
-  const runtimes = await FocusRuntimeModel.find({ 'run.state': 'active' });
+  const runtimes = await FocusRuntimeModel.find({ $or: [{ 'run.state': 'active' }, { calendarPauseUntilMs: { $ne: null } }] });
   const now = Date.now();
   for (const runtime of runtimes) {
     const deadline = deadlineFor(runtime);

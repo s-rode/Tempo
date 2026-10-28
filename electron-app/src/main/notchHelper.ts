@@ -1,3 +1,4 @@
+import type { CalendarPauseNotice } from '../../../shared/calendar'
 import { app, BrowserWindow } from 'electron'
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
 import { join } from 'path'
@@ -67,6 +68,7 @@ export interface DistractionAttentionNotice {
 }
 
 type NotchEvent =
+  | { version: 5; type: 'calendarResponse'; id: string; action: 'pause' | 'keep' }
   | { version: 5; type: 'ready' }
   | { version: 5; type: 'visibilityChanged'; visible: boolean }
   | { version: 5; type: 'openMain' }
@@ -86,6 +88,11 @@ type HelperAvailability = 'starting' | 'ready' | 'unavailable'
 const protocolVersion = 5
 
 export class NotchHelper {
+  public onCalendarResume?: () => void
+  public onCalendarResponse?: (id: string, action: 'pause' | 'keep') => void
+  private calendarNotice: CalendarPauseNotice | null = null
+  private calendarPauseUntilMs: number | null = null
+  private calendarFreezeAtMs: number | null = null
   private child: ChildProcessWithoutNullStreams | null = null
   private lineBuffer = ''
   private lastStatus: FloatingStatusUpdate | null = null
@@ -174,7 +181,31 @@ export class NotchHelper {
     this.send({ version: protocolVersion, type: 'distractionNotice', distractionNotice: notice })
   }
 
+  presentCalendarNotice(notice: CalendarPauseNotice | null): void {
+    this.calendarNotice = notice
+    this.send({ version: protocolVersion, type: 'calendarNotice', calendarNotice: notice })
+  }
+
+  setCalendarPause(untilMs: number | null): void {
+    if (untilMs && !this.calendarPauseUntilMs) this.calendarFreezeAtMs = Date.now()
+    this.calendarPauseUntilMs = untilMs
+    if (!untilMs) this.calendarFreezeAtMs = null
+    if (this.lastStatus) this.updateStatus(this.lastStatus)
+  }
+
   updateStatus(status: FloatingStatusUpdate): void {
+    const otherReasons = (status.suspensionReasons || []).filter(reason => reason !== 'calendar_event')
+    if (this.calendarPauseUntilMs) {
+      const frozen = freezeNotchClocks(this.lastStatus || status, this.calendarFreezeAtMs || Date.now())
+      status = { ...status, productiveClock: frozen.productiveClock, distractedClock: frozen.distractedClock,
+        dailyProductiveClock: frozen.dailyProductiveClock, dailyUnproductiveClock: frozen.dailyUnproductiveClock,
+        phaseRemainingMs: frozen.phaseRemainingMs, phaseRemainingSampledAtMs: frozen.phaseRemainingSampledAtMs,
+        trackingState: 'paused', suspensionReasons: [...otherReasons, 'calendar_event'], suspendedAtMs: this.calendarFreezeAtMs,
+        pausedUntilMs: Math.max(this.calendarPauseUntilMs, status.pausedUntilMs || 0) }
+    } else if (status.suspensionReasons?.includes('calendar_event')) {
+      status = { ...status, suspensionReasons: otherReasons, pausedUntilMs: null,
+        trackingState: otherReasons.length ? 'paused' : status.runtimeMode === 'normal' ? 'normal' : 'active' }
+    }
     const newActivity = status.eventIds?.length && status.eventIds.some(id => !this.awaitingSystemActivityIds?.includes(id))
     if (this.systemFreezeAtMs === null && newActivity) this.awaitingSystemActivityIds = null
     if ((this.systemFreezeAtMs !== null || this.awaitingSystemActivityIds !== null) && this.lastStatus) {
@@ -330,6 +361,7 @@ export class NotchHelper {
       this.restartCount = 0
       this.setAvailability('ready')
       if (this.lastStatus) this.updateStatus(this.lastStatus)
+      if (this.calendarNotice) this.presentCalendarNotice(this.calendarNotice)
       return
     }
     if (event.type === 'visibilityChanged') {
@@ -362,7 +394,12 @@ export class NotchHelper {
       })
       return
     }
+    if (event.type === 'calendarResponse') {
+      if (event.id && (event.action === 'pause' || event.action === 'keep')) this.onCalendarResponse?.(event.id, event.action)
+      return
+    }
     if (event.type === 'focusCommand') {
+      if (event.action === 'resume' && this.calendarPauseUntilMs) { this.onCalendarResume?.(); return }
       this.mainWindow()?.webContents.send('floating-focus-command', event)
       return
     }

@@ -17,6 +17,7 @@ mac:
   identity: null
   icon: build/icon.icns
   extendInfo:
+    NSCalendarsFullAccessUsageDescription: Tempo reads calendar event titles and times to show your schedule and ask whether to pause tracking. Tempo never creates, edits, or deletes calendar events.
     NSRemindersFullAccessUsageDescription: Tempo reads your reminders to display tasks and guide focus sessions. Tempo never changes or completes reminders.
     NSRemindersUsageDescription: Tempo reads your reminders to display tasks and guide focus sessions. Tempo never changes or completes reminders.
     NSAppleEventsUsageDescription: Tempo needs to access information from your web browser to track your activity.

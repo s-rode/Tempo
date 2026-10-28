@@ -172,6 +172,7 @@ export interface FocusTransitionNotice {
   breakDurationMs: number | null;
 }
 export type SuspensionReason =
+  | 'calendar_event'
   | 'manual_pause'
   | 'pomodoro_break'
   | 'long_break'
@@ -229,6 +230,6 @@ export interface FocusRuntimeSnapshot {
   transitionNotice: FocusTransitionNotice | null;
 }
 /** Bump whenever a packaged local server must not be reused across app updates. */
-export const TEMPO_LOCAL_SERVER_API_VERSION = '2026-10-tempo-local-publication-v1';
+export const TEMPO_LOCAL_SERVER_API_VERSION = '2026-10-tempo-local-calendar-v2';
 
 export { usableDistractionNudge, type DistractionNudge } from './distractionNudge';

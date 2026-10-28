@@ -21,6 +21,10 @@
     "./distractionRules": {
       "types": "./dist/distractionRules.d.ts",
       "import": "./dist/distractionRules.js"
+    },
+    "./calendar": {
+      "types": "./dist/calendar.d.ts",
+      "import": "./dist/calendar.js"
     }
   },
   "scripts": {

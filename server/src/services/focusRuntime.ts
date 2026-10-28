@@ -3,6 +3,7 @@ import type { FocusTaskSource } from '../../../shared/reminders';
 import { FocusRunHistoryModel, FocusRuntimeModel } from '../models/focusRuntime';
 
 export type SuspensionReason =
+  | 'calendar_event'
   | 'manual_pause'
   | 'pomodoro_break'
   | 'long_break'
@@ -123,6 +124,7 @@ const resumePhase = (runtime: RuntimeDocument, now: number) => {
   const current = currentPhase(runtime);
   if (!current || current.state === 'awaiting_goal' || current.state === 'completed') return;
   if (
+    runtime.calendarPauseUntilMs ||
     runtime.manualPauseUntilMs ||
     hasSystemSuspension(runtime) ||
     runtime.awaitingSystemResumeCapture
@@ -289,6 +291,13 @@ export const advanceRuntime = (
   now = Date.now(),
   options: { emitTransitionNotice?: boolean } = {}
 ) => {
+  if (runtime.calendarPauseUntilMs && now >= runtime.calendarPauseUntilMs) {
+    runtime.calendarPauseUntilMs = null;
+    runtime.calendarPausedAtMs = null;
+    runtime.calendarPauseEventIds = [];
+    runtime.awaitingSystemResumeCapture = shouldAwaitFreshSystemCapture(runtime, now);
+    resumePhase(runtime, now);
+  }
   // A native lock/sleep boundary and the deliberate fresh-capture gate are
   // authoritative. Never complete a phase or emit an alert while either is
   // active, even if a legacy record still says the phase was running.
@@ -302,6 +311,7 @@ export const advanceRuntime = (
     runtime.manualPausedAtMs = null;
     resumePhase(runtime, now);
   }
+  if (runtime.calendarPauseUntilMs) { freezePhase(runtime, now); return null; }
   const current = currentPhase(runtime);
   if (!current || current.state !== 'running' || !current.runningSinceMs) return;
   if (taskTargetFor(runtime.run)?.checkpointAtMs) return null;
@@ -321,6 +331,7 @@ export async function getOrCreateRuntime(userId: string): Promise<RuntimeDocumen
 
 export const suspensionReasonsFor = (runtime: RuntimeDocument): SuspensionReason[] => {
   const reasons: SuspensionReason[] = [];
+  if (runtime.calendarPauseUntilMs) reasons.push('calendar_event');
   if (runtime.manualPauseUntilMs) reasons.push('manual_pause');
   if (runtime.systemLocked) reasons.push('screen_locked');
   if (runtime.systemSleeping) reasons.push('system_sleep');
@@ -342,7 +353,7 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
       ? phaseElapsed(current, now)
       : Math.min(current.plannedDurationMs, phaseElapsed(current, now))
     : 0;
-  const trackingState = reasons.length
+  const trackingState = reasons.includes('calendar_event') ? 'paused' : reasons.length
     ? current?.kind === 'short_break' || current?.kind === 'long_break'
       ? 'break'
       : 'paused'
@@ -359,7 +370,8 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
         : pendingNotice
       : null;
   const taskTarget = taskTargetFor(runtime.run);
-  const nextDeadlineAtMs = runtime.manualPauseUntilMs
+  const pauseDeadlines = [runtime.manualPauseUntilMs, runtime.calendarPauseUntilMs].filter((value) => typeof value === 'number' && value > now);
+  const nextDeadlineAtMs = pauseDeadlines.length ? Math.min(...pauseDeadlines) : runtime.manualPauseUntilMs
     ? runtime.manualPauseUntilMs
     : !taskTarget?.checkpointAtMs && current?.state === 'running' && current.runningSinceMs
       ? current.runningSinceMs + Math.max(0, current.plannedDurationMs - current.activeElapsedMs)
@@ -369,9 +381,10 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
     trackingState,
     suspension: {
       reasons,
-      pausedUntilMs: runtime.manualPauseUntilMs || null,
+      pausedUntilMs: Math.max(runtime.manualPauseUntilMs || 0, runtime.calendarPauseUntilMs || 0) || null,
+      calendarPausedAtMs: runtime.calendarPausedAtMs || null,
       manualPausedAtMs: runtime.manualPausedAtMs || null,
-      suspendedAtMs: runtime.systemSuspendedAtMs || null,
+      suspendedAtMs: runtime.systemSuspendedAtMs || runtime.calendarPausedAtMs || null,
     },
     run: runtime.run?.state === 'active' ? runValue : null,
     currentPhase: current ? { ...phaseValue, activeElapsedMs: phaseElapsedMs } : null,
@@ -633,6 +646,7 @@ export const continueFinishedSession = (
   runtime.run.phases[0].todayPlanTask = lastWork.todayPlanTask || null;
   runtime.run.phases[0].goalHistory[0].todayPlanTask = lastWork.todayPlanTask || null;
   if (
+    runtime.calendarPauseUntilMs ||
     runtime.manualPauseUntilMs ||
     hasSystemSuspension(runtime) ||
     runtime.awaitingSystemResumeCapture
@@ -643,3 +657,22 @@ export const continueFinishedSession = (
 };
 
 export { currentPhase, freezePhase, resumePhase, completeRun, shouldAwaitFreshSystemCapture };
+
+
+/** Calendar owns an independent lease. Ending it never clears a manual pause. */
+export function applyCalendarPause(runtime: RuntimeDocument, untilMs: number | null, now = Date.now()) {
+  const wasPaused = Boolean(runtime.calendarPauseUntilMs);
+  const until = untilMs && untilMs > now ? untilMs : null;
+  if (until) {
+    freezePhase(runtime, now);
+    runtime.calendarPausedAtMs ||= now;
+  }
+  runtime.calendarPauseUntilMs = until;
+  if (!until) {
+    runtime.calendarPausedAtMs = null;
+    runtime.calendarPauseEventIds = [];
+    if (wasPaused) runtime.awaitingSystemResumeCapture = shouldAwaitFreshSystemCapture(runtime, now);
+    resumePhase(runtime, now);
+  }
+  return wasPaused !== Boolean(until);
+}

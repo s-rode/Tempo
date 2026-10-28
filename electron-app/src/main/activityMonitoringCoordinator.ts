@@ -73,6 +73,7 @@ export class ActivityMonitoringCoordinator {
   private deliveryRetryTimer: ReturnType<typeof setTimeout> | null = null
   private deliveryAttempts = 0
   private rendererReady = false
+  private calendarPaused = false
   private paused = false
   private started = false
   private health: MonitoringHealth = { state: 'starting' }
@@ -111,7 +112,7 @@ export class ActivityMonitoringCoordinator {
     this.journalRetry.unref()
     void this.journal?.flush()
     nativeWindows.startActiveWindowObserver((details) => this.onNativeActivity(details))
-    this.health = { state: this.paused ? 'paused' : 'active' }
+    this.health = { state: this.paused || this.calendarPaused ? 'paused' : 'active' }
   }
 
   stop(): void {
@@ -130,8 +131,17 @@ export class ActivityMonitoringCoordinator {
   setPaused(paused: boolean): void {
     this.paused = paused
     if (paused) this.clearDeliveryRetry()
-    nativeWindows.setActivityCapturePaused(paused)
-    this.health = { ...this.health, state: paused ? 'paused' : 'active' }
+    nativeWindows.setActivityCapturePaused(paused || this.calendarPaused)
+    this.health = { ...this.health, state: paused || this.calendarPaused ? 'paused' : 'active' }
+  }
+
+  setCalendarPaused(paused: boolean): void {
+    const changed = this.calendarPaused !== paused
+    this.calendarPaused = paused
+    if (paused) { this.clearDeliveryRetry(); this.latestCapture = null }
+    nativeWindows.setActivityCapturePaused(this.paused || paused)
+    this.health = { ...this.health, state: this.paused || paused ? 'paused' : 'active' }
+    if (changed && !paused && !this.paused) nativeWindows.refreshActiveWindow()
   }
 
   markRendererReady(): void {
@@ -180,7 +190,7 @@ export class ActivityMonitoringCoordinator {
       this.onSystemSuspensionChange?.(this.systemSuspension)
       this.health = {
         ...this.health,
-        state: this.paused || !captureScheduled ? 'paused' : 'active',
+        state: this.paused || this.calendarPaused || !captureScheduled ? 'paused' : 'active',
         lastErrorCode: undefined
       }
       return { cleared: true, captureScheduled }
@@ -208,6 +218,7 @@ export class ActivityMonitoringCoordinator {
 
   private onNativeActivity(details: ActiveWindowDetails | null): void {
     if (!details) return
+    if (this.calendarPaused && details.type !== 'system') return
     if (
       details.type !== 'system' &&
       (this.systemSuspension.locked || this.systemSuspension.sleeping)

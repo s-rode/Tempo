@@ -13,6 +13,7 @@ import { warmLocalClassificationModel } from './services/categorization/provider
 import { initializeFocusRuntimeScheduler } from './services/focusRuntimeScheduler';
 import { persistSystemBoundary, systemBoundarySchema } from './services/systemBoundary';
 import { publicProcedure, router } from './trpc';
+import { calendarPauseSchema, setCalendarPause } from './services/calendarPause';
 
 // Export tRPC utilities
 export { publicProcedure, router };
@@ -126,6 +127,17 @@ app.post('/internal/system-boundary', async (req, res) => {
   } catch {
     res.sendStatus(503);
   }
+});
+
+app.post('/internal/calendar-pause', async (req, res) => {
+  if (!isLocalMode || !migrationToken || req.header('x-tempo-migration-token') !== migrationToken) { res.sendStatus(404); return; }
+  const input = calendarPauseSchema.safeParse(req.body);
+  if (!input.success) { res.sendStatus(400); return; }
+  try {
+    const user = await UserModel.findOne({googleId: 'tempo-local-user'}).select('_id').lean();
+    if (!user) { res.sendStatus(503); return; }
+    res.json(await setCalendarPause(String(user._id), input.data));
+  } catch { res.sendStatus(503); }
 });
 
 app.all('/internal/reminders', async (req, res) => {

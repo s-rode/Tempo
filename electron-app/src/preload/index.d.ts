@@ -59,6 +59,16 @@ declare global {
   interface Window {
     electron: CustomElectronAPI // Use the custom, more specific type
     api: {
+      getAppleCalendarStatus: (range?: {startMs: number; endMs: number}) => Promise<import('shared/calendar').CalendarStatus>
+      connectAppleCalendar: () => Promise<import('shared/calendar').CalendarStatus>
+      updateCalendarPreferences: (preferences: Partial<import('shared/calendar').CalendarPreferences>) => Promise<import('shared/calendar').CalendarStatus>
+      refreshAppleCalendar: () => Promise<import('shared/calendar').CalendarStatus>
+      respondToCalendarEvent: (id: string, action: 'pause' | 'keep') => Promise<void>
+      resumeCalendarTracking: () => Promise<void>
+      previewCalendarPrompt: () => Promise<void>
+      openAppleCalendar: () => Promise<void>
+      onAppleCalendarChanged: (callback: () => void) => () => void
+      onCalendarRuntimeChanged: (callback: () => void) => () => void
       getDashboardVisibility: () => Promise<boolean>
       onDashboardVisibilityChanged: (callback: (visible: boolean) => void) => () => void
       connectReminders: () => Promise<void>

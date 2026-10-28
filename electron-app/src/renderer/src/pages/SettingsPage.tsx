@@ -1,3 +1,4 @@
+import { AppleCalendarSettings } from '../components/settings/AppleCalendarSettings'
 import { RefreshCw, RotateCcw } from 'lucide-react'
 import { CategoryManagement } from '../components/settings/CategoryManagement' // We'll create this next
 import DistractionSoundSettings from '../components/settings/DistractionSoundSettings'
@@ -83,6 +84,7 @@ export function SettingsPage({
         </header>
         <section className="tempo-settings-group">
           <h2>Planning and focus</h2>
+          <AppleCalendarSettings />
           <PlanningSettings openRequest={planningOpenRequest} />
           <SessionTransitionAlertSettings />
         </section>

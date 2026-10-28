@@ -17,7 +17,13 @@ export enum PermissionStatus {
   Pending = 2
 }
 
+import type { CalendarPermission, CalendarSnapshot } from '../../../../shared/calendar'
+
 interface Addon {
+  getCalendarPermission: () => CalendarPermission
+  requestCalendarAccess: (callback: (json: string) => void) => void
+  fetchCalendarEvents: (startMs: number, endMs: number, callback: (json: string) => void) => void
+  startCalendarObserver: (callback: () => void) => void
   getRemindersPermission: () => ReminderPermission
   requestRemindersAccess: (callback: (json: string) => void) => void
   fetchReminders: (callback: (json: string) => void) => void
@@ -57,6 +63,30 @@ const addonPath = isDevelopment
 const addon: Addon = require(addonPath)
 
 class NativeWindows {
+  private calendarAccessResult: {permission: CalendarPermission; authorizationStatus?: number; errorCode?: number} | null = null
+  public getCalendarAccessDiagnostic() { return {currentPermission: this.getCalendarPermission(), lastRequest: this.calendarAccessResult} }
+
+  public getCalendarPermission(): CalendarPermission { return addon.getCalendarPermission() }
+  public requestCalendarAccess(): Promise<CalendarPermission> {
+    return new Promise((resolve, reject) => addon.requestCalendarAccess((json) => {
+      try { const result = JSON.parse(json)
+          this.calendarAccessResult = result
+          resolve(result.permission) } catch (error) { reject(error) }
+    }))
+  }
+  public fetchCalendarEvents(startMs: number, endMs: number): Promise<CalendarSnapshot> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('fetch_failed')), 30_000)
+      timeout.unref()
+      addon.fetchCalendarEvents(startMs, endMs, (json) => {
+        clearTimeout(timeout)
+        try { const result = JSON.parse(json); if (result.error || !result.snapshot) reject(new Error(result.error || 'fetch_failed')); else resolve(result.snapshot) }
+        catch (error) { reject(error) }
+      })
+    })
+  }
+  public startCalendarObserver(callback: () => void): void { addon.startCalendarObserver(callback) }
+
   public getRemindersPermission(): ReminderPermission {
     return addon.getRemindersPermission()
   }

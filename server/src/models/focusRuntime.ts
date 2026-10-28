@@ -80,6 +80,9 @@ const focusRuntimeSchema = new Schema(
   {
     userId: { type: String, required: true, unique: true, index: true },
     run: { type: focusRunSchema, default: null },
+    calendarPauseUntilMs: { type: Number, default: null },
+    calendarPausedAtMs: { type: Number, default: null },
+    calendarPauseEventIds: { type: [String], default: [] },
     manualPauseUntilMs: { type: Number, default: null },
     manualPausedAtMs: { type: Number, default: null },
     systemLocked: { type: Boolean, default: false },

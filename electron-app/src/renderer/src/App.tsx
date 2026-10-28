@@ -110,6 +110,11 @@ export function MainAppContent() {
     }
   )
   const focusRuntimeUtils = trpc.useContext()
+  useEffect(() => window.api?.onCalendarRuntimeChanged(() => {
+    void focusRuntimeUtils.focusRuntime.getState.invalidate()
+    void focusRuntimeUtils.activeWindowEvents.invalidate()
+    void focusRuntimeUtils.analytics.invalidate()
+  }), [focusRuntimeUtils])
   const pauseFocusMutation = trpc.focusRuntime.pause.useMutation()
   const resumeFocusMutation = trpc.focusRuntime.resume.useMutation()
   const skipBreakMutation = trpc.focusRuntime.skipBreak.useMutation()

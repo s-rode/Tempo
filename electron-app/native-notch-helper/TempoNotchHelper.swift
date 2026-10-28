@@ -68,6 +68,15 @@ struct DistractionAttentionNotice: Codable, Equatable {
   let occurredAtMs: Double
 }
 
+struct CalendarPauseNotice: Codable, Equatable {
+  let id: String
+  let title: String
+  let calendarName: String
+  let startMs: Double
+  let endMs: Double
+  let preview: Bool?
+}
+
 struct StatusPayload: Codable {
   let latestStatus: String?
   let dailyProductiveMs: Double
@@ -120,6 +129,7 @@ struct CommandEnvelope: Codable {
   let action: String?
   let durationMinutes: Int?
   let distractionNotice: DistractionAttentionNotice?
+  let calendarNotice: CalendarPauseNotice?
 }
 
 final class TempoNotchPanel: NSPanel {
@@ -205,6 +215,8 @@ final class NotchController: NSObject, ObservableObject {
   @Published var chooserOpen = false
   @Published var pausePickerOpen = false
   @Published var recategorizeMessage: String?
+  @Published var presentedCalendarNotice: CalendarPauseNotice?
+  private var calendarAlertWork: DispatchWorkItem?
   @Published var presentedTransitionNotice: FocusTransitionNotice?
   @Published var presentedDistractionNotice: DistractionAttentionNotice?
   @Published var geometry: NotchGeometry
@@ -256,6 +268,7 @@ final class NotchController: NSObject, ObservableObject {
   }
 
   var expandedContentHeight: CGFloat {
+    if presentedCalendarNotice != nil { return 184 }
     if presentedTransitionNotice != nil {
       return presentedTransitionNotice?.canAddTime == true ? 170 : normalExpandedPanelHeight
     }
@@ -437,7 +450,7 @@ final class NotchController: NSObject, ObservableObject {
       presentTransitionNotice(notice, playChime: next.playSessionTransitionChime != false)
     }
     host?.refreshInteractionRegions()
-    if presentedTransitionNotice != nil || presentedDistractionNotice != nil { return }
+    if presentedCalendarNotice != nil || presentedTransitionNotice != nil || presentedDistractionNotice != nil { return }
     if previous == "productive" && next.latestStatus == "unproductive" {
       setExpanded(true)
       DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
@@ -475,6 +488,32 @@ final class NotchController: NSObject, ObservableObject {
     }
     transitionAlertWork = work
     DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: work)
+  }
+
+  func presentCalendarNotice(_ notice: CalendarPauseNotice?) {
+    calendarAlertWork?.cancel()
+    presentedCalendarNotice = notice
+    if let notice {
+      guard notice.endMs > Date().timeIntervalSince1970 * 1000 else { presentCalendarNotice(nil); return }
+      chooserOpen = false
+      pausePickerOpen = false
+      clearDistractionNotice()
+      show()
+      setExpanded(true)
+      let work = DispatchWorkItem { [weak self] in
+        guard let self, !self.isHovering else { return }
+        self.setExpanded(false)
+      }
+      calendarAlertWork = work
+      DispatchQueue.main.asyncAfter(deadline: .now() + 12, execute: work)
+    } else if !isHovering { setExpanded(false) }
+    host?.refreshInteractionRegions()
+  }
+
+  func respondToCalendar(_ action: String) {
+    guard let notice = presentedCalendarNotice else { return }
+    emit(type: "calendarResponse", extra: ["id": notice.id, "action": action])
+    presentCalendarNotice(nil)
   }
 
   /** Shows a reminder only for the still-current distracting event. */
@@ -618,7 +657,7 @@ final class NotchController: NSObject, ObservableObject {
     withAnimation(animation) { expanded = value }
     now = Date()
     refreshDisplayClock()
-    panel.acceptsKeyboardControls = value && (chooserOpen || pausePickerOpen || presentedTransitionNotice != nil || presentedDistractionNotice != nil)
+    panel.acceptsKeyboardControls = value && (chooserOpen || pausePickerOpen || presentedTransitionNotice != nil || presentedDistractionNotice != nil || presentedCalendarNotice != nil)
     host?.refreshInteractionRegions()
   }
 
@@ -1374,7 +1413,30 @@ struct NotchRootView: View {
 
   private var details: some View {
     VStack(alignment: .leading, spacing: 6) {
-      if transitionNotice != nil {
+      if let notice = controller.presentedCalendarNotice {
+        VStack(alignment: .leading, spacing: 8) {
+          HStack(spacing: 7) {
+            Image(systemName: "calendar.badge.clock").foregroundStyle(Color.blue)
+            Text(notice.preview == true ? "Preview calendar reminder" : "Pause tracking for this event?")
+              .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+          }
+          Text(notice.title).font(.system(size: 13, weight: .medium)).foregroundStyle(.white.opacity(0.96)).lineLimit(2)
+          Text("\(notice.calendarName) · \(Date(timeIntervalSince1970: notice.startMs / 1000).formatted(date: .omitted, time: .shortened))–\(Date(timeIntervalSince1970: notice.endMs / 1000).formatted(date: .omitted, time: .shortened))")
+            .font(.system(size: 10)).foregroundStyle(.white.opacity(0.68)).lineLimit(1)
+          Text(notice.preview == true ? "Try either action. Tracking will stay unchanged." : notice.startMs > controller.now.timeIntervalSince1970 * 1000 ? "Pause at the start; resume automatically at the end." : "Resume automatically when this event ends.")
+            .font(.system(size: 10)).foregroundStyle(.white.opacity(0.72))
+          HStack(spacing: 8) {
+            Button("Pause during event") { controller.respondToCalendar("pause") }
+              .buttonStyle(.borderedProminent).tint(.blue).controlSize(.small).environment(\.colorScheme, .dark)
+              .accessibilityIdentifier("tempo-calendar-pause")
+            Button("Keep tracking") { controller.respondToCalendar("keep") }
+              .buttonStyle(NotchActionStyle(tone: .neutral))
+              .accessibilityIdentifier("tempo-calendar-keep-tracking")
+            Spacer(minLength: 0)
+          }
+        }
+        .accessibilityElement(children: .contain)
+      } else if transitionNotice != nil {
         FocusTransitionCard(
           symbol: transitionSymbol,
           title: transitionTitle,
@@ -1550,7 +1612,7 @@ struct NotchRootView: View {
       } else {
         HStack(spacing: 7) {
           openWindowButton
-          if controller.status.trackingState == "paused", (controller.status.suspensionReasons ?? []).contains("manual_pause") {
+          if controller.status.trackingState == "paused", ((controller.status.suspensionReasons ?? []).contains("manual_pause") || (controller.status.suspensionReasons ?? []).contains("calendar_event")) {
             Button("Resume") { controller.requestFocusAction("resume") }
               .buttonStyle(NotchActionStyle(tone: .neutral))
           } else if controller.status.trackingState == "active" || controller.status.trackingState == "normal" {
@@ -1690,6 +1752,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     case "status": if let payload = command.payload { controller.apply(status: payload) }
     case "distractionNotice":
       if let notice = command.distractionNotice { controller.presentDistractionNotice(notice) }
+    case "calendarNotice": controller.presentCalendarNotice(command.calendarNotice)
     case "show": controller.show()
     case "hide": controller.hide()
     case "refreshGeometry": controller.positionPanel()

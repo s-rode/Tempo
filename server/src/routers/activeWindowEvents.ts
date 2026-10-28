@@ -243,7 +243,14 @@ export const activeWindowEventsRouter = router({
       if (systemTransition === 'lock' || systemTransition === 'sleep')
         cancelPendingGoalSupportProfiles(userId);
     }
-    if (type !== 'system') await resumeAfterSystemCapture(userId);
+    if (type !== 'system') {
+      const tracking = await resumeAfterSystemCapture(userId);
+      if (tracking.suspension.reasons.includes('calendar_event')) {
+        const boundary = await ActiveWindowEventModel.findOne({userId, type: 'system', ownerName: 'Calendar Pause'}).sort({timestamp: -1}).lean();
+        if (boundary) return {...boundary, eventId: String(boundary._id)} as ActiveWindowEvent;
+        throw new TRPCError({code: 'PRECONDITION_FAILED', message: 'Tracking is paused for a calendar event.'});
+      }
+    }
 
     const categorizationResult: PersonalizedEventMetadata & {
       categoryId: string | null;
