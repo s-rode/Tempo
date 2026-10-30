@@ -30,7 +30,7 @@ That task gives Tempo context for classifying your activity. Choose Flexible, Ba
 Apple Reminders is read-only: your lists stay managed in Reminders, while estimates and focus context live in Tempo.
 
 <p align="center">
-  <img src="docs/images/tempo-focus.png" alt="Starting a focus session from a task" width="340" />
+  <img src="docs/images/tempo-focus.png" alt="A running focus session with its goal, timer, and controls" width="380" />
 </p>
 
 ## Keep the timer upstairs
