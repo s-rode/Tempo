@@ -3,6 +3,12 @@ import { ActiveWindowEvent } from '../../../shared/types';
 
 export interface IActiveWindowEvent extends ActiveWindowEvent, Document {}
 
+// Several classification paths fall back to the raw window title (for example a
+// long Moodle lecture title). Bound display text on assignment so a long label
+// can never make the whole event fail validation and go unsaved.
+const boundedText = (max: number) => (value: unknown) =>
+  typeof value === 'string' ? value.slice(0, max) : value;
+
 const activeWindowEventSchema = new Schema({
   goalSnapshot: { type: Schema.Types.Mixed, default: null },
   classificationBasis: { type: String, default: null },
@@ -42,13 +48,13 @@ const activeWindowEventSchema = new Schema({
   supportingMode: { type: String, default: null },
   navigationFingerprint: { type: String, index: true, default: null },
   pageCorrectionKey: { type: String, index: true, default: null },
-  activityLabel: { type: String, maxlength: 60 },
-  activitySummary: { type: String, maxlength: 120 },
+  activityLabel: { type: String, maxlength: 60, set: boundedText(60) },
+  activitySummary: { type: String, maxlength: 120, set: boundedText(120) },
   categoryId: { type: String, required: false, index: true },
   categoryReasoning: { type: String },
   nudgeVersion: { type: String, default: null },
-  nudgeTitle: { type: String, maxlength: 80 },
-  nudgeBody: { type: String, maxlength: 180 },
+  nudgeTitle: { type: String, maxlength: 80, set: boundedText(80) },
+  nudgeBody: { type: String, maxlength: 180, set: boundedText(180) },
   classificationStatus: {
     type: String,
     enum: [
@@ -97,7 +103,7 @@ const activeWindowEventSchema = new Schema({
   // collection; Settings may show only the application label.
   learningToolKey: { type: String, index: true, default: null },
   learningToolKind: { type: String, enum: ['app', 'site', null], default: null },
-  learningToolLabel: { type: String, maxlength: 80, default: null },
+  learningToolLabel: { type: String, maxlength: 80, default: null, set: boundedText(80) },
   learningExampleId: { type: String, default: null },
   // A foreground capture may be redelivered after a renderer/network failure.
   // The opaque ID makes retries return the first saved event rather than
