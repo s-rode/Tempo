@@ -18,6 +18,7 @@ type FirefoxNavigationCacheSource = {
   classificationStatus?: ClassificationStatus | null;
   decisionConfidence?: 'high' | 'medium' | 'low' | null;
   evidenceQuality?: 'strong' | 'partial' | 'weak' | null;
+  decisionExpiresAtMs?: number | null;
 };
 
 /**
@@ -28,11 +29,16 @@ type FirefoxNavigationCacheSource = {
  */
 export const isReusableFirefoxNavigationSource = (
   source: FirefoxNavigationCacheSource | null | undefined,
-  currentTitle: string
+  currentTitle: string,
+  now = Date.now()
 ): boolean =>
   Boolean(
     source?.categoryId &&
       source.title === currentTitle &&
+      // A time-limited decision (for example a resource-navigation allowance on
+      // a course page) is reusable while it is valid. The reused event keeps the
+      // source's expiry, so reuse can never extend the allowance.
+      !(source.decisionExpiresAtMs && source.decisionExpiresAtMs <= now) &&
       source.classificationStatus &&
       cacheSeedStatuses.has(source.classificationStatus) &&
       (source.classificationStatus === 'deterministic_direct' ||

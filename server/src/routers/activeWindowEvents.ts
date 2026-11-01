@@ -599,6 +599,11 @@ export const activeWindowEventsRouter = router({
         title: input.title,
         classificationStatus: { $in: ['deterministic_direct', 'ollama', 'policy_override'] },
         categoryId: { $ne: null },
+        // Filter expired decisions in the query, so a newer expired event can
+        // never mask an older one that is still valid.
+        $and: [
+          { $or: [{ decisionExpiresAtMs: null }, { decisionExpiresAtMs: { $gt: Date.now() } }] },
+        ],
         $or: [
           { classificationStatus: 'deterministic_direct' },
           {
@@ -611,8 +616,6 @@ export const activeWindowEventsRouter = router({
         .lean();
       if (
         !source ||
-        source.classificationBasis === 'resource_navigation' ||
-        (source.decisionExpiresAtMs && source.decisionExpiresAtMs <= Date.now()) ||
         !isReusableFirefoxNavigationSource(source, input.title)
       ) {
         return { reused: false as const };

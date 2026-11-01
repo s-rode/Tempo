@@ -55,4 +55,18 @@ describe('Firefox navigation-cache source guard', () => {
       )
     ).toBe(false);
   });
+
+  test('reuses a resource-navigation decision while its allowance is valid', () => {
+    const source = {
+      title,
+      categoryId: 'work',
+      classificationStatus: 'ollama' as const,
+      decisionConfidence: 'high' as const,
+      evidenceQuality: 'partial' as const,
+      decisionExpiresAtMs: 2_000,
+    };
+    expect(isReusableFirefoxNavigationSource(source, title, 1_000)).toBe(true);
+    expect(isReusableFirefoxNavigationSource(source, title, 2_000)).toBe(false);
+    expect(isReusableFirefoxNavigationSource(source, title, 3_000)).toBe(false);
+  });
 });
