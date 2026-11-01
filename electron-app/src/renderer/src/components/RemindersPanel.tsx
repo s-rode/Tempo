@@ -135,6 +135,7 @@ export function RemindersSettings() {
         {status?.enabled && (
           <>
             <RemindersFilters status={status} />
+            <DefaultListSelect status={status} />
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Focus context by list</h4>
               <p className="text-xs text-muted-foreground">
@@ -153,6 +154,43 @@ export function RemindersSettings() {
         )}
       </div>
     </section>
+  )
+}
+
+function DefaultListSelect({ status }: { status: Status }) {
+  const { token } = useAuth()
+  const refresh = useRefreshReminderViews()
+  const mutation = trpc.reminders.setDefaultList.useMutation({
+    onSuccess: () => refresh(false),
+    onError: showError
+  })
+  const value = status.lists.some((list) => list.id === status.defaultListId)
+    ? status.defaultListId || ''
+    : ''
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-sm font-medium">Default list for spontaneous tasks</span>
+      <p className="text-xs text-muted-foreground">
+        Preselected as list context when you start a focus session that is not a reminder. It helps
+        classify activity for short, ad-hoc goals.
+      </p>
+      <select
+        className="tempo-field w-full"
+        value={value}
+        disabled={mutation.isLoading}
+        onChange={(event) =>
+          mutation.mutate({ token: token || '', listId: event.target.value || null })
+        }
+        aria-label="Default list for spontaneous tasks"
+      >
+        <option value="">None</option>
+        {status.lists.map((list) => (
+          <option key={list.id} value={list.id}>
+            {list.name}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 

@@ -20,6 +20,7 @@ const integrationSchema = new mongoose.Schema(
     lists: { type: [mongoose.Schema.Types.Mixed], default: [] },
     reminders: { type: [mongoose.Schema.Types.Mixed], default: [] },
     listContexts: { type: mongoose.Schema.Types.Mixed, default: {} },
+    defaultListId: { type: String, default: null },
   },
   { timestamps: true }
 );

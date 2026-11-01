@@ -354,6 +354,7 @@ export async function getReminderStatus(userId: string) {
     error: state?.error ?? null,
     lists: (state?.lists || []) as ReminderList[],
     listContexts: (state?.listContexts || {}) as Record<string, string>,
+    defaultListId: (state?.defaultListId as string | null) ?? null,
     filter: (state?.filter || {
       match: 'any',
       rules: [{ kind: 'due_today' }, { kind: 'overdue' }],

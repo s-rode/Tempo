@@ -471,8 +471,8 @@ export async function resolveEffectiveGoalContext(userId: string): Promise<Effec
           `session:${runtime.run.id}:${phase.id}`,
           'session',
           phase.goal.trim(),
-          phase.todayPlanTask?.classificationText || undefined,
-          phase.todayPlanTask || undefined
+          (phase.todayPlanTask || phase.contextList)?.classificationText || undefined,
+          phase.todayPlanTask || phase.contextList || undefined
         ),
       ],
       attentionGuardrail: null,

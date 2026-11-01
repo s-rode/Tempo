@@ -277,12 +277,32 @@ describe('focus transition notices', () => {
     expect(pomodoro.phases[2].todayPlanTask).toBeNull();
   });
 
+  test('keeps list context on a spontaneous goal without making it a planned task', () => {
+    const contextList = {
+      listId: 'list-1',
+      listName: 'Uni',
+      listContext: 'Lecture prep',
+      classificationText: 'Read paper\nList: Uni\nFocus context: Lecture prep',
+    };
+    const run = createCustomRun('Read paper', 30, 1_000, null, null, contextList);
+
+    expect(run.taskTarget).toBeNull();
+    expect(run.phases[0].todayPlanTask).toBeNull();
+    expect(run.phases[0].contextList).toEqual(contextList);
+    expect(run.phases[0].goalHistory[0].contextList).toEqual(contextList);
+  });
+
   test('records the initial goal boundary for a running work phase', () => {
     const taskSource = { taskId: 'task-123', dateKey: '2026-09-09' };
     const run = createCustomRun('Review lecture notes', 30, 12_345, taskSource);
 
     expect(run.phases[0].goalHistory).toEqual([
-      { goal: 'Review lecture notes', todayPlanTask: taskSource, startedAtMs: 12_345 },
+      {
+        goal: 'Review lecture notes',
+        todayPlanTask: taskSource,
+        contextList: null,
+        startedAtMs: 12_345,
+      },
     ]);
   });
 

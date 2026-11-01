@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import type { FocusTaskSource } from '../../../shared/reminders';
+import type { ContextListRef, FocusTaskSource } from '../../../shared/reminders';
 import { FocusRunHistoryModel, FocusRuntimeModel } from '../models/focusRuntime';
 
 export type SuspensionReason =
@@ -65,15 +65,24 @@ const phase = (
   state: string,
   goal: string | null = null,
   todayPlanTask: TodayPlanTaskSource | null = null,
-  now = Date.now()
+  now = Date.now(),
+  contextList: ContextListRef | null = null
 ) => ({
   id: crypto.randomUUID(),
   kind,
   goal,
   todayPlanTask: todayPlanTask ? { ...todayPlanTask } : null,
+  contextList: contextList ? { ...contextList } : null,
   goalHistory:
     kind === 'work' && goal && state === 'running'
-      ? [{ goal, todayPlanTask: todayPlanTask ? { ...todayPlanTask } : null, startedAtMs: now }]
+      ? [
+          {
+            goal,
+            todayPlanTask: todayPlanTask ? { ...todayPlanTask } : null,
+            contextList: contextList ? { ...contextList } : null,
+            startedAtMs: now,
+          },
+        ]
       : [],
   startedAtMs: state === 'running' ? now : null,
   completedAtMs: null,
@@ -505,7 +514,8 @@ export const createCustomRun = (
   durationMinutes: number,
   now = Date.now(),
   todayPlanTask: TodayPlanTaskSource | null = null,
-  originalEstimateMinutes: number | null = null
+  originalEstimateMinutes: number | null = null,
+  contextList: ContextListRef | null = null
 ) => ({
   id: crypto.randomUUID(),
   kind: 'custom',
@@ -513,7 +523,7 @@ export const createCustomRun = (
   currentPhaseIndex: 0,
   phases: [
     {
-      ...phase('work', durationMinutes, 'running', goal, todayPlanTask, now),
+      ...phase('work', durationMinutes, 'running', goal, todayPlanTask, now, contextList),
       runningSinceMs: now,
       startedAtMs: now,
     },
@@ -536,7 +546,8 @@ export const createPomodoroRun = (
   now = Date.now(),
   todayPlanTask: TodayPlanTaskSource | null = null,
   workTargetMinutes: number | null = null,
-  originalEstimateMinutes: number | null = null
+  originalEstimateMinutes: number | null = null,
+  contextList: ContextListRef | null = null
 ) => ({
   id: crypto.randomUUID(),
   kind: 'pomodoro',
@@ -558,7 +569,7 @@ export const createPomodoroRun = (
         }).flat()
       : [
           {
-            ...phase('work', 30, 'running', firstGoal, todayPlanTask, now),
+            ...phase('work', 30, 'running', firstGoal, todayPlanTask, now, contextList),
             runningSinceMs: now,
             startedAtMs: now,
           },
@@ -645,6 +656,8 @@ export const continueFinishedSession = (
   runtime.run = createCustomRun(lastWork.goal, minutes, now);
   runtime.run.phases[0].todayPlanTask = lastWork.todayPlanTask || null;
   runtime.run.phases[0].goalHistory[0].todayPlanTask = lastWork.todayPlanTask || null;
+  runtime.run.phases[0].contextList = lastWork.contextList || null;
+  runtime.run.phases[0].goalHistory[0].contextList = lastWork.contextList || null;
   if (
     runtime.calendarPauseUntilMs ||
     runtime.manualPauseUntilMs ||

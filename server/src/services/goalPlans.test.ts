@@ -24,6 +24,7 @@ const {
   ensureGoalPlanMigration,
   fingerprintEffectiveGoalContext,
   fingerprintClassificationContext,
+  fingerprintGoalText,
   getCurrentDailyPlanTask,
   getDailyPlan,
   goalPeriodFor,
@@ -66,6 +67,56 @@ describe('Tempo goal plans', () => {
       dailyTasks: [],
     });
     expect(goalPlans.findOne).not.toHaveBeenCalled();
+  });
+
+  test('gives a spontaneous goal the chosen list context as classifier input', async () => {
+    const classificationText = 'Read paper\nList: Uni\nFocus context: Lecture prep';
+    focusRuntime.findOne.mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue({
+        run: {
+          id: 'run',
+          state: 'active',
+          currentPhaseIndex: 0,
+          phases: [
+            {
+              id: 'phase',
+              kind: 'work',
+              state: 'running',
+              goal: 'Read paper',
+              todayPlanTask: null,
+              contextList: {
+                listId: 'list-1',
+                listName: 'Uni',
+                listContext: 'Lecture prep',
+                classificationText,
+              },
+            },
+          ],
+        },
+      }),
+    });
+
+    const context = await resolveEffectiveGoalContext('user');
+    const [target] = context.targets || [];
+    expect(context.scope).toBe('session');
+    expect(target).toMatchObject({
+      text: 'Read paper',
+      classificationText,
+      listName: 'Uni',
+      listContext: 'Lecture prep',
+    });
+    expect(target.listKey).toBeTruthy();
+    // Without a task id the key falls back to the goal text, like any custom goal.
+    expect(target.taskKey).toBe(fingerprintGoalText('read paper'));
+    // The list changes the classification fingerprint, so cached verdicts are not reused.
+    const withoutList = {
+      ...context,
+      targets: [{ ...target, classificationText: undefined, listKey: null, listContext: null }],
+    };
+    expect(fingerprintClassificationContext(context)).not.toBe(
+      fingerprintClassificationContext(withoutList as typeof context)
+    );
   });
 
   test('uses only unchecked daily tasks, ordered by the plan priority', async () => {

@@ -13,10 +13,21 @@ const todayPlanTaskSchema = new Schema(
   { _id: false }
 );
 
+const contextListSchema = new Schema(
+  {
+    listId: { type: String, required: true },
+    listName: { type: String, required: true },
+    listContext: { type: String, default: '' },
+    classificationText: { type: String, required: true },
+  },
+  { _id: false }
+);
+
 const focusGoalHistorySchema = new Schema(
   {
     goal: { type: String, required: true },
     todayPlanTask: { type: todayPlanTaskSchema, default: null },
+    contextList: { type: contextListSchema, default: null },
     startedAtMs: { type: Number, required: true },
   },
   { _id: false }
@@ -30,6 +41,7 @@ const focusPhaseSchema = new Schema(
     // The task identity is a provenance hint only. `goal` is the active
     // segment snapshot, so later plan edits cannot rewrite focus history.
     todayPlanTask: { type: todayPlanTaskSchema, default: null },
+    contextList: { type: contextListSchema, default: null },
     // A phase may deliberately change its working goal without resetting its
     // clock. Keep the boundary records so the timeline remains historically
     // honest instead of applying the latest goal to the whole phase.

@@ -26,7 +26,9 @@ import { FocusRunHistoryModel, FocusRuntimeModel } from '../models/focusRuntime'
 import { armFocusRuntimeDeadline } from '../services/focusRuntimeScheduler';
 import { getCurrentDailyPlanTask, resolveEffectiveGoalContext } from '../services/goalPlans';
 import { GoalPlanModel } from '../models/goalPlan';
-import { getReminderTasks } from '../services/reminders';
+import { getReminderStatus, getReminderTasks } from '../services/reminders';
+import { reminderClassificationText } from '../services/reminderRules';
+import type { ContextListRef } from '../../../shared/reminders';
 import {
   cancelPendingGoalSupportProfiles,
   ensureGoalSupportProfiles,
@@ -52,7 +54,7 @@ const pauseDurations = z.union([
 const goal = z.string().trim().min(1).max(500);
 const taskMinutes = z.number().int().min(1).max(720);
 const goalSource = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('custom'), goal }),
+  z.object({ kind: z.literal('custom'), goal, listId: z.string().min(1).max(1000).optional() }),
   z.object({ kind: z.literal('today_plan_task'), taskId: z.string().uuid() }),
   z.object({ kind: z.literal('reminder'), taskId: z.string().uuid() }),
 ]);
@@ -64,9 +66,27 @@ const resolveGoalSource = async (
   goal: string;
   todayPlanTask: TodayPlanTaskSource | null;
   estimatedMinutes: number | null;
+  contextList: ContextListRef | null;
 }> => {
-  if (source.kind === 'custom')
-    return { goal: source.goal, todayPlanTask: null, estimatedMinutes: null };
+  if (source.kind === 'custom') {
+    // An unknown list (removed since the client last synced) degrades to no
+    // context; a stale default must never block starting a session.
+    let contextList: ContextListRef | null = null;
+    if (source.listId) {
+      const status = await getReminderStatus(userId);
+      const list = status.enabled ? status.lists.find((entry) => entry.id === source.listId) : null;
+      if (list) {
+        const listContext = status.listContexts[list.id] || '';
+        contextList = {
+          listId: list.id,
+          listName: list.name,
+          listContext,
+          classificationText: reminderClassificationText(source.goal, list.name, '', listContext),
+        };
+      }
+    }
+    return { goal: source.goal, todayPlanTask: null, estimatedMinutes: null, contextList };
+  }
   if (source.kind === 'reminder') {
     const reminders = await getReminderTasks(userId);
     const task = reminders.tasks.find((entry) => entry.id === source.taskId);
@@ -78,6 +98,7 @@ const resolveGoalSource = async (
     return {
       goal: task.text.trim() || 'Untitled reminder',
       estimatedMinutes: task.estimatedMinutes,
+      contextList: null,
       todayPlanTask: {
         taskId: task.id,
         dateKey: new Date().toLocaleDateString('en-CA'),
@@ -100,6 +121,7 @@ const resolveGoalSource = async (
     goal: plannedTask.task.text.trim(),
     todayPlanTask: { taskId: plannedTask.task.id, dateKey: plannedTask.dateKey },
     estimatedMinutes: plannedTask.task.estimatedMinutes ?? null,
+    contextList: null,
   };
 };
 
@@ -224,7 +246,8 @@ export const focusRuntimeRouter = router({
         input.durationMinutes,
         Date.now(),
         resolvedGoal.todayPlanTask,
-        resolvedGoal.estimatedMinutes
+        resolvedGoal.estimatedMinutes,
+        resolvedGoal.contextList
       );
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
@@ -255,7 +278,8 @@ export const focusRuntimeRouter = router({
         resolvedGoal.todayPlanTask
           ? (input.workTargetMinutes ?? resolvedGoal.estimatedMinutes ?? 120)
           : null,
-        resolvedGoal.estimatedMinutes
+        resolvedGoal.estimatedMinutes,
+        resolvedGoal.contextList
       );
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
@@ -292,10 +316,12 @@ export const focusRuntimeRouter = router({
       const resolvedGoal = await resolveGoalSource(userId, input.goalSource);
       phase.goal = resolvedGoal.goal;
       phase.todayPlanTask = resolvedGoal.todayPlanTask;
+      phase.contextList = resolvedGoal.contextList;
       phase.goalHistory = [
         {
           goal: resolvedGoal.goal,
           todayPlanTask: resolvedGoal.todayPlanTask,
+          contextList: resolvedGoal.contextList,
           startedAtMs: Date.now(),
         },
       ];
@@ -343,7 +369,8 @@ export const focusRuntimeRouter = router({
       const sameGoal =
         phase.goal === resolvedGoal.goal &&
         phase.todayPlanTask?.taskId === resolvedGoal.todayPlanTask?.taskId &&
-        phase.todayPlanTask?.dateKey === resolvedGoal.todayPlanTask?.dateKey;
+        phase.todayPlanTask?.dateKey === resolvedGoal.todayPlanTask?.dateKey &&
+        (phase.contextList?.listId ?? null) === (resolvedGoal.contextList?.listId ?? null);
       if (!sameGoal) {
         const now = Date.now();
         const existingHistory = Array.isArray(phase.goalHistory) ? phase.goalHistory : [];
@@ -353,17 +380,20 @@ export const focusRuntimeRouter = router({
           existingHistory.push({
             goal: phase.goal,
             todayPlanTask: phase.todayPlanTask || null,
+            contextList: phase.contextList || null,
             startedAtMs: phase.startedAtMs,
           });
         }
         existingHistory.push({
           goal: resolvedGoal.goal,
           todayPlanTask: resolvedGoal.todayPlanTask,
+          contextList: resolvedGoal.contextList,
           startedAtMs: now,
         });
         phase.goalHistory = existingHistory;
         phase.goal = resolvedGoal.goal;
         phase.todayPlanTask = resolvedGoal.todayPlanTask;
+        phase.contextList = resolvedGoal.contextList;
       }
 
       cancelPendingEnrichment(userId);

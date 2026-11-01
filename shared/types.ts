@@ -186,6 +186,8 @@ export interface FocusPhase {
   goal: string | null;
   /** The Today’s Plan task that supplied the current goal, if any. */
   todayPlanTask?: import('./reminders').FocusTaskSource | null;
+  /** Reminders list context chosen for a spontaneous goal, if any. */
+  contextList?: import('./reminders').ContextListRef | null;
   /**
    * Goal changes made while a work phase is running. This preserves the
    * original goal for the earlier part of a phase without restarting its timer.
@@ -193,6 +195,7 @@ export interface FocusPhase {
   goalHistory?: Array<{
     goal: string;
     todayPlanTask: import('./reminders').FocusTaskSource | null;
+    contextList?: import('./reminders').ContextListRef | null;
     startedAtMs: number;
   }>;
   /** Wall-clock boundary for events belonging to this phase. Null until a phase starts. */

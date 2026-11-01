@@ -52,6 +52,16 @@ export interface ReminderTask {
   listFocusContext: string;
   classificationText: string;
 }
+/**
+ * List context attached to a spontaneous (non-task) goal. Kept separate from
+ * FocusTaskSource: a task source turns the run into a planned-task session.
+ */
+export interface ContextListRef {
+  listId: string;
+  listName: string;
+  listContext: string;
+  classificationText: string;
+}
 /** Additive provenance keeps older manual-task sessions readable. */
 export interface FocusTaskSource {
   taskId: string;

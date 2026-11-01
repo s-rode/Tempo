@@ -55,6 +55,21 @@ export const remindersRouter = router({
         return getReminderStatus(userId);
       });
     }),
+  setDefaultList: publicProcedure
+    .input(tokenInput.extend({ listId: z.string().min(1).max(1000).nullable() }))
+    .mutation(async ({ input }) => {
+      const userId = userFor(input.token);
+      return serializeReminderMutation(userId, async () => {
+        const state = await getReminderStatus(userId);
+        if (input.listId && !state.lists.some((list) => list.id === input.listId))
+          throw new TRPCError({ code: 'NOT_FOUND' });
+        await ReminderIntegrationModel.updateOne(
+          { userId },
+          { $set: { defaultListId: input.listId } }
+        );
+        return getReminderStatus(userId);
+      });
+    }),
   setTaskMetadata: publicProcedure
     .input(
       tokenInput.extend({

@@ -249,7 +249,7 @@ export function migrateLegacyLearning(userId: string): Promise<void> {
             .sort((a: any, b: any) => b.startedAtMs - a.startedAtMs);
           const segment = eligible[0];
           if (segment) {
-            const task = segment.todayPlanTask;
+            const task = segment.todayPlanTask || segment.contextList;
             snapshot = {
               version: 2,
               scope: 'session',

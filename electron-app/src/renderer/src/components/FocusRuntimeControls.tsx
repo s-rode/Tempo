@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from '../hooks/use-toast'
 import { trpc } from '../utils/trpc'
+import { useRemindersAvailable } from '../hooks/useReminders'
 import { scheduleGoalProfileRefresh } from '../lib/goalProfileRefresh'
 import { displayMinutes, pomodoroSummary } from '../lib/taskEstimate'
 import { Button } from './ui/button'
@@ -40,6 +41,7 @@ export interface FocusRuntimeSnapshot {
     state: 'awaiting_goal' | 'running' | 'suspended'
     goal?: string | null
     todayPlanTask?: { taskId: string; dateKey: string } | null
+    contextList?: { listId: string } | null
   } | null
   phaseRemainingMs: number | null
   taskProgress?: {
@@ -72,6 +74,8 @@ export function FocusRuntimeControls({
   const dashboardVisible = useDashboardVisibility()
   const [goal, setGoal] = useState('')
   const [selectedTaskId, setSelectedTaskId] = useState('')
+  // undefined = follow the default list; '' = explicitly no list context.
+  const [listChoice, setListChoice] = useState<string | undefined>(undefined)
   const [duration, setDuration] = useState(30)
   const [customExtension, setCustomExtension] = useState(15)
   const [clockNow, setClockNow] = useState(Date.now())
@@ -83,6 +87,15 @@ export function FocusRuntimeControls({
     { token: token || '' },
     { enabled: !!token && open && dashboardVisible, refetchInterval: 60_000 }
   )
+  const remindersAvailable = useRemindersAvailable()
+  const { data: reminderStatus } = trpc.reminders.getStatus.useQuery(
+    { token: token || '' },
+    { enabled: !!token && open && dashboardVisible && remindersAvailable }
+  )
+  const contextLists = reminderStatus?.enabled ? reminderStatus.lists : []
+  const defaultListId =
+    contextLists.find((list) => list.id === reminderStatus?.defaultListId)?.id ?? ''
+  const selectedListId = listChoice ?? defaultListId
   const activePlanTasks = useMemo(
     () =>
       ((dailyPlan?.tasks || []) as PlanTaskOption[]).filter((task) => task.completedAtMs === null),
@@ -102,6 +115,7 @@ export function FocusRuntimeControls({
   const finishStart = () => {
     setGoal('')
     setSelectedTaskId('')
+    setListChoice(undefined)
     setChangingGoal(false)
     setOpen(false)
     refreshGoalContext()
@@ -124,6 +138,7 @@ export function FocusRuntimeControls({
     onSuccess: () => {
       setGoal('')
       setSelectedTaskId('')
+      setListChoice(undefined)
       setChangingGoal(false)
       refreshGoalContext()
       toast({ title: 'Focus goal updated', description: 'The timer keeps running.' })
@@ -196,6 +211,7 @@ export function FocusRuntimeControls({
   }, [selectedTaskId])
   useEffect(() => {
     if (!open) {
+      setListChoice(undefined)
       setChangingGoal(false)
       setChangingTaskGoal(false)
     }
@@ -230,7 +246,11 @@ export function FocusRuntimeControls({
           selectedTask.source === 'reminder' ? ('reminder' as const) : ('today_plan_task' as const),
         taskId: selectedTask.id
       }
-    : { kind: 'custom' as const, goal: goal.trim() }
+    : {
+        kind: 'custom' as const,
+        goal: goal.trim(),
+        ...(selectedListId ? { listId: selectedListId } : {})
+      }
   const submitGoal = (action: 'custom' | 'pomodoro' | 'next' | 'change') => {
     if (!hasGoal) return
     if (action === 'custom') startCustom.mutate({ token, goalSource, durationMinutes: duration })
@@ -373,6 +393,33 @@ export function FocusRuntimeControls({
                       submitGoal(changingGoal ? 'change' : isWaitingForGoal ? 'next' : 'custom')
                   }}
                 />
+              </label>
+            )}
+            {!selectedTask && contextLists.length > 0 && (
+              <label className="block space-y-1.5">
+                <span className="text-xs font-medium text-muted-foreground">
+                  List context <small>Optional</small>
+                </span>
+                <select
+                  className="tempo-field w-full"
+                  value={selectedListId}
+                  onChange={(event) => setListChoice(event.target.value)}
+                  aria-label="Use the focus context of a Reminders list"
+                >
+                  <option value="">None</option>
+                  {contextLists.map((list) => (
+                    <option key={list.id} value={list.id}>
+                      {list.name}
+                      {reminderStatus?.listContexts[list.id] ? '' : ' (name only)'}
+                    </option>
+                  ))}
+                </select>
+                {selectedListId && reminderStatus?.listContexts[selectedListId] && (
+                  <details className="text-xs text-muted-foreground">
+                    <summary>Context text</summary>
+                    <p>{reminderStatus.listContexts[selectedListId]}</p>
+                  </details>
+                )}
               </label>
             )}
             {!isWaitingForGoal && !changingGoal && (
@@ -595,6 +642,7 @@ export function FocusRuntimeControls({
                       return
                     }
                     setGoal(phase?.goal || '')
+                    setListChoice(phase?.contextList?.listId ?? '')
                     setSelectedTaskId(phase?.todayPlanTask?.taskId || '')
                     setChangingGoal(true)
                   }}
