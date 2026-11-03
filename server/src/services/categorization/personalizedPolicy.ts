@@ -132,6 +132,18 @@ export function consolidatePreferences(
   );
 }
 
+const METHOD_WORDS = new Set([
+  'flashcard', 'flashcards', 'flash', 'card', 'cards', 'karteikarten', 'karteikarte', 'anki',
+  'review', 'reviewing', 'revise', 'revising', 'study', 'studying', 'learn', 'learning',
+  'lernen', 'wiederholen', 'üben', 'uben', 'practice', 'practise', 'notes', 'reading', 'read',
+  'my', 'some', 'do', 'doing', 'the', 'and', 'und', 'mit', 'with', 'für', 'for', 'of', 'to',
+]);
+/** True when every word of the goal names a work method rather than a subject. */
+export function isMethodOnlyGoal(text: string): boolean {
+  const words = text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  return words.length > 0 && words.length <= 4 && words.every((w) => METHOD_WORDS.has(w));
+}
+
 export interface PersonalizedResolution {
   state: 'focused' | 'distracted' | 'uncertain';
   basis: ClassificationBasis;
@@ -155,9 +167,25 @@ export function resolvePersonalizedPolicy(input: {
     preference: ScopedPreference | null = null
   ): PersonalizedResolution => ({ state, basis, target, preference });
   if (!proposal) return result('uncertain', 'technical_failure');
+  const conflictTarget =
+    targets.find((t) => t.ref === proposal.matchedGoalRef) ||
+    (targets.length === 1 ? targets[0] : null);
+  // A goal that only names a work method ("flashcards") has no subject a deck or
+  // page title could contradict, so a topic mismatch inside a specialized tool
+  // that supports that method is not evidence of distraction.
+  const methodOnlyConflict =
+    proposal.assessment === 'conflicting' &&
+    input.strictness !== 'strict' &&
+    conflictTarget !== null &&
+    isMethodOnlyGoal(conflictTarget.text) &&
+    input.toolProfile?.role === 'specialized' &&
+    input.toolProfile.supportingModes.some(
+      (mode) => mode !== 'resource_navigation' && conflictTarget.supportingModes.includes(mode)
+    );
   const unsupportedConflict =
     proposal.assessment === 'conflicting' &&
-    (proposal.evidenceAliases.length === 0 ||
+    (methodOnlyConflict ||
+      proposal.evidenceAliases.length === 0 ||
       (!input.independentEvidence && input.toolProfile?.role !== 'specialized'));
   const assessment =
     (proposal.assessment === 'relevant' && !input.independentEvidence) || unsupportedConflict

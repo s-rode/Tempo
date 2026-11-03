@@ -171,6 +171,27 @@ describe('bounded explicit personal learning', () => {
       }).state
     ).toBe('distracted');
   });
+  test('a method-only goal is not contradicted by a deck title in a specialized tool', () => {
+    const toolProfile = {
+      role: 'specialized' as const,
+      supportingModes: ['study_notes_or_retrieval'],
+      revision: 'v1',
+    };
+    const conflict = { ...proposal, assessment: 'conflicting' as const, state: 'distracted' as const };
+    const flashcards = { ...target, text: 'flashcards', classificationText: 'flashcards' };
+    expect(
+      resolve({ preferences: [], toolProfile, proposal: conflict, targets: [flashcards] })
+    ).toMatchObject({ state: 'focused', basis: 'tool_role' });
+    // A named subject, strict mode, or an unrelated tool still defeats the tool role.
+    expect(resolve({ toolProfile, proposal: conflict }).state).toBe('distracted');
+    expect(
+      resolve({ toolProfile, proposal: conflict, targets: [flashcards], strictness: 'strict' }).state
+    ).toBe('distracted');
+    expect(
+      resolve({ toolProfile: null, proposal: conflict, targets: [flashcards], independentEvidence: true })
+        .state
+    ).toBe('distracted');
+  });
   test('technical failures remain neutral despite a strong preference', () => {
     expect(resolve({ proposal: null }).basis).toBe('technical_failure');
     expect(resolve({ proposal: null }).state).toBe('uncertain');
