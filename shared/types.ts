@@ -21,6 +21,8 @@ export interface User {
     classifierStrictness?: ClassifierStrictness;
     /** Let explicit corrections inform similar local activity/goal decisions. */
     learnFromCorrections?: boolean;
+    /** Apps that are always productive or always unproductive. */
+    appRules?: Array<{ appKey: string; appName: string; state: 'productive' | 'unproductive' }>;
   };
   userGoals?: {
     weeklyGoal: string;

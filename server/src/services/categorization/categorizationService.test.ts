@@ -89,6 +89,31 @@ describe('grounded semantic activity categorization', () => {
       manualCorrectionPresentation(distraction, { ownerName: 'A'.repeat(80) }).activityLabel?.length
     ).toBe(60);
   });
+  test('a hardcoded app rule wins over corrections and the model, whatever the window title', async () => {
+    const setRules = (appRules: unknown[]) =>
+      users.findById.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockResolvedValue({
+            electronAppSettings: { classifierStrictness: 'flexible', appRules },
+            classificationLearningRevision: 0,
+          }),
+        }),
+      });
+    setRules([
+      { appKey: 'remnote', appName: 'RemNote', state: 'productive' },
+      { appKey: 'chess', appName: 'Chess', state: 'unproductive' },
+    ]);
+    rules.findOne.mockReturnValue({
+      lean: jest.fn().mockResolvedValue({ categoryId: 'distraction' }),
+    });
+    const deck = await categorizeActivity(userId, page('RemNote', '7: Graphical Models II'));
+    expect(deck.categoryId).toBe('work');
+    expect(deck.classificationStatus).toBe('manual_rule');
+    const chess = await categorizeActivity(userId, page('Chess', 'Game vs Computer'));
+    expect(chess.categoryId).toBe('distraction');
+    expect(provider.decideActivity).not.toHaveBeenCalled();
+    expect(rules.findOne).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     delete process.env.TEMPO_CLASSIFIER_MODE;
     process.env.TEMPO_PERSONALIZED_CLASSIFIER = 'disabled';

@@ -107,6 +107,18 @@ const userSchema = new mongoose.Schema({
       default: 'strict',
     },
     learnFromCorrections: { type: Boolean, default: true },
+    // Hardcoded per-app verdicts; they take precedence over every classifier.
+    appRules: {
+      type: [
+        {
+          _id: false,
+          appKey: { type: String, required: true, maxlength: 120 },
+          appName: { type: String, required: true, maxlength: 120 },
+          state: { type: String, enum: ['productive', 'unproductive'], required: true },
+        },
+      ],
+      default: [],
+    },
   },
   userGoals: {
     weeklyGoal: {

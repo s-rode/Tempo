@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { User } from '../models/user';
 import { publicProcedure, router } from '../trpc';
 import { verifyToken } from './auth';
+import { MAX_APP_RULES, normalizeAppKey } from '../services/categorization/appRules';
 import { DISTRACTION_SOUNDS, DEFAULT_DISTRACTION_SOUND, resolveDistractionSound } from '../../../shared/distractionSound';
 
 export const userRouter = router({
@@ -28,14 +29,33 @@ export const userRouter = router({
         aiTimelineSummaries: z.boolean().optional(),
         classifierStrictness: z.enum(['flexible', 'balanced', 'strict']).optional(),
         learnFromCorrections: z.boolean().optional(),
+        appRules: z
+          .array(
+            z.object({
+              appName: z.string().trim().min(1).max(120),
+              state: z.enum(['productive', 'unproductive']),
+            })
+          )
+          .max(MAX_APP_RULES)
+          .optional(),
       })
     )
     .mutation(async ({ input }) => {
-      const { token, resetWorkdayTimer, ...settings } = input;
+      const { token, resetWorkdayTimer, appRules, ...settings } = input;
       const userId = verifyToken(token).userId;
       const updates: Record<string, unknown> = {};
       for (const [name, value] of Object.entries(settings)) {
         if (value !== undefined) updates[`electronAppSettings.${name}`] = value;
+      }
+      if (appRules) {
+        // One rule per app; the last entry for a name wins.
+        const byKey = new Map(
+          appRules.map((rule) => [
+            normalizeAppKey(rule.appName),
+            { appKey: normalizeAppKey(rule.appName), appName: rule.appName, state: rule.state },
+          ])
+        );
+        updates['electronAppSettings.appRules'] = [...byKey.values()];
       }
       if (resetWorkdayTimer) updates['electronAppSettings.workdayTimerResetAtMs'] = Date.now();
       const increments =
@@ -83,6 +103,7 @@ export const userRouter = router({
         aiTimelineSummaries: true,
         classifierStrictness: 'strict',
         learnFromCorrections: true,
+        appRules: [] as Array<{ appKey: string; appName: string; state: 'productive' | 'unproductive' }>,
       };
 
       return {

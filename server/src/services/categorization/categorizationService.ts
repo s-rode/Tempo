@@ -45,6 +45,7 @@ import { User as UserModel } from '../../models/user';
 import { selectLearnedFocusedMatch, findLearningExamples } from './correctionLearning';
 import type { PersonalizedEventMetadata } from '../../../../shared/classification';
 import { classifyPersonalized } from './personalizedClassification';
+import { findAppRule, type AppRule } from './appRules';
 
 export interface CategorizationResult extends PersonalizedEventMetadata {
   categoryId: string | null;
@@ -121,12 +122,13 @@ export async function resolveGoalContext(userId: string): Promise<{
   strictness: ClassifierStrictness;
   learnFromCorrections: boolean;
   learningRevision: number;
+  appRules: AppRule[];
 }> {
   const [goals, user] = await Promise.all([
     resolveEffectiveGoalContext(userId),
     UserModel.findById(userId)
       .select(
-        'electronAppSettings.classifierStrictness electronAppSettings.learnFromCorrections classificationLearningRevision'
+        'electronAppSettings.classifierStrictness electronAppSettings.learnFromCorrections electronAppSettings.appRules classificationLearningRevision'
       )
       .lean(),
   ]);
@@ -146,6 +148,7 @@ export async function resolveGoalContext(userId: string): Promise<{
     strictness,
     learnFromCorrections,
     learningRevision,
+    appRules: (user?.electronAppSettings?.appRules as AppRule[] | undefined) || [],
   };
 }
 
@@ -198,6 +201,7 @@ export async function categorizeActivity(
     classificationFingerprint,
     strictness,
     learnFromCorrections,
+    appRules,
   } = await resolveGoalContext(userId);
 
   const rawUserCategories = await CategoryModel.find({ userId }).lean();
@@ -220,6 +224,43 @@ export async function categorizeActivity(
       pageCorrectionKey,
       activityLabel: activeWindow.title || activeWindow.ownerName,
       activitySummary: null,
+      nudgeTitle: null,
+      nudgeBody: null,
+      goalContextFingerprint,
+      classificationContextFingerprint: classificationFingerprint,
+      goalRelation: null,
+      supportingMode: null,
+      classificationFailureCode: null,
+      classificationAttemptCount: 0,
+      classifierStrictness: strictness,
+      learningToolKey: learningTool?.key || null,
+      learningToolKind: learningTool?.kind || null,
+      learningToolLabel: learningTool?.label || null,
+    };
+  }
+
+  // 0. A hardcoded per-app rule is the user's explicit standing verdict for that
+  // app, so it outranks corrections, history and the model. It reads only the
+  // app name, never the window title or page content.
+  const appRule = findAppRule(appRules, activeWindow);
+  const appRuleCategory = appRule
+    ? userCategories.find((category) => category.isProductive === (appRule.state === 'productive'))
+    : null;
+  if (appRule && appRuleCategory) {
+    const productive = appRule.state === 'productive';
+    return {
+      goalSnapshot: snapshotGoalContext(userGoals),
+      categoryId: appRuleCategory._id,
+      categoryReasoning: `${appRule.appName} is always ${appRule.state} (app rule).`,
+      classificationStatus: 'manual_rule',
+      classificationBasis: 'manual',
+      activityKey,
+      pageCorrectionKey,
+      activityLabel: (productive
+        ? activeWindow.title?.trim() || activeWindow.ownerName
+        : distractionActivityLabel(activeWindow)
+      ).slice(0, 60),
+      activitySummary: productive ? null : `${appRule.appName} is marked as always unproductive.`,
       nudgeTitle: null,
       nudgeBody: null,
       goalContextFingerprint,

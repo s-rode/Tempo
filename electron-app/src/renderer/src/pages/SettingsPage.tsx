@@ -10,6 +10,7 @@ import { SessionTransitionAlertSettings } from '../components/settings/SessionTr
 import { RememberedCorrectionsSettings } from '../components/settings/RememberedCorrectionsSettings'
 import { PlanningSettings } from '../components/settings/PlanningSettings'
 import { ClassificationHealthSettings } from '../components/settings/ClassificationHealthSettings'
+import { AppRulesSettings } from '../components/settings/AppRulesSettings'
 import { ClassifierStrictnessSettings } from '../components/settings/ClassifierStrictnessSettings'
 import { ClassificationLearningSettings } from '../components/settings/ClassificationLearningSettings'
 import { Button } from '../components/ui/button'
@@ -102,6 +103,7 @@ export function SettingsPage({
           <CategoryManagement />
           <DistractionSoundSettings />
           <ClassifierStrictnessSettings />
+          <AppRulesSettings />
           <ClassificationLearningSettings />
           <RememberedCorrectionsSettings />
           <ClassificationHealthSettings />
