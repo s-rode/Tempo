@@ -1,5 +1,6 @@
 import { Calendar1, CalendarDaysIcon, ChartNoAxesGantt, ChevronLeft, ChevronRight, Layers } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import type { Category } from 'shared'
 import { useDarkMode } from '../hooks/useDarkMode'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 import type { ActivitySessionBlock, TimelineChapter } from '../lib/activitySessions'
@@ -29,6 +30,8 @@ interface CalendarWidgetProps {
   selectedSessionId: string | null
   selectedActivityKey: string | null
   onSelectSession: (session: ActivitySessionBlock) => void
+  categories: Category[]
+  refetchEvents: () => void
 }
 
 const CalendarWidget = ({
@@ -46,7 +49,9 @@ const CalendarWidget = ({
   dayChapters,
   selectedSessionId,
   selectedActivityKey,
-  onSelectSession
+  onSelectSession,
+  categories,
+  refetchEvents
 }: CalendarWidgetProps) => {
   const isDarkMode = useDarkMode()
   const [wasSetToToday, setWasSetToToday] = useState(false)
@@ -237,6 +242,8 @@ const CalendarWidget = ({
             selectedSessionId={selectedSessionId}
             selectedActivityKey={selectedActivityKey}
             onSelectSession={onSelectSession}
+            categories={categories}
+            refetchEvents={refetchEvents}
           />
         </div>
       ) : (

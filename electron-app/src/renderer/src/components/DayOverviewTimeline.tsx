@@ -1,8 +1,20 @@
-import { type KeyboardEvent, useMemo } from 'react'
+import { type KeyboardEvent, type MouseEvent, useMemo, useState } from 'react'
+import type { Category } from 'shared'
+import { useAuth } from '../contexts/AuthContext'
+import { toast } from '../hooks/use-toast'
 import type { ActivitySessionBlock } from '../lib/activitySessions'
 import { formatDuration } from '../lib/activityByCategoryWidgetHelpers'
 import { buildDayOverview, type DayOverviewState } from '../lib/dayOverview'
 import { cn } from '../lib/utils'
+import { trpc } from '../utils/trpc'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from './ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 interface DayOverviewTimelineProps {
@@ -11,6 +23,14 @@ interface DayOverviewTimelineProps {
   selectedSessionId: string | null
   selectedActivityKey: string | null
   onSelectSession: (session: ActivitySessionBlock) => void
+  categories: Category[]
+  refetchEvents: () => void
+}
+
+interface ClassifyMenu {
+  x: number
+  y: number
+  session: ActivitySessionBlock
 }
 
 // A segment wide enough for a readable label: about seven minutes of an hour.
@@ -32,9 +52,66 @@ export default function DayOverviewTimeline({
   sessions,
   selectedSessionId,
   selectedActivityKey,
-  onSelectSession
+  onSelectSession,
+  categories,
+  refetchEvents
 }: DayOverviewTimelineProps) {
+  const { token } = useAuth()
+  const trpcUtils = trpc.useUtils()
+  const [menu, setMenu] = useState<ClassifyMenu | null>(null)
   const overview = useMemo(() => buildDayOverview(date, sessions), [date, sessions])
+  // Productive categories first, so the likely choice is at the top of the menu.
+  const classifyChoices = useMemo(
+    () => [...categories].sort((a, b) => Number(b.isProductive) - Number(a.isProductive)),
+    [categories]
+  )
+  const classify = trpc.activeWindowEvents.recategorizeBlock.useMutation({
+    onSuccess: (result, variables) => {
+      const category = categories.find((item) => item._id === variables.newCategoryId)
+      const total = result.updatedCount + result.retroactiveCount
+      toast({
+        title: `Marked as ${category?.name ?? 'the selected category'}`,
+        description:
+          result.retroactiveCount > 0
+            ? `Also updated ${result.retroactiveCount} other uncertain ${result.retroactiveCount === 1 ? 'moment' : 'moments'} from this app in the same focus session.`
+            : `Updated ${total} ${total === 1 ? 'moment' : 'moments'}.`
+      })
+      refetchEvents()
+      void trpcUtils.activeWindowEvents.getLatestEvent.invalidate()
+      void trpcUtils.analytics.getPeriod.invalidate()
+      void window.api?.refreshCurrentActivity()
+    },
+    onError: (error) =>
+      toast({
+        title: 'Could not classify activity',
+        description: error.message,
+        variant: 'destructive'
+      })
+  })
+
+  const openClassifyMenu = (event: MouseEvent<HTMLButtonElement>, session: ActivitySessionBlock) => {
+    event.preventDefault()
+    // Keyboard invocations (Shift+F10, the Menu key) report 0,0; anchor those to the block.
+    const box = event.currentTarget.getBoundingClientRect()
+    const fromKeyboard = event.clientX === 0 && event.clientY === 0
+    setMenu({
+      x: fromKeyboard ? box.left : event.clientX,
+      y: fromKeyboard ? box.bottom : event.clientY,
+      session
+    })
+  }
+
+  const classifySession = (session: ActivitySessionBlock, categoryId: string) => {
+    if (!token) return
+    classify.mutate({
+      token,
+      eventIds: session.eventIds,
+      newCategoryId: categoryId,
+      correctionActionId: crypto.randomUUID(),
+      rememberExactMatch: true,
+      applyToSession: true
+    })
+  }
   if (!overview) {
     return <div className="tempo-day-empty-state">No tracked activity for this day.</div>
   }
@@ -106,6 +183,11 @@ export default function DayOverviewTimeline({
               </span>
             ))}
           </div>
+          {overview.uncertainMs > 0 && (
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Right-click an amber block to classify it.
+            </p>
+          )}
         </div>
         <div className="tempo-day-overview-ruler" aria-hidden="true">
           <span />
@@ -160,8 +242,13 @@ export default function DayOverviewTimeline({
                             width: `${segment.width * 100}%`
                           }}
                           onClick={() => onSelectSession(session)}
+                          onContextMenu={
+                            segment.state === 'uncertain'
+                              ? (event) => openClassifyMenu(event, session)
+                              : undefined
+                          }
                           aria-pressed={selected}
-                          aria-label={`${session.label}, ${session.ownerName}. ${timeLabel(+session.startTime)} to ${timeLabel(+session.endTime)}, ${formatDuration(session.activeDurationMs)} ${STATE_LABEL[segment.state].toLowerCase()}. Select activity.`}
+                          aria-label={`${session.label}, ${session.ownerName}. ${timeLabel(+session.startTime)} to ${timeLabel(+session.endTime)}, ${formatDuration(session.activeDurationMs)} ${STATE_LABEL[segment.state].toLowerCase()}. Select activity.${segment.state === 'uncertain' ? ' Open the context menu to classify it.' : ''}`}
                         >
                           {segment.width >= LABEL_MIN_WIDTH && (
                             <span className="tempo-day-overview-label">{session.label}</span>
@@ -189,6 +276,11 @@ export default function DayOverviewTimeline({
                             {formatDuration(session.activeDurationMs)}
                           </span>
                         </div>
+                        {segment.state === 'uncertain' && (
+                          <p className="mt-1.5 text-[11px] text-muted-foreground">
+                            Right-click to classify.
+                          </p>
+                        )}
                       </TooltipContent>
                     </Tooltip>
                   )
@@ -197,6 +289,44 @@ export default function DayOverviewTimeline({
             </div>
           ))}
         </div>
+        <DropdownMenu open={menu !== null} onOpenChange={(open) => !open && setMenu(null)}>
+          <DropdownMenuTrigger asChild>
+            <span
+              aria-hidden="true"
+              className="pointer-events-none fixed h-0 w-0"
+              style={{ left: menu?.x ?? 0, top: menu?.y ?? 0 }}
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-52" onCloseAutoFocus={(e) => e.preventDefault()}>
+            <DropdownMenuLabel className="max-w-64 truncate text-xs font-medium">
+              Classify “{menu?.session.label}”
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {classifyChoices.map((category) => (
+              <DropdownMenuItem
+                key={category._id}
+                onSelect={() => menu && classifySession(menu.session, category._id)}
+              >
+                <span
+                  className={cn(
+                    'tempo-day-overview-dot',
+                    category.isProductive ? 'is-focused' : 'is-distracted'
+                  )}
+                  aria-hidden="true"
+                />
+                <span className="flex-1">{category.name}</span>
+                <span className="text-[11px] text-muted-foreground">
+                  {category.isProductive ? 'Productive' : 'Unproductive'}
+                </span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <p className="max-w-64 px-2 py-1 text-[11px] text-muted-foreground">
+              Also applies to other uncertain time from {menu?.session.ownerName} in the same focus
+              session.
+            </p>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </section>
     </TooltipProvider>
   )

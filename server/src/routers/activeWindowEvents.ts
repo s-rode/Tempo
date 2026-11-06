@@ -7,6 +7,7 @@ import {
 } from './classificationLearning';
 import type { PersonalizedEventMetadata } from '../../../shared/classification';
 import { recordCorrectionActions } from '../services/categorization/learningActions';
+import { findRetroactiveEventIds } from '../services/categorization/retroactiveClassification';
 import { TRPCError } from '@trpc/server';
 import mongoose from 'mongoose';
 import { z } from 'zod';
@@ -740,6 +741,8 @@ export const activeWindowEventsRouter = router({
         learnFromCorrection: z.boolean().default(true),
         learningGoalRef: z.string().min(1).max(180).optional(),
         correctionActionId: z.string().uuid().optional(),
+        // Also settle uncertain events of the same app in the same focus session.
+        applyToSession: z.boolean().default(true),
       })
     )
     .mutation(async ({ input }) => {
@@ -833,6 +836,45 @@ export const activeWindowEventsRouter = router({
             };
           })
         );
+        // A classification given later in the focus session also settles earlier
+        // (and later) "uncertain" time of the same app in that session.
+        let retroactiveCount = 0;
+        if (input.applyToSession) {
+          const retroactiveIds = await findRetroactiveEventIds(
+            userId,
+            storedEvents as unknown as Parameters<typeof findRetroactiveEventIds>[1]
+          );
+          if (retroactiveIds.length) {
+            const retroactiveEvents = await ActiveWindowEventModel.find({
+              _id: { $in: retroactiveIds },
+              userId,
+            })
+              .select('ownerName title')
+              .lean();
+            const retroactiveResult = await ActiveWindowEventModel.bulkWrite(
+              retroactiveEvents.map((event) => {
+                const presentation = manualCorrectionPresentation(category, event);
+                return {
+                  updateOne: {
+                    filter: { _id: event._id, userId },
+                    update: {
+                      $set: {
+                        categoryId: input.newCategoryId,
+                        categoryReasoning: `Marked as ${category.name} because you classified this app in the same focus session.`,
+                        activityLabel: presentation.activityLabel,
+                        activitySummary: presentation.activitySummary,
+                        classificationStatus: 'manual',
+                        nudgeTitle: null,
+                        nudgeBody: null,
+                      },
+                    },
+                  },
+                };
+              })
+            );
+            retroactiveCount = retroactiveResult.modifiedCount;
+          }
+        }
         invalidateAnalyticsInputs(userId);
 
         const goalFingerprints = new Set(
@@ -924,6 +966,7 @@ export const activeWindowEventsRouter = router({
         return {
           success: true,
           updatedCount: updateResult.modifiedCount,
+          retroactiveCount,
           remembered,
           learning: {
             status: learned.created ? ('created' as const) : ('skipped' as const),

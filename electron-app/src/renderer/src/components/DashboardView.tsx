@@ -290,6 +290,8 @@ export function DashboardView({
           selectedSessionId={selectedSessionId}
           selectedActivityKey={selectedActivityKey}
           onSelectSession={handleSelectSession}
+          categories={categories || []}
+          refetchEvents={refetchEvents}
         />
       </div>
     </div>
