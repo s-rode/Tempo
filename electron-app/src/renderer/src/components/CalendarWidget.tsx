@@ -1,11 +1,12 @@
-import { Calendar1, CalendarDaysIcon, ChevronLeft, ChevronRight, Layers } from 'lucide-react'
+import { Calendar1, CalendarDaysIcon, ChartNoAxesGantt, ChevronLeft, ChevronRight, Layers } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useDarkMode } from '../hooks/useDarkMode'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 import type { ActivitySessionBlock, TimelineChapter } from '../lib/activitySessions'
-import type { ProcessedEventBlock } from './DashboardView'
+import type { ProcessedEventBlock, TimelineViewMode } from './DashboardView'
 import { DayCalendarComparison } from './DayCalendarComparison'
 import CompactDayTimeline from './CompactDayTimeline'
+import DayOverviewTimeline from './DayOverviewTimeline'
 import { Button } from './ui/button'
 import { Label } from './ui/label'
 import { Switch } from './ui/switch'
@@ -15,8 +16,8 @@ import WeekView from './WeekView'
 interface CalendarWidgetProps {
   selectedDate: Date
   onDateChange: (newDate: Date) => void
-  viewMode: 'day' | 'week'
-  onViewModeChange: (newMode: 'day' | 'week') => void
+  viewMode: TimelineViewMode
+  onViewModeChange: (newMode: TimelineViewMode) => void
   processedEvents: ProcessedEventBlock[] | null
   isLoadingEvents: boolean
   selectedHour: number | null
@@ -51,6 +52,8 @@ const CalendarWidget = ({
   const [wasSetToToday, setWasSetToToday] = useState(false)
   const [weekViewMode, setWeekViewMode] = useState<'stacked' | 'grouped'>('grouped')
   const width = useWindowWidth()
+  // Navigation steps by the period shown; the overview covers one day.
+  const period = viewMode === 'week' ? 'week' : 'day'
 
   useEffect(() => {
     setWasSetToToday(selectedDate.toDateString() === new Date().toDateString())
@@ -162,14 +165,14 @@ const CalendarWidget = ({
       <header className="tempo-day-toolbar">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="xs" className="tempo-date-button" onClick={handlePrev} aria-label={`Previous ${viewMode}`}>
+            <Button variant="ghost" size="xs" className="tempo-date-button" onClick={handlePrev} aria-label={`Previous ${period}`}>
               <ChevronLeft size={20} />
             </Button>
             <span className="tempo-date-title">{formattedDate}</span>
-            <Button variant="ghost" size="xs" className="tempo-date-button" onClick={handleNext} disabled={!canGoNext()} aria-label={`Next ${viewMode}`}>
+            <Button variant="ghost" size="xs" className="tempo-date-button" onClick={handleNext} disabled={!canGoNext()} aria-label={`Next ${period}`}>
               <ChevronRight size={20} />
             </Button>
-            {viewMode === 'day' && (
+            {period === 'day' && (
               <Button variant="ghost" size="xs" className="tempo-date-now" onClick={() => onDateChange(new Date())} disabled={isToday}>
                 Today
               </Button>
@@ -199,14 +202,17 @@ const CalendarWidget = ({
             variant="outline"
             value={viewMode}
             onValueChange={(value) => {
-              if (value) onViewModeChange(value as 'day' | 'week')
+              if (value) onViewModeChange(value as TimelineViewMode)
             }}
           >
-            <ToggleGroupItem value="week">
+            <ToggleGroupItem value="week" aria-label="Week" title="Week">
               <CalendarDaysIcon size={16} />
             </ToggleGroupItem>
-            <ToggleGroupItem value="day">
+            <ToggleGroupItem value="day" aria-label="Day" title="Day">
               <Calendar1 size={16} />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="overview" aria-label="Whole day overview" title="Whole day overview">
+              <ChartNoAxesGantt size={16} />
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
@@ -218,6 +224,16 @@ const CalendarWidget = ({
           <CompactDayTimeline
             sessions={daySessions}
             chapters={dayChapters}
+            selectedSessionId={selectedSessionId}
+            selectedActivityKey={selectedActivityKey}
+            onSelectSession={onSelectSession}
+          />
+        </div>
+      ) : viewMode === 'overview' ? (
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <DayOverviewTimeline
+            date={selectedDate}
+            sessions={daySessions}
             selectedSessionId={selectedSessionId}
             selectedActivityKey={selectedActivityKey}
             onSelectSession={onSelectSession}

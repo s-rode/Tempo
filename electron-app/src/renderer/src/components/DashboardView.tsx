@@ -22,9 +22,18 @@ const DAY_INSPECTOR_MIN_WIDTH = 260
 const DAY_INSPECTOR_DEFAULT_WIDTH = 320
 const DAY_TIMELINE_MIN_WIDTH = 320
 
+const TIMELINE_VIEW_MODE_KEY = 'tempoTimelineViewMode'
+
+export type TimelineViewMode = 'day' | 'week' | 'overview'
+
 const persistedPaneWidth = (key: string, fallback: number): number => {
   const value = Number(localStorage.getItem(key))
   return Number.isFinite(value) && value > 0 ? value : fallback
+}
+
+const persistedViewMode = (): TimelineViewMode => {
+  const value = localStorage.getItem(TIMELINE_VIEW_MODE_KEY)
+  return value === 'week' || value === 'overview' ? value : 'day'
 }
 
 export interface ProcessedEventBlock {
@@ -59,7 +68,9 @@ export function DashboardView({
 }) {
   const { token } = useAuth()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
-  const [viewMode, setViewMode] = useState<'day' | 'week'>('day')
+  const [viewMode, setViewMode] = useState<TimelineViewMode>(persistedViewMode)
+  // The overview presents the same day data as the day view.
+  const isDayView = viewMode !== 'week'
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
   const [calendarProcessedEvents, setCalendarProcessedEvents] = useState<
     ProcessedEventBlock[] | null
@@ -75,8 +86,8 @@ export function DashboardView({
   )
 
   const { startDateMs, endDateMs } = useMemo(
-    () => calendarPeriod(selectedDate, viewMode),
-    [selectedDate, viewMode]
+    () => calendarPeriod(selectedDate, isDayView ? 'day' : 'week'),
+    [selectedDate, isDayView]
   )
 
   const inspectorMaxWidth = Math.max(
@@ -137,7 +148,7 @@ export function DashboardView({
 
   const { data: focusTimelineRuns } = trpc.focusRuntime.getTimelineRuns.useQuery(
     { token: token || '', ...timelineDayRange },
-    { enabled: !!token && viewMode === 'day', refetchOnWindowFocus: true }
+    { enabled: !!token && isDayView, refetchOnWindowFocus: true }
   )
 
   useEffect(() => {
@@ -171,10 +182,10 @@ export function DashboardView({
 
   const daySessions = useMemo(
     () =>
-      viewMode === 'day' && calendarProcessedEvents
+      isDayView && calendarProcessedEvents
         ? buildActivitySessions(calendarProcessedEvents, { foldBrief: false })
         : [],
-    [calendarProcessedEvents, viewMode]
+    [calendarProcessedEvents, isDayView]
   )
   const dayChapters = useMemo(
     () => buildTimelineChapters(daySessions, focusTimelineRuns as FocusTimelineRun[] | undefined),
@@ -189,8 +200,9 @@ export function DashboardView({
     setSelectedActivityKey(null)
   }
 
-  const handleViewModeChange = (newMode: 'day' | 'week') => {
+  const handleViewModeChange = (newMode: TimelineViewMode) => {
     setViewMode(newMode)
+    localStorage.setItem(TIMELINE_VIEW_MODE_KEY, newMode)
     setSelectedHour(null)
     setSelectedDay(null)
     setSelectedSessionId(null)
@@ -220,11 +232,11 @@ export function DashboardView({
       >
         {nowActivity}
         <div className="tempo-inspector-section">
-          {viewMode === 'day' && (
+          {isDayView && (
             <TodayPlan selectedDate={selectedDate} openRequest={todayPlanOpenRequest} />
           )}
           <DashboardFocusCard />
-          {viewMode === 'day' ? (
+          {isDayView ? (
             <DaySummaryPanel
               dayRange={timelineDayRange}
               sessions={daySessions}
