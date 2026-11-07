@@ -214,6 +214,9 @@ final class NotchController: NSObject, ObservableObject {
   @Published var now = Date()
   @Published var chooserOpen = false
   @Published var pausePickerOpen = false
+  // Add-time slider on a session-complete notice; closes with the notice.
+  @Published var addTimePickerOpen = false
+  @Published var addTimeMinutes: Double = 15
   @Published var recategorizeMessage: String?
   @Published var presentedCalendarNotice: CalendarPauseNotice?
   private var calendarAlertWork: DispatchWorkItem?
@@ -1396,9 +1399,14 @@ struct NotchRootView: View {
         }
       }
       .onExitCommand {
+        if controller.addTimePickerOpen {
+          controller.addTimePickerOpen = false
+          return
+        }
         controller.dismissTransientControls()
         controller.setExpanded(false)
       }
+      .onChange(of: controller.presentedTransitionNotice?.id) { _ in controller.addTimePickerOpen = false }
     }
     .frame(width: panelWidth, height: panelHeight, alignment: .top)
   }
@@ -1444,6 +1452,32 @@ struct NotchRootView: View {
           tint: transitionTint
         )
         Rectangle().fill(.white.opacity(0.10)).frame(height: 1 / (NSScreen.main?.backingScaleFactor ?? 2))
+        if controller.addTimePickerOpen {
+          HStack(spacing: 8) {
+            Button("Cancel") { controller.addTimePickerOpen = false }
+              .buttonStyle(NotchActionStyle(tone: .neutral))
+            Slider(value: $controller.addTimeMinutes, in: 0...120, step: 1)
+              .controlSize(.small)
+              .environment(\.colorScheme, .dark)
+              .accessibilityLabel("Minutes to add")
+              .accessibilityValue("\(Int(controller.addTimeMinutes)) minutes")
+              .accessibilityIdentifier("tempo-add-session-time-slider")
+            Text("\(Int(controller.addTimeMinutes)) min")
+              .font(.system(size: 11, weight: .semibold).monospacedDigit())
+              .foregroundStyle(.white.opacity(0.86))
+              .frame(width: 52, alignment: .trailing)
+            Button("Add") {
+              let minutes = Int(controller.addTimeMinutes)
+              controller.addTimePickerOpen = false
+              controller.requestFocusAction("extendSession", durationMinutes: minutes)
+            }
+            .buttonStyle(NotchActionStyle(tone: .productive))
+            .keyboardShortcut(.defaultAction)
+            .disabled(Int(controller.addTimeMinutes) < 1)
+            .accessibilityLabel("Add \(Int(controller.addTimeMinutes)) minutes to this focus session")
+          }
+          .frame(height: 24)
+        } else {
         HStack(spacing: 7) {
           if transitionNotice?.kind == "task_target_reached" {
             Button("I’m finished") { controller.requestFocusAction("finishTask") }
@@ -1457,24 +1491,11 @@ struct NotchRootView: View {
             openWindowButton
           }
           if transitionNotice?.canAddTime == true {
-            Menu {
-              ForEach([5, 10, 15, 30], id: \.self) { minutes in
-                Button("+\(minutes) min") {
-                  controller.requestFocusAction("extendSession", durationMinutes: minutes)
-                }
-              }
-            } label: {
-              Text("Add time")
-            }
-            .menuStyle(.borderedButton)
-            .controlSize(.small)
-            // The notch is always a dark surface, independently of the
-            // desktop appearance. Native menu labels must follow it too.
-            .environment(\.colorScheme, .dark)
-            .fixedSize()
-            .accessibilityLabel("Add more time to this focus session")
-            .accessibilityIdentifier("tempo-add-session-time")
-            .help("Continue the same goal for another 5, 10, 15, or 30 minutes")
+            Button("Add time…") { controller.addTimePickerOpen = true }
+              .buttonStyle(NotchActionStyle(tone: .neutral))
+              .accessibilityLabel("Add more time to this focus session")
+              .accessibilityIdentifier("tempo-add-session-time")
+              .help("Continue the same goal for up to 120 more minutes")
           }
           if transitionNotice?.kind == "break_started" {
             Button("Skip break") { controller.requestFocusAction("skipBreak") }
@@ -1484,6 +1505,7 @@ struct NotchRootView: View {
           Spacer(minLength: 0)
           Button("Hide") { controller.hide() }
             .buttonStyle(NotchActionStyle(tone: .neutral))
+        }
         }
       } else if let notice = distractionNotice {
         DistractionAttentionCard(
