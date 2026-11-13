@@ -40,6 +40,11 @@ void windowChangeCallback(AXObserverRef observer, AXUIElementRef element, CFStri
     }
 }
 
+// Chrome tracking drives AppleScript calls into Chrome (on every window change
+// and every 1.5 s while Chrome is frontmost). It can be disabled entirely; the
+// app is then treated like any other title-only application.
+static BOOL gChromeTrackingEnabled = YES;
+
 @implementation ActiveWindowObserver {
     NSNumber *processId;
     AXObserverRef observer;
@@ -392,7 +397,7 @@ void windowChangeCallback(AXObserverRef observer, AXUIElementRef element, CFStri
 
         MyLog(@"Active window changed");
         
-        const BOOL chromeSelected = [windowOwnerName isEqualToString:@"Google Chrome"];
+        const BOOL chromeSelected = gChromeTrackingEnabled && [windowOwnerName isEqualToString:@"Google Chrome"];
         if (chromeSelected && !chromeTabTracking.isChromeActive) {
             chromeTabTracking.isChromeActive = YES;
             [chromeTabTracking startChromeTabTimer];
@@ -526,6 +531,13 @@ void windowChangeCallback(AXObserverRef observer, AXUIElementRef element, CFStri
     [firefoxTabTracking setNavigationState:navigationState];
 }
 
+- (void)disableChromeTracking {
+    chromeTabTracking.isChromeActive = NO;
+    [chromeTabTracking stopChromeTabTimer];
+    chromeTabTracking.lastKnownChromeURL = nil;
+    chromeTabTracking.lastKnownChromeTitle = nil;
+}
+
 - (void)setFirefoxCompanionConnected:(BOOL)connected {
     [firefoxTabTracking setCompanionConnected:connected];
 }
@@ -569,6 +581,11 @@ BOOL resumeAfterSystemSuspension(void) {
 
 void setFirefoxNavigationState(NSDictionary *navigationState) {
     if (windowObserver) [windowObserver setFirefoxNavigationState:navigationState];
+}
+
+void setChromeTrackingEnabled(BOOL enabled) {
+    gChromeTrackingEnabled = enabled;
+    if (!enabled && windowObserver) [windowObserver disableChromeTracking];
 }
 
 void setFirefoxCompanionConnected(BOOL connected) {

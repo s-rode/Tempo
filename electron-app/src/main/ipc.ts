@@ -21,6 +21,7 @@ import { ActivityMonitoringCoordinator } from './activityMonitoringCoordinator'
 import { DistractionReminderGate } from './distractionNoticePolicy'
 import { DistractionSoundGate } from './distractionSoundGate'
 import { loadDistractionSound } from './distractionSounds'
+import { getChromeTrackingEnabled, setChromeTrackingEnabled } from './browserTrackingPrefs'
 
 interface Windows {
   mainWindow: BrowserWindow | null
@@ -199,6 +200,13 @@ export function registerIpcHandlers(
   ipcMain.handle('restart-activity-monitoring', () => monitoring.restart())
   ipcMain.handle('resume-after-system-suspension', () => monitoring.resumeAfterSystemSuspension())
   ipcMain.handle('resume-manual-tracking', () => monitoring.resumeManualTracking())
+  ipcMain.handle('get-chrome-tracking-enabled', () => getChromeTrackingEnabled())
+  ipcMain.handle('set-chrome-tracking-enabled', (_event, enabled: unknown) => {
+    const next = setChromeTrackingEnabled(enabled !== false)
+    // Re-read the frontmost window so the new setting applies immediately.
+    if (monitoring.getHealth().state === 'active') nativeWindows.refreshActiveWindow()
+    return next
+  })
   ipcMain.handle('refresh-current-activity', () => {
     if (monitoring.getHealth().state !== 'active') return false
     nativeWindows.refreshActiveWindow()

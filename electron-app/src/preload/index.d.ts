@@ -105,6 +105,8 @@ declare global {
       restartActivityMonitoring: () => Promise<boolean>
       resumeAfterSystemSuspension: () => Promise<{ cleared: boolean; captureScheduled: boolean }>
       resumeManualTracking: () => Promise<{ cleared: boolean; captureScheduled: boolean }>
+      getChromeTrackingEnabled: () => Promise<boolean>
+      setChromeTrackingEnabled: (enabled: boolean) => Promise<boolean>
       refreshCurrentActivity: () => Promise<boolean>
       getAppIconDataUrl: (appName: string) => Promise<string | null>
       getMonitoringHealth: () => Promise<{

@@ -5,6 +5,7 @@ import { app, BrowserWindow, screen, session } from 'electron'
 import { ActiveWindowDetails } from 'shared/dist/types.js'
 import { nativeWindows } from '../native-modules/native-windows'
 import { registerIpcHandlers } from './ipc'
+import { applyChromeTrackingPreference } from './browserTrackingPrefs'
 import { initializeLoggers } from './logging'
 import {
   getUrlToHandleOnReady,
@@ -94,6 +95,7 @@ function App() {
       }
     )
     registerIpcHandlers({ mainWindow }, notchHelper, monitoring)
+    applyChromeTrackingPreference()
     monitoring.start()
     stopReminders = startReminderIntegration()
     stopCalendars = startCalendarIntegration(notchHelper, monitoring)

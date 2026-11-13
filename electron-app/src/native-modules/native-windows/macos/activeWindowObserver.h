@@ -16,6 +16,7 @@ BOOL resumeAfterSystemSuspension(void);
 void setFirefoxNavigationState(NSDictionary *navigationState);
 void captureFirefoxNavigation(NSNumber *windowId, NSString *title, NSString *fingerprint);
 void setFirefoxCompanionConnected(BOOL connected);
+void setChromeTrackingEnabled(BOOL enabled);
 
 @interface ActiveWindowObserver: NSObject <ChromeTabTrackingDelegate, FirefoxTabTrackingDelegate>
 - (id) init;
@@ -38,6 +39,7 @@ void setFirefoxCompanionConnected(BOOL connected);
 - (void) setFirefoxNavigationState:(NSDictionary *)navigationState;
 - (void) captureFirefoxNavigation:(NSNumber *)windowId title:(NSString *)title fingerprint:(NSString *)fingerprint;
 - (void) setFirefoxCompanionConnected:(BOOL)connected;
+- (void) disableChromeTracking;
 
 // Internal helper methods for window content extraction
 - (NSDictionary*)getActiveWindow;

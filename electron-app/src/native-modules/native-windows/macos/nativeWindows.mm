@@ -82,6 +82,15 @@ void SetFirefoxCompanionConnectedMethod(const Napi::CallbackInfo& info) {
   setFirefoxCompanionConnected(info[0].As<Napi::Boolean>().Value());
 }
 
+void SetChromeTrackingEnabledMethod(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (info.Length() < 1 || !info[0].IsBoolean()) {
+    Napi::TypeError::New(env, "Expected Chrome tracking flag").ThrowAsJavaScriptException();
+    return;
+  }
+  setChromeTrackingEnabled(info[0].As<Napi::Boolean>().Value());
+}
+
 void SetShouldRequestPermissionsMethod(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   if (info.Length() < 1 || !info[0].IsBoolean()) {
@@ -135,6 +144,7 @@ Napi::Object NativeWindows(Napi::Env env, Napi::Object exports) {
   exports.Set(Napi::String::New(env, "getAppIconPath"), Napi::Function::New(env, GetAppIconPathMethod));
   exports.Set(Napi::String::New(env, "setFirefoxNavigationState"), Napi::Function::New(env, SetFirefoxNavigationStateMethod));
   exports.Set(Napi::String::New(env, "captureFirefoxNavigation"), Napi::Function::New(env, CaptureFirefoxNavigationMethod));
+  exports.Set(Napi::String::New(env, "setChromeTrackingEnabled"), Napi::Function::New(env, SetChromeTrackingEnabledMethod));
   exports.Set(Napi::String::New(env, "setFirefoxCompanionConnected"), Napi::Function::New(env, SetFirefoxCompanionConnectedMethod));
   exports.Set(Napi::String::New(env, "setShouldRequestPermissions"), Napi::Function::New(env, SetShouldRequestPermissionsMethod));
   exports.Set(Napi::String::New(env, "getShouldRequestPermissions"), Napi::Function::New(env, GetShouldRequestPermissionsMethod));

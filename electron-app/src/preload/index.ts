@@ -185,6 +185,9 @@ const api = {
     ipcRenderer.invoke('resume-after-system-suspension'),
   resumeManualTracking: (): Promise<{ cleared: boolean; captureScheduled: boolean }> =>
     ipcRenderer.invoke('resume-manual-tracking'),
+  getChromeTrackingEnabled: (): Promise<boolean> => ipcRenderer.invoke('get-chrome-tracking-enabled'),
+  setChromeTrackingEnabled: (enabled: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('set-chrome-tracking-enabled', enabled),
   refreshCurrentActivity: (): Promise<boolean> => ipcRenderer.invoke('refresh-current-activity'),
   getAppIconDataUrl: (appName: string): Promise<string | null> =>
     ipcRenderer.invoke('get-app-icon-data-url', appName),

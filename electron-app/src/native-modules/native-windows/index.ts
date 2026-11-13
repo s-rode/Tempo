@@ -37,6 +37,7 @@ interface Addon {
   setFirefoxNavigationState: (json: string) => void
   captureFirefoxNavigation: (json: string) => void
   setFirefoxCompanionConnected: (connected: boolean) => void
+  setChromeTrackingEnabled: (enabled: boolean) => void
   setShouldRequestPermissions: (shouldRequest: boolean) => void
   getShouldRequestPermissions: () => boolean
   getPermissionStatus: (permissionType: number) => number
@@ -186,6 +187,10 @@ class NativeWindows {
     navigationFingerprint: string
   }): void {
     addon.captureFirefoxNavigation(JSON.stringify(state))
+  }
+
+  public setChromeTrackingEnabled(enabled: boolean): void {
+    addon.setChromeTrackingEnabled(enabled)
   }
 
   public setFirefoxCompanionConnected(connected: boolean): void {

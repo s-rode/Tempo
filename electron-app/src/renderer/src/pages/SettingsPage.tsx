@@ -5,6 +5,7 @@ import DistractionSoundSettings from '../components/settings/DistractionSoundSet
 import { PermissionsStatus } from '../components/settings/PermissionsStatus'
 import { ThemeSwitcher } from '../components/settings/ThemeSwitcher'
 import { TimerDisplaySettings } from '../components/settings/TimerDisplaySettings'
+import { BrowserTrackingSettings } from '../components/settings/BrowserTrackingSettings'
 import { FocusComparisonSettings } from '../components/settings/FocusComparisonSettings'
 import { SessionTransitionAlertSettings } from '../components/settings/SessionTransitionAlertSettings'
 import { RememberedCorrectionsSettings } from '../components/settings/RememberedCorrectionsSettings'
@@ -97,6 +98,10 @@ export function SettingsPage({
         <section className="tempo-settings-group">
           <h2>Dashboard</h2>
           <FocusComparisonSettings />
+        </section>
+        <section className="tempo-settings-group">
+          <h2>Browsers</h2>
+          <BrowserTrackingSettings />
         </section>
         <section className="tempo-settings-group">
           <h2>Activity feedback</h2>
