@@ -482,6 +482,19 @@ export async function resumeFromStaleSystemSuspension(userId: string) {
   return runtimeSnapshot(runtime);
 }
 
+/**
+ * Startup reconciliation: Tempo may have been quit while the screen was locked
+ * or the Mac asleep, so the matching unlock/wake notification was never seen.
+ * The caller has verified the screen is not locked; clear only when the
+ * persisted state is actually stale so a healthy runtime is never touched.
+ */
+export async function clearStaleSystemSuspensionIfPresent(userId: string) {
+  const runtime = await getOrCreateRuntime(userId);
+  if (!hasSystemSuspension(runtime)) return { cleared: false };
+  await resumeFromStaleSystemSuspension(userId);
+  return { cleared: true };
+}
+
 /** Starts phase timing only after native monitoring has committed a fresh activity. */
 export async function resumeAfterSystemCapture(userId: string) {
   const runtime = await getOrCreateRuntime(userId);

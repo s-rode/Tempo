@@ -1,7 +1,7 @@
 import { startCalendarIntegration } from './calendar'
 import { runtime } from './runtime'
 import { is, optimizer } from '@electron-toolkit/utils'
-import { app, BrowserWindow, screen, session } from 'electron'
+import { app, BrowserWindow, powerMonitor, screen, session } from 'electron'
 import { ActiveWindowDetails } from 'shared/dist/types.js'
 import { nativeWindows } from '../native-modules/native-windows'
 import { registerIpcHandlers } from './ipc'
@@ -14,7 +14,7 @@ import {
   setupSingleInstanceLock
 } from './protocol'
 import { createMainWindow } from './windows'
-import { ensureLocalServer, stopLocalServer } from './localServer'
+import { ensureLocalServer, stopLocalServer, tempoInternalRequest } from './localServer'
 import { NotchHelper } from './notchHelper'
 import { FirefoxNavigationBridge } from './firefoxNavigationBridge'
 import { ActivityMonitoringCoordinator } from './activityMonitoringCoordinator'
@@ -97,6 +97,12 @@ function App() {
     registerIpcHandlers({ mainWindow }, notchHelper, monitoring)
     applyChromeTrackingPreference()
     monitoring.start()
+    // A lock/sleep persisted before this launch (e.g. Tempo was quit while the
+    // screen was locked) would otherwise leave the notch's hover and overlap
+    // handling disabled until the user pressed "Resume tracking".
+    if (powerMonitor.getSystemIdleState(1) !== 'locked') {
+      void tempoInternalRequest('/internal/clear-stale-suspension', {}).catch(() => {})
+    }
     stopReminders = startReminderIntegration()
     stopCalendars = startCalendarIntegration(notchHelper, monitoring)
 

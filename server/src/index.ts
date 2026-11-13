@@ -14,6 +14,7 @@ import { initializeFocusRuntimeScheduler } from './services/focusRuntimeSchedule
 import { persistSystemBoundary, systemBoundarySchema } from './services/systemBoundary';
 import { publicProcedure, router } from './trpc';
 import { calendarPauseSchema, setCalendarPause } from './services/calendarPause';
+import { clearStaleSystemSuspensionIfPresent } from './services/focusRuntime';
 
 // Export tRPC utilities
 export { publicProcedure, router };
@@ -93,7 +94,6 @@ app.get('/health', async (_req, res) => {
 
 app.use(express.json({ limit: '20mb' }));
 
-// Per-procedure TRPCError codes provide HTTP status without inspecting user text.
 // Activity payloads can be several MB. Never let Chromium write them to its
 // on-disk HTTP cache (it had grown to ~1 GB); React Query is the cache.
 app.use('/trpc', (_req, res, next) => {
@@ -101,6 +101,7 @@ app.use('/trpc', (_req, res, next) => {
   next();
 });
 
+// Per-procedure TRPCError codes provide HTTP status without inspecting user text.
 app.use('/trpc', trpcExpress.createExpressMiddleware({
   router: appRouter,
   onError({ error }) { console.error('Local API request failed:', error.code); },
@@ -131,6 +132,25 @@ app.post('/internal/system-boundary', async (req, res) => {
     }
     await persistSystemBoundary(String(user._id), parsed.data);
     res.json({ saved: true });
+  } catch {
+    res.sendStatus(503);
+  }
+});
+
+// Called once at app start after the main process verified the screen is not
+// locked, so a lock/sleep persisted across a restart cannot disable monitoring.
+app.post('/internal/clear-stale-suspension', async (req, res) => {
+  if (!isLocalMode || !migrationToken || req.header('x-tempo-migration-token') !== migrationToken) {
+    res.sendStatus(404);
+    return;
+  }
+  try {
+    const user = await UserModel.findOne({ googleId: 'tempo-local-user' }).select('_id').lean();
+    if (!user) {
+      res.sendStatus(503);
+      return;
+    }
+    res.json(await clearStaleSystemSuspensionIfPresent(String(user._id)));
   } catch {
     res.sendStatus(503);
   }
