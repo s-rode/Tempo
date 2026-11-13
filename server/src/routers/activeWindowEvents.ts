@@ -46,6 +46,25 @@ import {
 } from '../services/categorization/correctionLearning';
 
 // Zod schema for input validation
+// Fields the renderer's timeline/dashboard never reads (verified by grep of
+// electron-app/src/renderer). `getLatestEvent` still returns everything.
+const RANGE_QUERY_EXCLUDED_FIELDS = [
+  '-__v',
+  '-goalSnapshot',
+  '-semanticProposal',
+  '-pageDescriptorTopicCues',
+  '-pageDescriptorRevision',
+  '-evidenceQuality',
+  '-decisionConfidence',
+  '-decisionExpiresAtMs',
+  '-contentFingerprint',
+  '-classificationLatencyMs',
+  '-classificationAttemptCount',
+  '-learningToolLabel',
+  '-learningToolKind',
+  '-learningExampleId',
+].join(' ');
+
 const activeWindowEventInputSchema = z.object({
   token: z.string(),
   windowId: z.number().optional(),
@@ -432,6 +451,9 @@ export const activeWindowEventsRouter = router({
             $lt: endDateMs,
           },
         })
+          // Timeline consumers never read these classifier-internal fields;
+          // omitting them cuts the weekly payload substantially.
+          .select(RANGE_QUERY_EXCLUDED_FIELDS)
           .sort({ timestamp: 1 })
           .lean();
 

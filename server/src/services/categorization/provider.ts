@@ -301,7 +301,7 @@ const boundedNumber = (
 
 const ollamaConfig = () => ({
   model: process.env.OLLAMA_MODEL || 'qwen3:4b-instruct',
-  keepAlive: process.env.OLLAMA_KEEP_ALIVE || '10m',
+  keepAlive: process.env.OLLAMA_KEEP_ALIVE || '2m',
   numCtx: boundedNumber(process.env.OLLAMA_NUM_CTX, 4096, 512, 16384),
   numPredict: boundedNumber(process.env.OLLAMA_NUM_PREDICT, 128, 32, 512),
 });

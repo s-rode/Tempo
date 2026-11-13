@@ -142,7 +142,10 @@ export function DashboardView({
       // Activity creation and correction explicitly invalidate this query.
       // Polling the full timeline every thirty seconds used CPU/database work
       // even while the observed activity had not changed.
-      refetchOnWindowFocus: true
+      refetchOnWindowFocus: true,
+      // Explicit invalidation (throttled in lib/eventsRefresh) keeps this fresh;
+      // don't refetch the whole range on every focus.
+      staleTime: 60_000
     }
   )
 

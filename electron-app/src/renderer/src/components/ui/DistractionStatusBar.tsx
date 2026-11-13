@@ -225,7 +225,8 @@ const DistractionStatusBar = ({
       },
       {
         enabled: !!token && typeof token === 'string' && token.length > 0 && workdayRange !== null,
-        refetchOnWindowFocus: true
+        refetchOnWindowFocus: true,
+        staleTime: 60_000
       }
     )
 

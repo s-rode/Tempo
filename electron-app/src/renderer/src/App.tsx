@@ -1,3 +1,4 @@
+import { requestEventsRefresh } from './lib/eventsRefresh'
 import { recategorizeRequest } from './lib/recategorizeRequest'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Category } from 'shared'
@@ -696,7 +697,7 @@ export function MainAppContent() {
                 if (!createdEvent) return finishCapture(false)
                 void trpcUtils.activeWindowEvents.getLatestEvent.cancel()
                 trpcUtils.activeWindowEvents.getLatestEvent.setData({ token }, createdEvent)
-                trpcUtils.activeWindowEvents.getEventsForDateRange.invalidate()
+                requestEventsRefresh(() => void trpcUtils.activeWindowEvents.getEventsForDateRange.invalidate())
                 trpcUtils.analytics.getPeriod.invalidate()
                 finishCapture(true)
               })
@@ -729,7 +730,7 @@ export function MainAppContent() {
               setFirefoxCompanionState('cache_hit')
               void trpcUtils.activeWindowEvents.getLatestEvent.cancel()
               trpcUtils.activeWindowEvents.getLatestEvent.setData({ token }, result.event)
-              trpcUtils.activeWindowEvents.getEventsForDateRange.invalidate()
+              requestEventsRefresh(() => void trpcUtils.activeWindowEvents.getEventsForDateRange.invalidate())
               trpcUtils.analytics.getPeriod.invalidate()
               finishCapture(true)
             } else {
@@ -755,7 +756,7 @@ export function MainAppContent() {
             if (!createdEvent) return finishCapture(false)
             void trpcUtils.activeWindowEvents.getLatestEvent.cancel()
             trpcUtils.activeWindowEvents.getLatestEvent.setData({ token }, createdEvent)
-            trpcUtils.activeWindowEvents.getEventsForDateRange.invalidate()
+            requestEventsRefresh(() => void trpcUtils.activeWindowEvents.getEventsForDateRange.invalidate())
             trpcUtils.analytics.getPeriod.invalidate()
             finishCapture(true)
             // System transitions and the first capture after one both change the
@@ -768,7 +769,7 @@ export function MainAppContent() {
             enrichmentRefreshTimeoutRef.current = window.setTimeout(() => {
               if (sequence !== currentCaptureSequenceRef.current) return
               trpcUtils.activeWindowEvents.getLatestEvent.invalidate()
-              trpcUtils.activeWindowEvents.getEventsForDateRange.invalidate()
+              requestEventsRefresh(() => void trpcUtils.activeWindowEvents.getEventsForDateRange.invalidate())
               trpcUtils.analytics.getPeriod.invalidate()
             }, 18_000)
             if (details.type !== 'system') {

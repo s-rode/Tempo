@@ -94,6 +94,13 @@ app.get('/health', async (_req, res) => {
 app.use(express.json({ limit: '20mb' }));
 
 // Per-procedure TRPCError codes provide HTTP status without inspecting user text.
+// Activity payloads can be several MB. Never let Chromium write them to its
+// on-disk HTTP cache (it had grown to ~1 GB); React Query is the cache.
+app.use('/trpc', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+
 app.use('/trpc', trpcExpress.createExpressMiddleware({
   router: appRouter,
   onError({ error }) { console.error('Local API request failed:', error.code); },

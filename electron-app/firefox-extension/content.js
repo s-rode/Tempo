@@ -94,10 +94,22 @@
     })
     if (relevant && document.visibilityState === 'visible') scheduleSettledChange()
   })
+  // Only the foreground tab matters. Background tabs (feeds, chats, dashboards)
+  // would otherwise run the observer callback for every DOM change forever.
   const beginObservation = () => {
-    if (!document.body) return
+    if (!document.body || document.visibilityState !== 'visible') return
     observer.observe(document.body, { subtree: true, childList: true, characterData: true })
   }
+  const endObservation = () => {
+    observer.disconnect()
+    if (settledTimer) clearTimeout(settledTimer)
+    settledTimer = null
+    firstMutationAt = 0
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') beginObservation()
+    else endObservation()
+  })
   if (document.body) beginObservation()
   else document.addEventListener('DOMContentLoaded', beginObservation, { once: true })
 })()
