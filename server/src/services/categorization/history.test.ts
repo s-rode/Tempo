@@ -4,7 +4,8 @@ import { activityKeyFor, fingerprintCapturedContent } from './activityIdentity';
 
 const events = { findOne: jest.fn() };
 mock.module('../../models/activeWindowEvent', () => ({ ActiveWindowEventModel: events }));
-const { checkActivityHistory } = await import('./history');
+const { checkActivityHistory, findRecentPageDecision, RECENT_PAGE_DECISION_MAX_AGE_MS } =
+  await import('./history');
 
 const userId = 'local-user';
 const classificationContextFingerprint = 'classification-context';
@@ -103,5 +104,58 @@ describe('checkActivityHistory', () => {
     await checkActivityHistory(userId, mail, classificationContextFingerprint);
     expect(events.findOne).toHaveBeenCalledWith(expectedHistoryQuery(activityKeyFor(mail, null)));
     expect(events.findOne).not.toHaveBeenCalledWith({ userId, ownerName: 'Mail' });
+  });
+});
+
+describe('findRecentPageDecision', () => {
+  beforeEach(() => jest.clearAllMocks());
+  const page = { pageCorrectionKey: 'page-key', title: 'Study notes', browser: 'firefox' };
+  const now = 1_700_000_000_000;
+
+  test('looks up only resolved model decisions for the same page inside a fixed window', async () => {
+    mockHistoryResult();
+    const result = await findRecentPageDecision(userId, page, classificationContextFingerprint, now);
+    expect(result).toMatchObject({ categoryId: 'work' });
+    expect(events.findOne).toHaveBeenCalledWith({
+      userId,
+      pageCorrectionKey: 'page-key',
+      title: 'Study notes',
+      classificationContextFingerprint,
+      classificationStatus: 'ollama',
+      classificationBasis: { $in: ['visible_relevance', 'visible_conflict'] },
+      categoryId: { $ne: null },
+      timestamp: { $gte: now - RECENT_PAGE_DECISION_MAX_AGE_MS },
+    });
+    expect(RECENT_PAGE_DECISION_MAX_AGE_MS).toBe(10 * 60 * 1000);
+  });
+
+  test('never queries for other browsers, native apps or pages without a stable key', async () => {
+    for (const candidate of [
+      { ...page, browser: 'chrome' },
+      { ...page, browser: null },
+      { ...page, pageCorrectionKey: null },
+    ]) {
+      await expect(
+        findRecentPageDecision(userId, candidate, classificationContextFingerprint, now)
+      ).resolves.toBeNull();
+    }
+    expect(events.findOne).not.toHaveBeenCalled();
+  });
+
+  test('returns null when nothing recent exists or the lookup fails', async () => {
+    events.findOne.mockReturnValue({
+      sort: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue(null),
+    });
+    await expect(
+      findRecentPageDecision(userId, page, classificationContextFingerprint, now)
+    ).resolves.toBeNull();
+    events.findOne.mockImplementation(() => {
+      throw new Error('database unavailable');
+    });
+    await expect(
+      findRecentPageDecision(userId, page, classificationContextFingerprint, now)
+    ).resolves.toBeNull();
   });
 });

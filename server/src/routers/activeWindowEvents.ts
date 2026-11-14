@@ -63,6 +63,19 @@ const RANGE_QUERY_EXCLUDED_FIELDS = [
   '-learningToolLabel',
   '-learningToolKind',
   '-learningExampleId',
+  // Read only from `getLatestEvent` (relevance check, distraction notification,
+  // status label); timeline consumers of this range query never touch them.
+  '-goalContextFingerprint',
+  '-classificationContextFingerprint',
+  '-learningToolKey',
+  '-classificationBasis',
+  '-classificationFailureCode',
+  '-classifierStrictness',
+  '-matchedGoalRef',
+  '-supportingMode',
+  '-pageKind',
+  '-preferenceId',
+  '-nudgeVersion',
 ].join(' ');
 
 const activeWindowEventInputSchema = z.object({

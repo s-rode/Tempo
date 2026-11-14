@@ -90,6 +90,7 @@ struct StatusPayload: Codable {
   let distractedStreakMs: Double?
   let statusStartedAtMs: Double?
   let animateTimerDigits: Bool?
+  let showTimerSeconds: Bool?
   let categoryDetails: HelperCategory?
   let availableCategories: [HelperCategory]?
   let activitySource: String?
@@ -198,7 +199,7 @@ final class NotchController: NSObject, ObservableObject {
     productiveClock: StreakClockPayload(accumulatedMs: 0, runningSinceMs: nil),
     distractedClock: StreakClockPayload(accumulatedMs: 0, runningSinceMs: nil),
     provisionalDistractionStartedAtMs: nil,
-    productiveStreakMs: 0, distractedStreakMs: 0, statusStartedAtMs: nil, animateTimerDigits: false,
+    productiveStreakMs: 0, distractedStreakMs: 0, statusStartedAtMs: nil, animateTimerDigits: false, showTimerSeconds: true,
     categoryDetails: nil, availableCategories: [], activitySource: nil, activityName: nil,
     activitySummary: nil, activityUrl: nil, categoryReasoning: nil,
     classificationStatus: nil, nudgeTitle: nil, nudgeBody: nil, eventIds: [],
@@ -327,6 +328,9 @@ final class NotchController: NSObject, ObservableObject {
     var transaction = Transaction(animation: nil)
     transaction.disablesAnimations = true
     withTransaction(transaction) { pillsSuppressed = suppressed }
+    // Collapsed clocks tick less often than once a second, so refresh the
+    // displayed time right away when the pills come back.
+    now = Date()
     refreshDisplayClock()
     // Losing a pill because another app covered it must not close open controls.
     refreshPointerInteraction(allowHoverClose: false)
@@ -386,6 +390,15 @@ final class NotchController: NSObject, ObservableObject {
   }
 
   private func pointerMoved() {
+    // Another notch app can only open over our pills when the pointer is at the
+    // notch. Until then the overlap monitor samples slowly; the rest of the top
+    // strip (window title bars, tabs, menus) must not trigger fast sampling.
+    let location = NSEvent.mouseLocation
+    let screenFrame = geometry.screen.frame
+    if location.y >= screenFrame.maxY - geometry.menuBarHeight - 4,
+       abs(location.x - screenFrame.midX) <= panelWidth / 2 {
+      overlapMonitor?.boost()
+    }
     // Most mouse movement happens far from the notch. Avoid coordinate
     // conversion, layout construction and hit testing for those events.
     if !isHovering && hoveredPill == nil && !panel.frame.contains(NSEvent.mouseLocation) {
@@ -608,30 +621,60 @@ final class NotchController: NSObject, ObservableObject {
       status.phaseRemainingMs != nil && status.phaseRemainingSampledAtMs != nil
     let pauseCountdown = expanded && (status.suspensionReasons ?? []).contains("manual_pause") &&
       (status.pausedUntilMs ?? 0) > Date().timeIntervalSince1970 * 1000
-    if panel.isVisible && !systemSuspended && (runningPills || runningTotals || runningPhase || pauseCountdown) {
-      startDisplayClock()
-    } else {
+    guard panel.isVisible && !systemSuspended && (runningPills || runningTotals || runningPhase || pauseCountdown) else {
       stopDisplayClock()
+      return
     }
+    // Tick only when something visible changes. Anything showing seconds still
+    // ticks every second, without renderer IPC. A collapsed display that only
+    // shows whole minutes waits for the next minute boundary, and a lone
+    // session progress line redraws every 15 seconds.
+    let current = Date()
+    let nowMs = current.timeIntervalSince1970 * 1_000
+    let clockNowMs = status.suspendedAtMs ?? nowMs
+    func elapsedMs(_ clock: StreakClockPayload?, fallback: Double?) -> Double {
+      guard let clock else { return fallback ?? 0 }
+      let running = clock.runningSinceMs.map { max(0, clockNowMs - $0) } ?? 0
+      return max(0, clock.accumulatedMs + running)
+    }
+    let productiveMs = elapsedMs(status.productiveClock, fallback: status.productiveStreakMs)
+    let distractedMs = elapsedMs(status.distractedClock, fallback: status.distractedStreakMs)
+    let pillsInMinutes = productiveMs >= 3_600_000 || distractedMs >= 3_600_000 ||
+      !(status.showTimerSeconds ?? true)
+    var minutePills: [Double] = []
+    if runningPills && pillsInMinutes {
+      if status.productiveClock?.runningSinceMs != nil { minutePills.append(productiveMs) }
+      if status.distractedClock?.runningSinceMs != nil { minutePills.append(distractedMs) }
+    }
+    let secondsLive = expanded || (runningPills && !pillsInMinutes)
+    guard let delay = NotchDisplayClockCadence.nextDelayMs(
+      nowMs: nowMs, secondsLive: secondsLive,
+      minutePillElapsedMs: minutePills, phaseProgressLive: runningPhase
+    ) else {
+      stopDisplayClock()
+      return
+    }
+    scheduleDisplayClock(afterMs: delay)
   }
 
-  /// Keep live clocks at their original second cadence, without renderer IPC.
-  private func startDisplayClock() {
-    guard displayClockTimer == nil else { return }
-    let timer = DispatchSource.makeTimerSource(queue: .main)
-    let milliseconds = Int(Date().timeIntervalSince1970 * 1_000)
-    let delay = max(1, 1_000 - (milliseconds % 1_000))
+  /// One-shot timer that re-arms itself from the current state on every tick.
+  private func scheduleDisplayClock(afterMs delay: Int) {
+    let timer: DispatchSourceTimer
+    if let existing = displayClockTimer {
+      timer = existing
+    } else {
+      timer = DispatchSource.makeTimerSource(queue: .main)
+      timer.setEventHandler { [weak self] in
+        self?.now = Date()
+        self?.refreshDisplayClock()
+      }
+      displayClockTimer = timer
+      timer.resume()
+    }
     timer.schedule(
       deadline: .now() + .milliseconds(delay),
-      repeating: .seconds(1),
-      leeway: .milliseconds(20)
+      leeway: .milliseconds(delay >= 5_000 ? 250 : 20)
     )
-    timer.setEventHandler { [weak self] in
-      self?.now = Date()
-      self?.refreshDisplayClock()
-    }
-    displayClockTimer = timer
-    timer.resume()
   }
 
   private func stopDisplayClock() {
@@ -1237,7 +1280,13 @@ struct NotchRootView: View {
     productiveTime >= 3_600_000 || distractedTime >= 3_600_000
   }
   private var timerPillPrecision: NotchTimerPrecision {
-    useMinutePrecision ? .minutes : .seconds
+    useMinutePrecision || !showsTimerSeconds ? .minutes : .seconds
+  }
+  private var showsTimerSeconds: Bool {
+    controller.status.showTimerSeconds ?? true
+  }
+  private func totalText(_ milliseconds: Double) -> String {
+    showsTimerSeconds ? format(milliseconds) : formatPill(milliseconds, precision: .minutes)
   }
   private var areTimerPillsFrozen: Bool {
     let reasons = controller.status.suspensionReasons ?? []
@@ -1333,7 +1382,7 @@ struct NotchRootView: View {
   }
   private var distractionContext: String {
     let source = activitySource ?? "Current activity"
-    return "\(source) · \(format(distractedTime)) distracted"
+    return "\(source) · \(totalText(distractedTime)) distracted"
   }
   private var expandedContentHeight: CGFloat { controller.expandedContentHeight }
   private var activitySource: String? {
@@ -1503,6 +1552,14 @@ struct NotchRootView: View {
               .accessibilityLabel("Skip the scheduled Pomodoro break")
           }
           Spacer(minLength: 0)
+          Button("Dismiss") {
+            controller.dismissTransientControls()
+            controller.setExpanded(false)
+          }
+          .buttonStyle(NotchActionStyle(tone: .neutral))
+          .accessibilityLabel("Dismiss this notification")
+          .accessibilityIdentifier("tempo-dismiss-transition-notice")
+          .help("Close this card and keep the timers visible")
           Button("Hide") { controller.hide() }
             .buttonStyle(NotchActionStyle(tone: .neutral))
         }
@@ -1533,7 +1590,7 @@ struct NotchRootView: View {
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(.white.opacity(0.92))
           Spacer()
-          Text("Today  \(format(dailyProductiveTime)) focused · \(format(dailyUnproductiveTime)) distracted")
+          Text("Today  \(totalText(dailyProductiveTime)) focused · \(totalText(dailyUnproductiveTime)) distracted")
             .font(.system(size: 10, weight: .regular)).foregroundStyle(.white.opacity(0.62))
         }
         Rectangle().fill(.white.opacity(0.10)).frame(height: 1 / (NSScreen.main?.backingScaleFactor ?? 2))

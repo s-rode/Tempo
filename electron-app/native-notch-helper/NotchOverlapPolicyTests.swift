@@ -57,6 +57,18 @@ struct NotchOverlapPolicyTests {
     expect(policy.update(overlapping: true, now: 6), "overlap hides again")
     expect(!policy.update(overlapping: nil, now: 6.1), "unavailable metadata fails open immediately")
 
+    var sampling = NotchOverlapSampling()
+    expect(sampling.intervalMs(suppressed: false, now: 10) == 500, "idle sampling is slow")
+    expect(sampling.intervalMs(suppressed: true, now: 10) == 100, "hidden pills sample at full rate to restore promptly")
+    expect(!sampling.isActive(suppressed: false, now: 10), "starts idle")
+    sampling.boost(now: 10)
+    expect(sampling.isActive(suppressed: false, now: 10), "pointer near the notch activates fast sampling")
+    expect(sampling.intervalMs(suppressed: false, now: 12.9) == 100, "boost lasts three seconds")
+    expect(sampling.intervalMs(suppressed: false, now: 13.1) == 500, "boost expires back to idle")
+    sampling.boost(now: 12)
+    expect(sampling.intervalMs(suppressed: false, now: 14.9) == 100, "a later boost extends the window")
+    expect(sampling.intervalMs(suppressed: true, now: 20) == 100, "suppression keeps fast sampling after a boost expires")
+
     var activation = NotchPillActivation()
     expect(activation.canActivate, "ordinary numbers retain hover activation")
     activation.setSuppressed(true)

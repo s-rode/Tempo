@@ -5,11 +5,33 @@
   const excluded =
     'script,style,noscript,template,input,textarea,select,option,button,[contenteditable="true"],[contenteditable=""],nav,header,footer,aside,[aria-hidden="true"]'
 
-  function visible(element, cache) {
+  // True when the element or any ancestor matches `excluded`. Equivalent to
+  // `matches(excluded) || closest(excluded)`, but each element is matched once
+  // per cache instead of once per descendant walking up the whole ancestor chain.
+  function isExcluded(element, cache) {
+    const chain = []
+    let result = false
+    for (let node = element; node; node = node.parentElement) {
+      const known = cache.get(node)
+      if (known !== undefined) {
+        result = known
+        break
+      }
+      chain.push(node)
+      if (node.matches(excluded)) {
+        result = true
+        break
+      }
+    }
+    for (const node of chain) cache.set(node, result)
+    return result
+  }
+
+  function visible(element, cache, excludedCache) {
     if (!(element instanceof Element)) return false
     const cached = cache.get(element)
     if (cached !== undefined) return cached
-    if (element.matches(excluded) || element.closest(excluded)) {
+    if (isExcluded(element, excludedCache)) {
       cache.set(element, false)
       return false
     }
@@ -33,9 +55,10 @@
 
   function extract() {
     const visibilityCache = new WeakMap()
+    const excludedCache = new WeakMap()
     const description = clean(document.querySelector('meta[name="description"]')?.content, 500)
     const headings = Array.from(document.querySelectorAll('h1,h2,h3'))
-      .filter((element) => visible(element, visibilityCache))
+      .filter((element) => visible(element, visibilityCache, excludedCache))
       .slice(0, 16)
       .map((node) => clean(node.textContent, 180))
       .filter(Boolean)
@@ -49,7 +72,7 @@
       if (!node) break
       seen += 1
       const parent = node.parentElement
-      if (!parent || !visible(parent, visibilityCache)) continue
+      if (!parent || !visible(parent, visibilityCache, excludedCache)) continue
       const value = clean(node.nodeValue, 500)
       if (!value) continue
       chunks.push(value)
@@ -87,10 +110,12 @@
     settledTimer = setTimeout(announceSettledChange, elapsed >= 8000 ? 100 : 1200)
   }
   const observer = new MutationObserver((mutations) => {
+    // Streaming pages append many nodes under one container; match it once per batch.
+    const excludedCache = new WeakMap()
     const relevant = mutations.some((mutation) => {
       const target =
         mutation.target instanceof Element ? mutation.target : mutation.target.parentElement
-      return target && !target.matches(excluded) && !target.closest(excluded)
+      return target && !isExcluded(target, excludedCache)
     })
     if (relevant && document.visibilityState === 'visible') scheduleSettledChange()
   })

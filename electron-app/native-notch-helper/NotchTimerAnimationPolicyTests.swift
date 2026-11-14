@@ -28,6 +28,16 @@ struct NotchTimerAnimationPolicyTests {
     expect(!shouldAnimateNotchTimerTransition(from: snapshot(18), to: snapshot(18, frozen: true), reduceMotion: false), "pause stays static")
     expect(!shouldAnimateNotchTimerTransition(from: snapshot(18), to: snapshot(19), reduceMotion: true), "Reduce Motion stays static")
     expect(!shouldAnimateNotchTimerTransition(from: snapshot(18), to: snapshot(19), reduceMotion: false, animationsEnabled: false), "preference disables animation")
+    let cadence = NotchDisplayClockCadence.self
+    expect(cadence.nextDelayMs(nowMs: 10_250, secondsLive: false, minutePillElapsedMs: [], phaseProgressLive: false) == nil, "nothing live means no timer")
+    expect(cadence.nextDelayMs(nowMs: 10_250, secondsLive: true, minutePillElapsedMs: [], phaseProgressLive: false) == 770, "seconds align to the next second boundary")
+    expect(cadence.nextDelayMs(nowMs: 10_000, secondsLive: true, minutePillElapsedMs: [], phaseProgressLive: false) == 1_020, "a tick exactly on a boundary waits a full second")
+    expect(cadence.nextDelayMs(nowMs: 0, secondsLive: false, minutePillElapsedMs: [95_500], phaseProgressLive: false) == 24_520, "minute pills wait for their own minute boundary")
+    expect(cadence.nextDelayMs(nowMs: 0, secondsLive: false, minutePillElapsedMs: [95_500, 119_900], phaseProgressLive: false) == 120, "the soonest of two running minute pills wins")
+    expect(cadence.nextDelayMs(nowMs: 0, secondsLive: false, minutePillElapsedMs: [], phaseProgressLive: true) == 15_020, "phase progress alone redraws every 15 seconds")
+    expect(cadence.nextDelayMs(nowMs: 10_250, secondsLive: true, minutePillElapsedMs: [30_000], phaseProgressLive: true) == 770, "a seconds clock dominates slower ones")
+    expect(cadence.nextDelayMs(nowMs: 0, secondsLive: false, minutePillElapsedMs: [59_999], phaseProgressLive: false) == 21, "never schedules an instant busy tick")
+    expect(cadence.nextDelayMs(nowMs: 0, secondsLive: false, minutePillElapsedMs: [-5], phaseProgressLive: false) == 60_020, "negative elapsed is clamped")
     print("Notch timer animation policy tests passed")
   }
 }

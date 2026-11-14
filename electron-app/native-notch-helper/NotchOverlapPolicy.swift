@@ -47,6 +47,28 @@ struct NotchOverlapPolicy {
   }
 }
 
+/// How often the overlap monitor needs to look at the window list. Another
+/// notch app can only cover the pills after the pointer reaches the top of the
+/// screen, so a slow idle cadence is enough until then.
+struct NotchOverlapSampling {
+  static let idleIntervalMs = 500
+  static let activeIntervalMs = 100
+  static let boostSeconds: TimeInterval = 3
+  private var boostedUntil: TimeInterval = 0
+
+  func isActive(suppressed: Bool, now: TimeInterval) -> Bool {
+    suppressed || now < boostedUntil
+  }
+
+  func intervalMs(suppressed: Bool, now: TimeInterval) -> Int {
+    isActive(suppressed: suppressed, now: now) ? Self.activeIntervalMs : Self.idleIntervalMs
+  }
+
+  mutating func boost(now: TimeInterval) {
+    boostedUntil = now + Self.boostSeconds
+  }
+}
+
 /// A restored timer must not open underneath a stationary pointer.
 struct NotchPillActivation {
   private(set) var suppressed = false

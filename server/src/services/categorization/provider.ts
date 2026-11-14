@@ -27,6 +27,7 @@ import { GoalSupportProfileData, SUPPORTING_MODES, isSupportingMode } from './go
 import type { PageActivityDescriptorData } from './pageDescriptorTypes';
 import type { LearningExampleForPrompt } from './correctionLearning';
 import type { ToolCapabilityProfile } from '../../../../shared/classification';
+import { DecisionCache } from './decisionCache';
 
 export type ClassificationStatus =
   | 'history'
@@ -301,10 +302,22 @@ const boundedNumber = (
 
 const ollamaConfig = () => ({
   model: process.env.OLLAMA_MODEL || 'qwen3:4b-instruct',
-  keepAlive: process.env.OLLAMA_KEEP_ALIVE || '2m',
+  keepAlive: process.env.OLLAMA_KEEP_ALIVE || '5m',
   numCtx: boundedNumber(process.env.OLLAMA_NUM_CTX, 4096, 512, 16384),
   numPredict: boundedNumber(process.env.OLLAMA_NUM_PREDICT, 128, 32, 512),
 });
+
+// Prompts are pure functions of goals, activity and strictness and inference runs
+// at temperature 0, so an identical request would return the same decision.
+// Reusing it avoids re-running the model for repeated app switches and pages.
+const semanticDecisionCache = new DecisionCache<SemanticActivityDecision>();
+const enrichmentCache = new DecisionCache<ClassificationEnrichment>();
+
+/** Drops memoized decisions (tests, or after the local model is replaced). */
+export function clearClassificationDecisionCaches(): void {
+  semanticDecisionCache.clear();
+  enrichmentCache.clear();
+}
 
 function parseStructuredResponse(raw: string): unknown | null {
   const trimmed = raw.trim();
@@ -629,6 +642,17 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     const prompt = personalized
       ? buildPersonalizedActivityPromptInput(goals, activity, strictness)
       : buildSemanticActivityPromptInput(goals, activity, categories, strictness, learningExamples);
+    // The decision also maps aliases back to target refs and learning example ids,
+    // which are not all part of the prompt text, so they belong in the key.
+    const cacheKey = DecisionCache.keyFor({
+      model: ollamaConfig().model,
+      personalized,
+      prompt,
+      targetRefs: (goals.targets || []).map((target) => target.ref),
+      learningIds: learningExamples.map((example) => example.id),
+    });
+    const cached = semanticDecisionCache.get(cacheKey);
+    if (cached) return { decision: cached, attemptCount: 0 };
     const first = parse(
       await chat(
         prompt,
@@ -637,7 +661,10 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         Math.max(500, timeoutMs)
       )
     );
-    if (first.decision) return { decision: first.decision, attemptCount: 1 };
+    if (first.decision) {
+      semanticDecisionCache.set(cacheKey, first.decision);
+      return { decision: first.decision, attemptCount: 1 };
+    }
     if (first.failure === 'timeout' || first.failure === 'ollama_http_error')
       return { decision: null, failureCode: first.failure, attemptCount: 1 };
     const remaining = timeoutMs - (Date.now() - startedAt);
@@ -656,6 +683,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         remaining
       )
     );
+    if (second.decision) semanticDecisionCache.set(cacheKey, second.decision);
     return second.decision
       ? { decision: second.decision, attemptCount: 2 }
       : {
@@ -879,8 +907,12 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     activity: ActivityContext,
     signal?: AbortSignal
   ): Promise<ClassificationEnrichment | null> {
+    const prompt = buildEnrichmentPromptInput(goals, activity, category.name, category.isProductive);
+    const cacheKey = DecisionCache.keyFor({ model: ollamaConfig().model, prompt });
+    const cached = enrichmentCache.get(cacheKey);
+    if (cached) return cached;
     const result = await chat(
-      buildEnrichmentPromptInput(goals, activity, category.name, category.isProductive),
+      prompt,
       enrichmentResponseSchema,
       Math.min(96, ollamaConfig().numPredict),
       12000,
@@ -890,13 +922,15 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     const parsed = EnrichmentSchema.safeParse(parseStructuredResponse(result.content));
     if (!parsed.success) return null;
     const clip = (value: string, limit: number) => value.trim().slice(0, limit).trim();
-    return {
+    const enrichment: ClassificationEnrichment = {
       activityLabel: clip(parsed.data.activityLabel, 48),
       activitySummary: clip(parsed.data.activitySummary, 80),
       reasoning: clip(parsed.data.reasoning.split(/\s+/).slice(0, 12).join(' '), 100),
       nudgeTitle: null,
       nudgeBody: null,
     };
+    enrichmentCache.set(cacheKey, enrichment);
+    return enrichment;
   }
 
   async profileTool(

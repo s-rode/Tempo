@@ -143,7 +143,7 @@ export async function ensureLocalServer(): Promise<boolean> {
       OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
       OLLAMA_MODEL: process.env.OLLAMA_MODEL || 'qwen3:4b-instruct',
       OLLAMA_TIMEOUT_MS: process.env.OLLAMA_TIMEOUT_MS || '30000',
-      OLLAMA_KEEP_ALIVE: process.env.OLLAMA_KEEP_ALIVE || '2m',
+      OLLAMA_KEEP_ALIVE: process.env.OLLAMA_KEEP_ALIVE || '5m',
       OLLAMA_NUM_CTX: process.env.OLLAMA_NUM_CTX || '4096',
       OLLAMA_NUM_PREDICT: process.env.OLLAMA_NUM_PREDICT || '128',
       AUTH_SECRET: localRuntimeSecret(),

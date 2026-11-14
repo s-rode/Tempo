@@ -159,6 +159,17 @@ extension NotchController {
     let subscription = controller.$now.dropFirst().sink { _ in ticks += 1 }
     RunLoop.current.run(until: Date().addingTimeInterval(1.15))
     expect(ticks >= 1 && ticks <= 2, "live clock still advances once per second")
+    update(["showTimerSeconds": false])
+    expect(controller.displayClockTimer != nil, "minute-only pills keep a boundary timer")
+    ticks = 0
+    RunLoop.current.run(until: Date().addingTimeInterval(1.1))
+    expect(ticks == 0, "minute-only collapsed pills do not redraw every second")
+    controller.setExpanded(true)
+    ticks = 0
+    RunLoop.current.run(until: Date().addingTimeInterval(1.15))
+    expect(ticks >= 1, "expanding returns the live clock to one tick per second")
+    controller.setExpanded(false)
+    update(["showTimerSeconds": true])
     controller.setPillsSuppressed(true)
     expect(controller.displayClockTimer == nil, "covered pills do not redraw while collapsed")
     ticks = 0
@@ -216,7 +227,9 @@ extension NotchOverlapMonitor {
            "absent watched app uses lifecycle events with no polling")
     processes = [Int32.max]
     monitor.refreshProcessIDs()
-    expect(monitor.timer != nil, "watched app launch restores original 100 ms sampling")
+    expect(monitor.timer != nil && monitor.timerIntervalMs == 500, "watched app launch polls slowly while the pointer is away")
+    monitor.boost()
+    expect(monitor.timerIntervalMs == 100, "pointer reaching the notch restores 100 ms sampling")
     processes = []
     monitor.refreshProcessIDs()
     monitor.sample()
@@ -231,7 +244,7 @@ extension NotchOverlapMonitor {
     monitor.start()
     expect(monitor.timer == nil && !monitor.observers.isEmpty, "hidden monitor can restart without polling")
     monitor.stop()
-    print("Overlap battery lifecycle tests passed (no 10 Hz polling while watched app is absent)")
+    print("Overlap battery lifecycle tests passed (no polling while the watched app is absent; slow sampling until the pointer nears the notch)")
   }
 }
 

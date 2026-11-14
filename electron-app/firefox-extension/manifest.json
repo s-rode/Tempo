@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Tempo Local Navigation Companion",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Supplies ephemeral visible page context to the locally installed Tempo app for on-device classification.",
   "permissions": ["tabs", "webNavigation", "nativeMessaging"],
   "content_scripts": [

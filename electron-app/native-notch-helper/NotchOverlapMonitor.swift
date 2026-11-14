@@ -9,6 +9,8 @@ final class NotchOverlapMonitor {
   private var observers: [NSObjectProtocol] = []
   private var processIDs = Set<Int32>()
   private var policy = NotchOverlapPolicy()
+  private var sampling = NotchOverlapSampling()
+  private var timerIntervalMs = 0
   private var notch = CGRect.zero
   private var pills: [CGRect] = []
   private let onChange: (Bool) -> Void
@@ -52,9 +54,10 @@ final class NotchOverlapMonitor {
   private func startTimer() {
     guard timer == nil else { return }
     let source = DispatchSource.makeTimerSource(queue: .main)
-    source.schedule(deadline: .now(), repeating: .milliseconds(100), leeway: .milliseconds(5))
     source.setEventHandler { [weak self] in self?.sample() }
     timer = source
+    timerIntervalMs = 0
+    applyCadence(sampleNow: true)
     source.resume()
   }
 
@@ -62,6 +65,34 @@ final class NotchOverlapMonitor {
     timer?.setEventHandler {}
     timer?.cancel()
     timer = nil
+    timerIntervalMs = 0
+  }
+
+  /// Slow when idle; the original 100 ms while the pointer is near the notch
+  /// or while the pills are hidden and waiting out their clear grace period.
+  private func applyCadence(sampleNow: Bool = false) {
+    guard let timer else { return }
+    let interval = sampling.intervalMs(
+      suppressed: policy.suppressed, now: ProcessInfo.processInfo.systemUptime)
+    guard interval != timerIntervalMs else { return }
+    timerIntervalMs = interval
+    timer.schedule(
+      deadline: sampleNow ? .now() : .now() + .milliseconds(interval),
+      repeating: .milliseconds(interval),
+      leeway: .milliseconds(interval >= NotchOverlapSampling.idleIntervalMs ? 100 : 5)
+    )
+  }
+
+  /// The pointer reached the top of the screen, where another notch app may
+  /// open. Sample at full rate for a few seconds, starting immediately.
+  func boost() {
+    guard started else { return }
+    let now = ProcessInfo.processInfo.systemUptime
+    let wasActive = sampling.isActive(suppressed: policy.suppressed, now: now)
+    sampling.boost(now: now)
+    guard !wasActive, timer != nil else { return }
+    applyCadence(sampleNow: true)
+    sample()
   }
 
   func stop() {
@@ -73,6 +104,7 @@ final class NotchOverlapMonitor {
     processIDs.removeAll()
     let wasSuppressed = policy.suppressed
     policy = NotchOverlapPolicy()
+    sampling = NotchOverlapSampling()
     if wasSuppressed { onChange(false) }
   }
 
@@ -115,6 +147,7 @@ final class NotchOverlapMonitor {
       if suppressed { startTimer() }
       else { stopTimer() }
     }
+    applyCadence()
   }
 
   deinit {

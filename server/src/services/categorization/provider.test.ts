@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { buildCoreClassificationPromptInput } from './llm';
-import { OllamaClassificationProvider } from './provider';
+import { OllamaClassificationProvider, clearClassificationDecisionCaches } from './provider';
+import { DecisionCache } from './decisionCache';
 import type { EffectiveGoalContext } from '../goalPlans';
 
 const originalFetch = globalThis.fetch;
 const originalBaseUrl = process.env.OLLAMA_BASE_URL;
 
 afterEach(() => {
+  clearClassificationDecisionCaches();
   globalThis.fetch = originalFetch;
   if (originalBaseUrl === undefined) delete process.env.OLLAMA_BASE_URL;
   else process.env.OLLAMA_BASE_URL = originalBaseUrl;
@@ -97,7 +99,7 @@ describe('OllamaClassificationProvider', () => {
       const request = JSON.parse(String(init?.body));
       expect(request.stream).toBe(false);
       expect(request.think).toBe(false);
-      expect(request.keep_alive).toBe('2m');
+      expect(request.keep_alive).toBe('5m');
       expect(request.options.temperature).toBe(0);
       expect(request.options.num_ctx).toBe(4096);
       expect(request.options.num_predict).toBe(56);
@@ -602,5 +604,119 @@ describe('personalized semantic wire contract', () => {
       true
     );
     expect(result.decision?.evidenceAliases).toEqual(['E1']);
+  });
+});
+
+describe('model decision memoization', () => {
+  const personalizedReply = (verdict: string) =>
+    new Response(
+      JSON.stringify({
+        message: {
+          content: JSON.stringify({
+            o: null,
+            q: 'Study',
+            v: verdict,
+            t: 'T1',
+            m: null,
+            p: 'high',
+            e: ['E2'],
+          }),
+        },
+      })
+    );
+  const decide = (
+    provider: OllamaClassificationProvider,
+    overrides: Partial<typeof activity> = {},
+    targetGoals: EffectiveGoalContext = goals
+  ) =>
+    provider.decideActivity(
+      targetGoals,
+      categories,
+      { ...activity, ...overrides },
+      'balanced',
+      10000,
+      [],
+      true
+    );
+
+  test('reuses a decision for an identical request without calling the model again', async () => {
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return personalizedReply('productive');
+    }) as unknown as typeof fetch;
+    const provider = new OllamaClassificationProvider();
+    const first = await decide(provider);
+    const second = await decide(provider);
+    expect(calls).toBe(1);
+    expect(first.attemptCount).toBe(1);
+    expect(second.attemptCount).toBe(0);
+    expect(second.decision).toEqual(first.decision);
+  });
+
+  test('a changed title, goal text or target ref is a cache miss', async () => {
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return personalizedReply('productive');
+    }) as unknown as typeof fetch;
+    const provider = new OllamaClassificationProvider();
+    await decide(provider);
+    await decide(provider, { title: 'A different tutorial' });
+    await decide(provider, {}, { ...goals, targets: [{ ...goals.targets![0], text: 'Other task' }] });
+    await decide(provider, {}, { ...goals, targets: [{ ...goals.targets![0], ref: 'daily:today:other' }] });
+    expect(calls).toBe(4);
+  });
+
+  test('does not cache failures or invalid model output', async () => {
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ message: { content: 'not json' } }));
+    }) as unknown as typeof fetch;
+    const provider = new OllamaClassificationProvider();
+    expect((await decide(provider)).decision).toBeNull();
+    const callsAfterFirst = calls;
+    expect((await decide(provider)).decision).toBeNull();
+    expect(calls).toBe(callsAfterFirst * 2);
+  });
+
+  test('returns an independent copy so a caller cannot corrupt the cached decision', async () => {
+    globalThis.fetch = (async () => personalizedReply('productive')) as unknown as typeof fetch;
+    const provider = new OllamaClassificationProvider();
+    await decide(provider);
+    const hit = await decide(provider);
+    hit.decision!.evidenceAliases.push('E9');
+    expect((await decide(provider)).decision!.evidenceAliases).not.toContain('E9');
+  });
+});
+
+describe('DecisionCache', () => {
+  test('expires entries after the TTL', () => {
+    let now = 1_000;
+    const cache = new DecisionCache<number>(8, 100, () => now);
+    cache.set('a', 1);
+    expect(cache.get('a')).toBe(1);
+    now += 101;
+    expect(cache.get('a')).toBeUndefined();
+    expect(cache.size).toBe(0);
+  });
+
+  test('evicts the least recently used entry beyond its capacity', () => {
+    const cache = new DecisionCache<number>(2, 1_000, () => 0);
+    cache.set('a', 1);
+    cache.set('b', 2);
+    expect(cache.get('a')).toBe(1); // refresh a, so b is now the oldest
+    cache.set('c', 3);
+    expect(cache.get('b')).toBeUndefined();
+    expect(cache.get('a')).toBe(1);
+    expect(cache.get('c')).toBe(3);
+  });
+
+  test('keys are stable hashes that do not contain the input text', () => {
+    const key = DecisionCache.keyFor({ title: 'Secret page title' });
+    expect(key).toMatch(/^[0-9a-f]{64}$/);
+    expect(key).toBe(DecisionCache.keyFor({ title: 'Secret page title' }));
+    expect(key).not.toContain('Secret');
   });
 });

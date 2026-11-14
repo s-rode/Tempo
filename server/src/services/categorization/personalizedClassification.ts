@@ -15,7 +15,7 @@ import {
 import { readToolProfile, cancelToolProfiles, scheduleToolProfile } from './toolProfiles';
 import { loadPreferences, migrateLegacyLearning } from './learningActions';
 import { resolvePersonalizedPolicy } from './personalizedPolicy';
-import { checkActivityHistory } from './history';
+import { checkActivityHistory, findRecentPageDecision } from './history';
 import type { CategorizationResult } from './categorizationService';
 import type { LearningToolIdentity } from './activityIdentity';
 
@@ -41,11 +41,25 @@ export async function classifyPersonalized(input: {
   cancelPendingGoalSupportProfiles(userId);
   cancelToolProfiles(userId);
   await migrateLegacyLearning(userId);
-  const historical = await checkActivityHistory(userId, activity, input.classificationFingerprint);
-  if (
-    historical?.classificationBasis &&
-    ['visible_relevance', 'visible_conflict'].includes(historical.classificationBasis)
-  ) {
+  const exactHistory = await checkActivityHistory(
+    userId,
+    activity,
+    input.classificationFingerprint
+  );
+  const historical =
+    exactHistory?.classificationBasis &&
+    ['visible_relevance', 'visible_conflict'].includes(exactHistory.classificationBasis)
+      ? exactHistory
+      : await findRecentPageDecision(
+          userId,
+          {
+            pageCorrectionKey: input.pageCorrectionKey,
+            title: activity.title,
+            browser: activity.browser,
+          },
+          input.classificationFingerprint
+        );
+  if (historical) {
     return {
       ...historical,
       classificationStatus: 'history',
