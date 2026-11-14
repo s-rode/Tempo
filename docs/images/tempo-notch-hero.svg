@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 96" width="800" height="96" role="img" aria-labelledby="t d" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif">
+  <title id="t">Tempo's timers in the notch</title>
+  <desc id="d">Illustration of a Mac menu bar with a focused timer and a distracted timer on either side of the camera housing.</desc>
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c7d7f5"/>
+      <stop offset="0.55" stop-color="#dfd3f2"/>
+      <stop offset="1" stop-color="#f6d9d2"/>
+    </linearGradient>
+    <clipPath id="screen"><rect x="20" y="8" width="760" height="80" rx="14"/></clipPath>
+  </defs>
+  <g clip-path="url(#screen)">
+    <rect x="20" y="8" width="760" height="80" fill="url(#wall)"/>
+    <rect x="20" y="8" width="760" height="33" fill="#ffffff" fill-opacity="0.55"/>
+    <g font-size="13" fill="#1f2430">
+      <text x="40" y="30" font-weight="700">Code</text>
+      <text x="86" y="30">File</text>
+      <text x="122" y="30">Edit</text>
+      <text x="160" y="30">View</text>
+      <text x="760" y="30" text-anchor="end">Fri 10:42</text>
+    </g>
+    <path d="M307.500 8h185v25a8 8 0 0 1-8 8h-169a8 8 0 0 1-8-8z" fill="#000"/>
+    <rect x="221.500" y="14" width="78" height="21" rx="10.500" fill="#0b0b0c"/>
+    <rect x="221.500" y="14" width="78" height="21" rx="10.500" fill="none" stroke="#34c759" stroke-opacity="0.6"/>
+    <circle cx="237" cy="24.500" r="3" fill="#34c759"/>
+    <text x="266" y="29" font-size="12" font-weight="600" fill="#fff" text-anchor="middle">24:10</text>
+    <rect x="500.500" y="14" width="78" height="21" rx="10.500" fill="#0b0b0c"/>
+    <rect x="500.500" y="14" width="78" height="21" rx="10.500" fill="none" stroke="#fff" stroke-opacity="0.16"/>
+    <circle cx="516" cy="24.500" r="3" fill="#fff" fill-opacity="0.32"/>
+    <text x="545" y="29" font-size="12" font-weight="600" fill="#fff" fill-opacity="0.72" text-anchor="middle">1:35</text>
+    <g font-size="11" fill="#1f2430" fill-opacity="0.62" text-anchor="middle">
+      <text x="260.500" y="66">focused</text>
+      <text x="539.500" y="66">distracted</text>
+    </g>
+  </g>
+</svg>

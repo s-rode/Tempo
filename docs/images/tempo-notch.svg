@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 242" width="800" height="242" role="img" aria-labelledby="t d" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif">
+  <title id="t">Tempo's notch timers</title>
+  <desc id="d">Illustration of the expanded notch panel with the current activity, its category and session controls.</desc>
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c7d7f5"/>
+      <stop offset="0.55" stop-color="#dfd3f2"/>
+      <stop offset="1" stop-color="#f6d9d2"/>
+    </linearGradient>
+    <clipPath id="screenB"><rect x="20" y="146" width="760" height="194" rx="14"/></clipPath>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <g transform="translate(0,-130)">
+  <!-- Expanded -->
+  <g clip-path="url(#screenB)">
+    <rect x="20" y="146" width="760" height="194" fill="url(#wall)"/>
+    <rect x="20" y="146" width="760" height="33" fill="#ffffff" fill-opacity="0.55"/>
+    <g font-size="13" fill="#1f2430">
+      <text x="40" y="168" font-weight="700">Code</text>
+      <text x="86" y="168">File</text>
+      <text x="760" y="168" text-anchor="end">Fri 10:42</text>
+    </g>
+    <path d="M140 146h520v134a18 18 0 0 1-18 18h-484a18 18 0 0 1-18-18z" fill="#000" filter="url(#shadow)"/>
+    <!-- pills stay visible -->
+    <rect x="221.500" y="152" width="78" height="21" rx="10.5" fill="none" stroke="#34c759" stroke-opacity="0.6"/>
+    <circle cx="237" cy="162.500" r="3" fill="#34c759"/>
+    <text x="266" y="167" font-size="12" font-weight="600" fill="#fff" text-anchor="middle">24:10</text>
+    <rect x="500.500" y="152" width="78" height="21" rx="10.5" fill="none" stroke="#fff" stroke-opacity="0.16"/>
+    <circle cx="516" cy="162.500" r="3" fill="#fff" fill-opacity="0.32"/>
+    <text x="545" y="167" font-size="12" font-weight="600" fill="#fff" fill-opacity="0.72" text-anchor="middle">1:35</text>
+
+    <!-- status row -->
+    <circle cx="159" cy="197" r="3" fill="#34c759"/>
+    <text x="168" y="201" font-size="11" font-weight="600" fill="#fff" fill-opacity="0.92">FOCUSED</text>
+    <text x="644" y="201" font-size="10" fill="#fff" fill-opacity="0.62" text-anchor="end">Today  4:57:12 focused · 20:04 distracted</text>
+    <rect x="156" y="210" width="488" height="0.5" fill="#fff" fill-opacity="0.14"/>
+
+    <!-- activity row -->
+    <text x="156" y="231" font-size="13" font-weight="600" fill="#fff">Visual Studio Code</text>
+    <text x="286" y="231" font-size="11" fill="#fff" fill-opacity="0.62">Project notes.md</text>
+    <rect x="584" y="217" width="60" height="20" rx="5" fill="#fff" fill-opacity="0.075" stroke="#fff" stroke-opacity="0.14" stroke-width="0.7"/>
+    <circle cx="594" cy="227" r="2.500" fill="#34c759"/>
+    <text x="602" y="230.500" font-size="10" font-weight="500" fill="#fff" fill-opacity="0.78">Work</text>
+    <path d="M632 225.500l3 3 3-3" fill="none" stroke="#fff" stroke-opacity="0.54" stroke-width="1.200" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="156" y="249" font-size="11" fill="#fff" fill-opacity="0.66">Writing project notes for the current task</text>
+    <rect x="156" y="258" width="488" height="0.5" fill="#fff" fill-opacity="0.14"/>
+
+    <!-- actions -->
+    <g font-size="11" font-weight="600" fill="#fff" fill-opacity="0.94">
+      <rect x="156" y="266" width="92" height="22" rx="5" fill="#fff" fill-opacity="0.09" stroke="#fff" stroke-opacity="0.16" stroke-width="0.75"/>
+      <text x="202" y="281" text-anchor="middle">Open window</text>
+      <rect x="255" y="266" width="62" height="22" rx="5" fill="#fff" fill-opacity="0.09" stroke="#fff" stroke-opacity="0.16" stroke-width="0.75"/>
+      <text x="286" y="281" text-anchor="middle">Pause…</text>
+      <rect x="600" y="266" width="44" height="22" rx="5" fill="#fff" fill-opacity="0.09" stroke="#fff" stroke-opacity="0.16" stroke-width="0.75"/>
+      <text x="622" y="281" text-anchor="middle">Hide</text>
+    </g>
+  </g>
+  <text x="400" y="361" font-size="12" fill="#8b949e" text-anchor="middle">Hover to see the current activity, change its category, or pause</text>
+  </g>
+</svg>
