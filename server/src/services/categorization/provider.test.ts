@@ -841,3 +841,84 @@ describe('DecisionCache', () => {
     expect(key).not.toContain('Secret');
   });
 });
+
+describe('foreground decision gate', () => {
+  const reply = () =>
+    new Response(
+      JSON.stringify({
+        message: {
+          content: JSON.stringify({
+            o: 'Gaussian process',
+            k: 'named_subject',
+            q: 'Gaussian processes',
+            v: 'productive',
+            t: 'T1',
+            m: null,
+            p: 'high',
+            e: ['E2'],
+          }),
+        },
+      })
+    );
+  // Resolves after `delayMs` unless the request is aborted first, like Ollama.
+  const slowFetch = (delayMs: number, calls: { count: number }) =>
+    ((_url: unknown, init?: RequestInit) => {
+      calls.count += 1;
+      return new Promise<Response>((resolve, reject) => {
+        const timer = setTimeout(() => resolve(reply()), delayMs);
+        init?.signal?.addEventListener('abort', () => {
+          clearTimeout(timer);
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+        });
+      });
+    }) as unknown as typeof fetch;
+  const decide = (provider: OllamaClassificationProvider, overrides: Partial<typeof activity>) =>
+    provider.decideActivity(
+      goals,
+      categories,
+      { ...activity, ...overrides },
+      'balanced',
+      10000,
+      [],
+      true
+    );
+
+  test('a second capture of the same window joins the running request', async () => {
+    const calls = { count: 0 };
+    globalThis.fetch = slowFetch(40, calls);
+    const provider = new OllamaClassificationProvider();
+    const [first, second] = await Promise.all([
+      decide(provider, { content: 'Gaussian process regression, first capture' }),
+      decide(provider, { content: 'Gaussian process regression, text changed slightly' }),
+    ]);
+    expect(calls.count).toBe(1);
+    expect(first.decision?.state).toBe('focused');
+    expect(second.decision).toEqual(first.decision);
+    expect(second.attemptCount).toBe(0);
+  });
+
+  test('a different window cancels the running request instead of queueing behind it', async () => {
+    const calls = { count: 0 };
+    globalThis.fetch = slowFetch(40, calls);
+    const provider = new OllamaClassificationProvider();
+    const left = decide(provider, { title: 'Gaussian process lecture one' });
+    const current = decide(provider, { title: 'Gaussian process lecture two' });
+    const [leftResult, currentResult] = await Promise.all([left, current]);
+    expect(leftResult.decision).toBeNull();
+    expect(leftResult.failureCode).toBe('superseded');
+    expect(currentResult.decision?.state).toBe('focused');
+    expect(calls.count).toBe(2);
+  });
+
+  test('a superseded request is not retried and the gate is released afterwards', async () => {
+    const calls = { count: 0 };
+    globalThis.fetch = slowFetch(20, calls);
+    const provider = new OllamaClassificationProvider();
+    const left = decide(provider, { title: 'Gaussian process notes A' });
+    await decide(provider, { title: 'Gaussian process notes B' });
+    expect((await left).attemptCount).toBe(1);
+    const later = await decide(provider, { title: 'Gaussian process notes C' });
+    expect(later.decision?.state).toBe('focused');
+    expect(calls.count).toBe(3);
+  });
+});

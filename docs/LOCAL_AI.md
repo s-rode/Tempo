@@ -45,6 +45,10 @@ Firefox fallback.
 ## Performance
 
 Ollama is kept warm and every foreground pipeline has one ten-second deadline.
+Only one foreground decision runs at a time: a repeated capture of the same
+window joins it, and a different window cancels it instead of queueing behind
+it. Firefox page text is limited to its first 1,200 characters, which hold the
+page description and headings.
 A malformed semantic reply receives one compact retry. Manual corrections and
 same-content/same-goal history bypass the model. Only grounded medium/high
 confidence decisions can seed automatic history or Firefox reuse; manual

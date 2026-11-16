@@ -178,9 +178,16 @@ export async function classifyPersonalized(input: {
     scheduleToolProfile(userId, tool.key, tool.label, activity.siteHost || null);
   return {
     categoryId: category?._id || null,
-    categoryReasoning: reasons[resolution.basis],
+    categoryReasoning:
+      response.failureCode === 'superseded'
+        ? 'You moved on before this window could be classified.'
+        : reasons[resolution.basis],
+    // A superseded request is not a model failure, so it must not show the
+    // "Local AI is unavailable" state; it stays neutral like other unknowns.
     classificationStatus: !proposal
-      ? response.failureCode === 'timeout' || response.failureCode === 'ollama_http_error'
+      ? response.failureCode === 'superseded'
+        ? 'insufficient_context'
+        : response.failureCode === 'timeout' || response.failureCode === 'ollama_http_error'
         ? 'ollama_unavailable'
         : 'invalid_response'
       : resolution.state === 'uncertain'

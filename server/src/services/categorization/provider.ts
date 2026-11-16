@@ -51,6 +51,8 @@ export type ClassificationFailureCode =
   | 'unknown_category'
   | 'core_retry_exhausted'
   | 'timeout'
+  // A newer foreground window replaced this request before the model answered.
+  | 'superseded'
   | 'ollama_http_error'
   | 'enrichment_failed';
 
@@ -472,7 +474,7 @@ async function chat(
   timeoutMs: number,
   externalSignal?: AbortSignal
 ): Promise<{ content: string | null; failure?: ClassificationFailureCode }> {
-  if (externalSignal?.aborted) return { content: null, failure: 'timeout' };
+  if (externalSignal?.aborted) return { content: null, failure: 'superseded' };
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const onAbort = () => controller.abort();
@@ -519,7 +521,14 @@ async function chat(
       ? { content: payload.message.content }
       : { content: null, failure: 'empty_model_output' };
   } catch {
-    return { content: null, failure: controller.signal.aborted ? 'timeout' : 'ollama_http_error' };
+    return {
+      content: null,
+      failure: externalSignal?.aborted
+        ? 'superseded'
+        : controller.signal.aborted
+          ? 'timeout'
+          : 'ollama_http_error',
+    };
   } finally {
     clearTimeout(timeout);
     externalSignal?.removeEventListener('abort', onAbort);
@@ -554,6 +563,20 @@ export async function warmLocalClassificationModel(): Promise<void> {
 }
 
 export class OllamaClassificationProvider implements ClassificationProvider {
+  /**
+   * The local model answers one request at a time, so a foreground decision
+   * that is still running makes every later one wait inside its own deadline.
+   * Most timeouts came from exactly that queue. Only the newest window matters:
+   * a request for the same window (same application, title, site and targets,
+   * whatever the page text) joins the running one, and a request for a
+   * different window cancels it, because the user has already left.
+   */
+  private foreground: {
+    identity: string;
+    controller: AbortController;
+    promise: Promise<SemanticActivityProviderResult>;
+  } | null = null;
+
   async decideActivity(
     goals: EffectiveGoalContext,
     categories: PromptCategory[],
@@ -562,6 +585,60 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     timeoutMs: number,
     learningExamples: LearningExampleForPrompt[] = [],
     personalized = false
+  ): Promise<SemanticActivityProviderResult> {
+    const identity = DecisionCache.keyFor({
+      model: ollamaConfig().model,
+      personalized,
+      strictness: personalized ? null : strictness,
+      application: activity.ownerName,
+      title: activity.title,
+      site: activity.browser === 'firefox' ? activity.siteHost || null : null,
+      targets: (goals.targets || []).map((target) => [
+        target.ref,
+        target.classificationText || target.text,
+      ]),
+      learningIds: learningExamples.map((example) => example.id),
+    });
+    const running = this.foreground;
+    if (running?.identity === identity) {
+      const joined = await running.promise;
+      return joined.decision
+        ? { decision: structuredClone(joined.decision), attemptCount: 0 }
+        : joined;
+    }
+    running?.controller.abort();
+    const controller = new AbortController();
+    const entry = {
+      identity,
+      controller,
+      promise: this.decideActivityNow(
+        goals,
+        categories,
+        activity,
+        strictness,
+        timeoutMs,
+        learningExamples,
+        personalized,
+        controller.signal
+      ),
+    };
+    this.foreground = entry;
+    try {
+      return await entry.promise;
+    } finally {
+      if (this.foreground === entry) this.foreground = null;
+    }
+  }
+
+  private async decideActivityNow(
+    goals: EffectiveGoalContext,
+    categories: PromptCategory[],
+    activity: ActivityContext,
+    strictness: ClassifierStrictness,
+    timeoutMs: number,
+    learningExamples: LearningExampleForPrompt[],
+    personalized: boolean,
+    signal: AbortSignal
   ): Promise<SemanticActivityProviderResult> {
     const startedAt = Date.now();
     const parse = (result: { content: string | null; failure?: ClassificationFailureCode }) => {
@@ -687,14 +764,19 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         prompt,
         personalized ? personalizedActivityResponseSchema : semanticActivityResponseSchema,
         Math.min(personalized ? 128 : 72, ollamaConfig().numPredict),
-        Math.max(500, timeoutMs)
+        Math.max(500, timeoutMs),
+        signal
       )
     );
     if (first.decision) {
       semanticDecisionCache.set(cacheKey, first.decision);
       return { decision: first.decision, attemptCount: 1 };
     }
-    if (first.failure === 'timeout' || first.failure === 'ollama_http_error')
+    if (
+      first.failure === 'timeout' ||
+      first.failure === 'ollama_http_error' ||
+      first.failure === 'superseded'
+    )
       return { decision: null, failureCode: first.failure, attemptCount: 1 };
     const remaining = timeoutMs - (Date.now() - startedAt);
     if (remaining < 500)
@@ -712,7 +794,8 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         retry,
         personalized ? personalizedActivityResponseSchema : semanticActivityResponseSchema,
         Math.min(personalized ? 112 : 56, ollamaConfig().numPredict),
-        remaining
+        remaining,
+        signal
       )
     );
     if (second.decision) semanticDecisionCache.set(cacheKey, second.decision);
@@ -721,7 +804,9 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       : {
           decision: null,
           failureCode:
-            second.failure === 'timeout' || second.failure === 'ollama_http_error'
+            second.failure === 'timeout' ||
+            second.failure === 'ollama_http_error' ||
+            second.failure === 'superseded'
               ? second.failure
               : 'core_retry_exhausted',
           attemptCount: 2,

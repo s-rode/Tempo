@@ -380,6 +380,15 @@ export const PERSONALIZED_SUPPORTING_MODES = SUPPORTING_MODES.filter(
   (mode) => mode !== 'resource_navigation'
 );
 
+/**
+ * Page text sent with a foreground request. The companion puts the page
+ * description and headings first, so the head of the text carries most of the
+ * subject. On 58 long real pages the verdicts at 1,200 characters matched those
+ * at 3,500 while the median request fell from 4.8 s to 2.9 s; at 400 characters
+ * six verdicts changed. See docs/PERFORMANCE.md.
+ */
+export const PERSONALIZED_PAGE_TEXT_LIMIT = 1200;
+
 export function buildPersonalizedActivityPromptInput(
   goalContext: EffectiveGoalContext,
   activity: Pick<
@@ -409,7 +418,7 @@ export function buildPersonalizedActivityPromptInput(
           {
             alias: 'E4',
             kind: 'page_text',
-            text: activity.content.slice(0, 3500),
+            text: activity.content.slice(0, PERSONALIZED_PAGE_TEXT_LIMIT),
           },
         ]
       : []),

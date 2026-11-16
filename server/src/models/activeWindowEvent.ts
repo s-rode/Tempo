@@ -80,6 +80,7 @@ const activeWindowEventSchema = new Schema({
       'unknown_category',
       'core_retry_exhausted',
       'timeout',
+      'superseded',
       'ollama_http_error',
       'enrichment_failed',
       null,

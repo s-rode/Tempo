@@ -118,6 +118,7 @@ export interface ActiveWindowEvent extends ActiveWindowDetails, PersonalizedEven
     | 'unknown_category'
     | 'core_retry_exhausted'
     | 'timeout'
+    | 'superseded'
     | 'ollama_http_error'
     | 'enrichment_failed'
     | null;
