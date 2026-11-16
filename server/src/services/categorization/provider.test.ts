@@ -351,24 +351,48 @@ describe('OllamaClassificationProvider', () => {
       expect(request.think).toBe(false);
       expect(Object.keys(request.format.properties)).toEqual(['distraction', 'title', 'body']);
       expect(JSON.parse(request.messages[1].content)).toEqual({
-        application: 'WhatsApp', windowTitle: 'WhatsApp', goal: 'Solve the statistics exercise sheet',
+        application: 'WhatsApp',
+        windowTitle: 'WhatsApp',
+        goal: 'Solve the statistics exercise sheet',
       });
-      return new Response(JSON.stringify({ message: { content: JSON.stringify({
-        distraction: 'chatting', title: 'Put the chat aside', body: 'Leave the messages for later and solve the next statistics exercise.',
-      }) } }));
+      return new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              distraction: 'chatting',
+              title: 'Put the chat aside',
+              body: 'Leave the messages for later and solve the next statistics exercise.',
+            }),
+          },
+        })
+      );
     }) as typeof fetch;
-    expect(await new OllamaClassificationProvider().distractionNudge(
-      'Solve the statistics exercise sheet', { ownerName: 'WhatsApp', title: 'WhatsApp' }
-    )).toEqual({ title: 'Put the chat aside', body: 'Leave the messages for later and solve the next statistics exercise.' });
+    expect(
+      await new OllamaClassificationProvider().distractionNudge(
+        'Solve the statistics exercise sheet',
+        { ownerName: 'WhatsApp', title: 'WhatsApp' }
+      )
+    ).toEqual({
+      title: 'Put the chat aside',
+      body: 'Leave the messages for later and solve the next statistics exercise.',
+    });
   });
 
   test('does not start an already-cancelled notification request', async () => {
     let calls = 0;
-    globalThis.fetch = (async () => { calls++; throw new Error('must not run'); }) as unknown as typeof fetch;
-    const controller = new AbortController(); controller.abort();
-    expect(await new OllamaClassificationProvider().distractionNudge(
-      'Study', { ownerName: 'Chat', title: 'Chat' }, controller.signal
-    )).toBeNull();
+    globalThis.fetch = (async () => {
+      calls++;
+      throw new Error('must not run');
+    }) as unknown as typeof fetch;
+    const controller = new AbortController();
+    controller.abort();
+    expect(
+      await new OllamaClassificationProvider().distractionNudge(
+        'Study',
+        { ownerName: 'Chat', title: 'Chat' },
+        controller.signal
+      )
+    ).toBeNull();
     expect(calls).toBe(0);
   });
 
@@ -546,7 +570,8 @@ describe('personalized semantic wire contract', () => {
   test('uses one verdict after subject extraction and preserves a concrete low-confidence distraction', async () => {
     globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body));
-      expect(request.format.required).toEqual(['o', 'q', 'v', 't', 'm', 'p', 'e']);
+      expect(request.format.required).toEqual(['o', 'k', 'q', 'v', 't', 'm', 'p', 'e']);
+      expect(request.format.properties.m.enum).not.toContain('resource_navigation');
       expect(request.options.num_predict).toBeLessThanOrEqual(128);
       return new Response(
         JSON.stringify({
@@ -576,6 +601,94 @@ describe('personalized semantic wire contract', () => {
     expect(result.decision?.assessment).toBe('conflicting');
     expect(result.decision?.state).toBe('distracted');
     expect(result.decision?.confidence).toBe('low');
+  });
+  const personalized = async (
+    reply: Record<string, unknown>,
+    overrides: Partial<typeof activity> = {}
+  ) => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              q: 'Algorithms',
+              t: 'T1',
+              m: null,
+              p: 'high',
+              e: ['E2'],
+              ...reply,
+            }),
+          },
+        })
+      )) as unknown as typeof fetch;
+    return (
+      await new OllamaClassificationProvider().decideActivity(
+        goals,
+        categories,
+        { ...activity, ...overrides },
+        'balanced',
+        10000,
+        [],
+        true
+      )
+    ).decision;
+  };
+  test('a window the model reports as having no subject is opaque whatever its verdict', async () => {
+    for (const v of ['productive', 'distracting']) {
+      const decision = await personalized(
+        { o: 'Untitled-1', k: 'no_subject', v },
+        { title: 'Untitled-1' }
+      );
+      expect(decision?.state).toBe('uncertain');
+      expect(decision?.assessment).toBe('opaque');
+    }
+  });
+  test('a productive verdict needs a subject that occurs in the visible evidence', async () => {
+    const copiedFromTask = await personalized(
+      { o: 'Algorithms lecture', k: 'named_subject', v: 'productive' },
+      { title: 'Celebrity news' }
+    );
+    expect(copiedFromTask?.state).toBe('uncertain');
+    expect(copiedFromTask?.assessment).toBe('opaque');
+    const visible = await personalized(
+      { o: 'Dijkstra shortest paths', k: 'named_subject', v: 'productive' },
+      { title: 'Lecture 9: Dijkstra and shortest paths.pdf' }
+    );
+    expect(visible?.state).toBe('focused');
+    expect(visible?.assessment).toBe('relevant');
+  });
+  test('a bare file name in a native app is never the sole basis for a distraction', async () => {
+    const reply = { o: 'CarMarket', k: 'named_subject', v: 'distracting' };
+    const notebook = await personalized(reply, {
+      ownerName: 'Code',
+      type: 'window' as any,
+      browser: null as any,
+      title: 'Practice2_CarMarket.ipynb — interview-notebooks',
+    });
+    expect(notebook?.state).toBe('uncertain');
+    expect(notebook?.assessment).toBe('opaque');
+    const described = await personalized(
+      { ...reply, o: 'Organic chemistry' },
+      {
+        ownerName: 'RemNote',
+        title: 'Organic chemistry reaction mechanisms',
+        type: 'window' as any,
+        browser: null as any,
+      }
+    );
+    expect(described?.state).toBe('distracted');
+    const leisure = await personalized(
+      { ...reply, k: 'leisure' },
+      { ownerName: 'VLC', title: 'holiday_movie.mp4', type: 'window' as any, browser: null as any }
+    );
+    expect(leisure?.state).toBe('distracted');
+  });
+  test('grounding never weakens a distracting verdict', async () => {
+    const decision = await personalized(
+      { o: 'entertainment', k: 'leisure', v: 'distracting' },
+      { title: 'Top 50 funniest cat videos' }
+    );
+    expect(decision?.state).toBe('distracted');
   });
   test('rejects a duplicate-title alias that was never independent evidence in the prompt', async () => {
     globalThis.fetch = (async () =>
@@ -663,8 +776,16 @@ describe('model decision memoization', () => {
     const provider = new OllamaClassificationProvider();
     await decide(provider);
     await decide(provider, { title: 'A different tutorial' });
-    await decide(provider, {}, { ...goals, targets: [{ ...goals.targets![0], text: 'Other task' }] });
-    await decide(provider, {}, { ...goals, targets: [{ ...goals.targets![0], ref: 'daily:today:other' }] });
+    await decide(
+      provider,
+      {},
+      { ...goals, targets: [{ ...goals.targets![0], text: 'Other task' }] }
+    );
+    await decide(
+      provider,
+      {},
+      { ...goals, targets: [{ ...goals.targets![0], ref: 'daily:today:other' }] }
+    );
     expect(calls).toBe(4);
   });
 

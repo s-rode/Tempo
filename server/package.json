@@ -13,6 +13,7 @@
     "test": "bun test --isolate src",
     "classifier:eval": "bun run src/scripts/evaluateClassifier.ts",
     "classifier:eval:personalized": "bun run src/scripts/evaluatePersonalizedClassifier.ts",
+    "classifier:eval:suite": "bun run src/scripts/evaluateClassifierSuite.ts",
     "classifier:verify": "bun run scripts/verify-personalized-classification.ts",
     "import:legacy": "bun scripts/import-legacy.ts"
   },

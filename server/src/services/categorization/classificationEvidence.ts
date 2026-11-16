@@ -181,3 +181,48 @@ export function validateFocusedEvidence(input: {
     observedSupportingMethod,
   };
 }
+
+/**
+ * The foreground model first names the subject it sees. That subject is only
+ * usable as evidence for focus when it was actually read from the window: at
+ * least half of its words must occur in the supplied title, hostname or page
+ * text. This compares the model's extraction with its own input, never with
+ * the goal, so paraphrases, acronyms and other languages still match by meaning
+ * while a subject copied from the task text is rejected.
+ */
+export function isVisibleSubjectGrounded(
+  subject: string | null | undefined,
+  evidence: Array<string | null | undefined>
+): boolean {
+  const words = (subject || '')
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/_/g, ' ')
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length >= 2 && !/^\p{N}+$/u.test(word));
+  if (!words.length) return false;
+  const haystack = evidence.filter(Boolean).join('\n').normalize('NFKC').toLocaleLowerCase();
+  if (!haystack.trim()) return false;
+  return words.filter((word) => haystack.includes(word)).length * 2 >= words.length;
+}
+
+/**
+ * True when a native window title is essentially a file or project identifier
+ * ("Mock3_Data.ipynb — notebooks", "PhotoApp — AppDelegate.swift") rather than
+ * a description. Such names say little about the subject: a notebook for a
+ * pandas exercise is named after its dataset, not after pandas. The local model
+ * still reads a topic into them, so they must not be the sole basis for a
+ * distraction alert.
+ */
+export function isIdentifierStyleTitle(title: string, applicationName: string): boolean {
+  const withoutApplication = title.split(applicationName).join(' ');
+  const file = /[\p{L}\p{N}_.+-]*[\p{L}\p{N}]\.[\p{L}][\p{L}\p{N}]{0,5}(?![\p{L}\p{N}])/u.exec(
+    withoutApplication
+  );
+  if (!file) return false;
+  const rest = withoutApplication
+    .replace(file[0], ' ')
+    .split(/[^\p{L}\p{N}_.+-]+/u)
+    .filter((word) => /[\p{L}\p{N}]/u.test(word));
+  return rest.length <= 2;
+}

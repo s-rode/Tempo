@@ -22,7 +22,9 @@ import {
   GoalRelationDecisionSchema,
   PageActivityDescriptorSchema,
   SemanticActivityDecisionSchema,
+  PERSONALIZED_SUPPORTING_MODES,
 } from './llm';
+import { isIdentifierStyleTitle, isVisibleSubjectGrounded } from './classificationEvidence';
 import { GoalSupportProfileData, SUPPORTING_MODES, isSupportingMode } from './goalSupportTypes';
 import type { PageActivityDescriptorData } from './pageDescriptorTypes';
 import type { LearningExampleForPrompt } from './correctionLearning';
@@ -268,15 +270,18 @@ const personalizedActivityResponseSchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    o: { type: ['string', 'null'], maxLength: 40 },
+    // o, k and q are reasoning steps that precede the verdict. o and q stay
+    // transient; k only tells the server that nothing specific was visible.
+    o: { type: ['string', 'null'], maxLength: 48 },
+    k: { type: 'string', enum: ['named_subject', 'leisure', 'no_subject'] },
     q: { type: ['string', 'null'], maxLength: 40 },
     v: { type: 'string', enum: ['productive', 'distracting', 'uncertain'] },
     t: { type: ['string', 'null'], maxLength: 4 },
-    m: { type: ['string', 'null'], enum: [...SUPPORTING_MODES, null] },
+    m: { type: ['string', 'null'], enum: [null, ...PERSONALIZED_SUPPORTING_MODES] },
     p: { type: 'string', enum: ['high', 'medium', 'low'] },
     e: { type: 'array', items: { type: 'string', maxLength: 4 }, maxItems: 4 },
   },
-  required: ['o', 'q', 'v', 't', 'm', 'p', 'e'],
+  required: ['o', 'k', 'q', 'v', 't', 'm', 'p', 'e'],
 };
 
 const enrichmentResponseSchema = {
@@ -565,23 +570,47 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
         return { decision: null, failure: 'invalid_json' as const };
       const raw = parsed as Record<string, unknown>;
+      // Three server-side checks turn a personalized verdict into "uncertain":
+      // the model itself reported that no subject is visible; it called the
+      // activity productive for a subject that does not occur in the evidence
+      // it was given (typically one copied from the task or from injected
+      // text); or it called a native window distracting when all it could see
+      // was a file or project name, which says too little about the subject to
+      // justify an alert on what is usually real work.
+      const verdict = !personalized
+        ? null
+        : raw.k === 'no_subject' ||
+            (raw.v === 'distracting' &&
+              raw.k !== 'leisure' &&
+              activity.type !== 'browser' &&
+              !activity.browser &&
+              isIdentifierStyleTitle(activity.title || '', activity.ownerName))
+          ? 'uncertain'
+          : raw.v === 'productive' &&
+              !isVisibleSubjectGrounded(typeof raw.o === 'string' ? raw.o : null, [
+                activity.title,
+                activity.browser === 'firefox' ? activity.siteHost : null,
+                activity.browser === 'firefox' ? activity.content : null,
+              ])
+            ? 'uncertain'
+            : raw.v;
       const checked = SemanticActivityDecisionSchema.safeParse({
         state: personalized
-          ? raw.v === 'productive'
+          ? verdict === 'productive'
             ? 'focused'
-            : raw.v === 'distracting'
+            : verdict === 'distracting'
               ? 'distracted'
               : 'uncertain'
           : (raw.s ?? raw.state),
         assessment: personalized
-          ? raw.v === 'productive'
+          ? verdict === 'productive'
             ? 'relevant'
-            : raw.v === 'distracting'
+            : verdict === 'distracting'
               ? 'conflicting'
               : 'opaque'
           : (raw.a ?? raw.assessment),
         relation: personalized
-          ? raw.v === 'productive'
+          ? verdict === 'productive'
             ? raw.m
               ? 'supporting'
               : 'direct'
@@ -672,7 +701,10 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       return { decision: null, failureCode: 'core_retry_exhausted', attemptCount: 1 };
     const retry = prompt.map((message, index) =>
       index === 1
-        ? { ...message, content: `${message.content}\nRETRY: Return only s,r,t,m,p,c,e,l,g JSON.` }
+        ? {
+            ...message,
+            content: `${message.content}\nRETRY: Return only ${personalized ? 'o,k,q,v,t,m,p,e' : 's,r,t,m,p,c,e,l,g'} JSON.`,
+          }
         : message
     );
     const second = parse(

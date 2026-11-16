@@ -4,7 +4,13 @@ Tempo combines a single local semantic interpretation with bounded explicit pers
 
 ## Evidence and decisions
 
-The foreground model first identifies the specific visible subject and task subject, then reports productive, distracting, or uncertain. These subject strings remain transient. The server retains only the bounded semantic proposal, evidence aliases, final decision basis, and historical user-authored goal context. A repeated app name/window title is one signal, not independent topic evidence.
+The foreground model first identifies the specific visible subject, says what kind of thing is visible (a named subject, leisure, or no subject at all), identifies the task subject, and only then reports productive, distracting, or uncertain. These subject strings remain transient.
+
+Two deterministic checks follow. A window the model reports as having no subject (a new tab, an untitled document, a bare shell, an inbox) is treated as opaque whatever verdict came with it, so it neither earns productive time nor raises a distraction alert. A productive verdict is accepted only when at least half the words of the reported visible subject occur in the title, Firefox hostname or page text of that request; otherwise it is opaque too. This compares the model's extraction with its own input and never with the goal, so paraphrases and other languages still match by meaning, while a subject copied from the task or planted by page text is rejected. Neither check can weaken a distracting verdict.
+
+A third check protects ordinary work. In a native app, when the title is essentially a file or project name (`report_v3.ipynb — notebooks`) and the model did not call it leisure, a distracting verdict is treated as opaque. Such names say little about the subject, and the model reads a topic into them. Opaque activity can then use a task correction or a compatible specialized tool, so one correction for a tool and task also covers later files there. Descriptive titles and browser pages are unaffected.
+
+The foreground model no longer proposes `resource_navigation`. In evaluation it used that method as a default for ordinary direct work, which reduced real work to the 60-second allowance and gave unrelated pages the same allowance. The allowance policy below remains for stored decisions and explicit confirmation. The server retains only the bounded semantic proposal, evidence aliases, final decision basis, and historical user-authored goal context. A repeated app name/window title is one signal, not independent topic evidence.
 
 Visible unrelated activity overrides inferred preferences. Opaque activity may use a matching task correction, a qualified list preference, or a cached specialized tool capability compatible with the task. General-purpose tools receive no blanket approval. A model's low self-reported confidence cannot erase a concrete distracting verdict with visible evidence; low-confidence focus still requires stronger support. Technical failures remain neutral and never receive off-goal presentation.
 
@@ -61,7 +67,7 @@ Operational success means absence of a technical failure, not classification acc
 
 ## Verification and rollback
 
-`server/evaluation/scenarios-v2.json` contains 120 authored synthetic scenarios across 30 workflows. Each workflow includes relevant, unrelated, opaque, and held-out transfer cases. `adversarial-v2.json` adds trusted-tool, other-course, prompt-injection, and scope-boundary checks. These are regression fixtures, not a representative measurement of real-world accuracy.
+`server/evaluation/scenarios-v3.json` contains 331 harder cases with a held-out split; see [validation](CLASSIFICATION_VALIDATION.md). `server/evaluation/scenarios-v2.json` contains 120 authored synthetic scenarios across 30 workflows. Each workflow includes relevant, unrelated, opaque, and held-out transfer cases. `adversarial-v2.json` adds trusted-tool, other-course, prompt-injection, and scope-boundary checks. These are regression fixtures, not a representative measurement of real-world accuracy.
 
 From `server/`:
 

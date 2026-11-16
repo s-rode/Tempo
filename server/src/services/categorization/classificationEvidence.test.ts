@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import { validateFocusedEvidence } from './classificationEvidence';
+import {
+  isIdentifierStyleTitle,
+  isVisibleSubjectGrounded,
+  validateFocusedEvidence,
+} from './classificationEvidence';
 
 const target = {
   ref: 'session:flashcards',
@@ -127,5 +131,53 @@ describe('confidence boundary', () => {
       },
     });
     expect(result.accepted).toBe(false);
+  });
+});
+
+describe('visible subject grounding', () => {
+  test('accepts subjects read from the title, hostname or page text', () => {
+    expect(
+      isVisibleSubjectGrounded('Dominated convergence theorem', [
+        'Dominated convergence theorem - Wikipedia',
+      ])
+    ).toBe(true);
+    expect(isVisibleSubjectGrounded('JWT verification', ['verifyJwt.ts — api-gateway'])).toBe(true);
+    expect(
+      isVisibleSubjectGrounded('Kalman filter', [
+        'Chapter 7',
+        'probml.github.io',
+        'The Kalman filter performs exact Bayesian filtering',
+      ])
+    ).toBe(true);
+    expect(isVisibleSubjectGrounded('Maßtheorie', ['Skript Maßtheorie WS25.pdf'])).toBe(true);
+    expect(isVisibleSubjectGrounded('线性代数', ['线性代数 讲义'])).toBe(true);
+  });
+  test('rejects subjects that are absent from the evidence', () => {
+    expect(isVisibleSubjectGrounded('graph theory lecture', ['Celebrity news'])).toBe(false);
+    expect(isVisibleSubjectGrounded('market making', ['Discover Weekly'])).toBe(false);
+    expect(isVisibleSubjectGrounded(null, ['Anything'])).toBe(false);
+    expect(isVisibleSubjectGrounded('2026', ['Scan 2026'])).toBe(false);
+    expect(isVisibleSubjectGrounded('topic', [null, ''])).toBe(false);
+  });
+});
+
+describe('identifier-style titles', () => {
+  test('file and project names are identifiers', () => {
+    for (const [title, app] of [
+      ['Practice2_CarMarket.ipynb — interview-notebooks', 'Code'],
+      ['PhotoApp — AppDelegate.swift — Edited', 'Xcode'],
+      ['README.md — dotfiles — Visual Studio Code', 'Visual Studio Code'],
+      ['analysis_final_v2.ipynb', 'JupyterLab'],
+    ])
+      expect(isIdentifierStyleTitle(title, app)).toBe(true);
+  });
+  test('descriptive titles are not, even with a file extension', () => {
+    for (const [title, app] of [
+      ['Numerical Analysis – Lecture 9: Runge-Kutta methods.pdf', 'Preview'],
+      ['Organic chemistry reaction mechanisms', 'RemNote'],
+      ['Celebrity gossip and holiday shopping', 'Notes'],
+      ['brew upgrade — updating casks', 'Terminal'],
+    ])
+      expect(isIdentifierStyleTitle(title, app)).toBe(false);
   });
 });

@@ -55,7 +55,7 @@ You pick a task. A small language model running on your own Mac compares what is
 <tr>
 <td align="center" width="25%"><h3>100%</h3>on-device<br/><sub>no account, no cloud AI, no telemetry</sub></td>
 <td align="center" width="25%"><h3>3</h3>languages<br/><sub>TypeScript, Swift, Objective-C++</sub></td>
-<td align="center" width="25%"><h3>290+</h3>deterministic tests<br/><sub>plus 135 classifier scenarios</sub></td>
+<td align="center" width="25%"><h3>290+</h3>deterministic tests<br/><sub>plus 466 classifier scenarios</sub></td>
 <td align="center" width="25%"><h3>11×</h3>faster analytics<br/><sub>427 ms → 39 ms over 33,600 events</sub></td>
 </tr>
 </table>
@@ -190,7 +190,7 @@ The parts of the project that were most interesting to build.
 
 ### Grounded decisions from a small model
 
-A 4B-parameter model is fast enough to run on a laptop but will happily invent reasons. Tempo constrains it with structured output, short evidence aliases instead of free text, server-side validation of every cited alias, one compact retry for malformed replies, and a hard ten-second deadline for the whole pipeline.
+A 4B-parameter model is fast enough to run on a laptop but will happily invent reasons. Tempo constrains it with structured output, short evidence aliases instead of free text, server-side validation of every cited alias, one compact retry for malformed replies, and a hard ten-second deadline for the whole pipeline. The model also has to name the subject it sees before it gives a verdict, and the server only accepts a focused answer when that subject really occurs in the window title or page text.
 
 ### Learning that cannot run away
 
@@ -219,7 +219,7 @@ Methods and caveats are in the [performance notes](docs/PERFORMANCE.md).
 
 ### Tested at several levels
 
-About 290 deterministic tests cover the server and renderer logic, and separate Swift suites cover the notch's layout, timing and lifecycle policies. A fixed set of 135 authored scenarios (including prompt-injection and held-out transfer cases) checks the classifier against a live local model. CI runs the deterministic suites on Linux and builds, tests and verifies the signed app on Apple Silicon. See [validation](docs/CLASSIFICATION_VALIDATION.md) for what each level does and does not prove.
+About 290 deterministic tests cover the server and renderer logic, and separate Swift suites cover the notch's layout, timing and lifecycle policies. A fixed set of 466 authored scenarios checks the classifier against a live local model: 135 regression cases and a harder set of 331 (paraphrases, look-alike keywords, sibling subjects, prompt injection, empty windows, unnamed work files, several tasks at once) with a held-out split that is never used for tuning. CI runs the deterministic suites on Linux and builds, tests and verifies the signed app on Apple Silicon. See [validation](docs/CLASSIFICATION_VALIDATION.md) for what each level does and does not prove.
 
 ## Built with
 

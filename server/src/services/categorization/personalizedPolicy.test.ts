@@ -206,3 +206,30 @@ describe('bounded explicit personal learning', () => {
     expect(episodes.allows('u:tool:task', now + 90001)).toBe(true);
   });
 });
+
+describe('one correction for a task and tool', () => {
+  const corrected = consolidatePreferences(
+    [{ ...actions(1)[0], context: { ...target }, supportingMode: null }],
+    'balanced',
+    now
+  );
+  const fileWindow = { ...proposal, evidenceAliases: ['E2'] };
+  test('covers later windows of that tool whose title is only a file name', () => {
+    // The provider reports a distracting verdict on a bare file name as opaque.
+    const result = resolve({
+      proposal: fileWindow,
+      preferences: corrected,
+      independentEvidence: true,
+    });
+    expect(result.state).toBe('focused');
+    expect(result.basis).toBe('task_preference');
+  });
+  test('does not cover a visibly different subject in the same tool', () => {
+    const result = resolve({
+      proposal: { ...fileWindow, assessment: 'conflicting', state: 'distracted' },
+      preferences: corrected,
+      independentEvidence: true,
+    });
+    expect(result.state).toBe('distracted');
+  });
+});
