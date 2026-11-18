@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { averageComparableDaysByTime, averageMatchingWeekdayByTime, calculatePeriodAnalytics } from '../services/analytics';
 import { analyticsInputsFor } from '../services/analyticsDataCache';
+import { calculatePeriodInsights, type InsightRun } from '../services/insights';
+import { FocusRunHistoryModel, FocusRuntimeModel } from '../models/focusRuntime';
 import { publicProcedure, router } from '../trpc';
 import { verifyToken } from './auth';
 
@@ -38,5 +40,37 @@ export const analyticsRouter = router({
         })
       : { focusedMs: null, sampleCount: 0 };
     return { ...analytics, usualByNow, averageDayByNow };
-  })
+  }),
+  /**
+   * Behavioural insights for the Analysis page: focus blocks, golden hours,
+   * distraction detours, session outcomes and a few evidence-based
+   * suggestions, compared with the previous period up to the same point.
+   */
+  getInsights: publicProcedure
+    .input(z.object({ token: z.string(), startDateMs: z.number(), endDateMs: z.number(), previousStartDateMs: z.number() }))
+    .query(async ({ input }) => {
+      if (input.startDateMs >= input.endDateMs) throw new Error('startDateMs must be before endDateMs');
+      if (input.previousStartDateMs >= input.startDateMs) throw new Error('previousStartDateMs must be before startDateMs');
+      const userId = verifyToken(input.token).userId;
+      const [{ previous, events, categories }, history, runtime] = await Promise.all([
+        analyticsInputsFor(userId, input.previousStartDateMs, input.endDateMs),
+        FocusRunHistoryModel.find({ userId, 'run.startedAtMs': { $gte: input.startDateMs, $lt: input.endDateMs } })
+          .select('run endedAtMs outcome')
+          .lean(),
+        FocusRuntimeModel.findOne({ userId }).select('run').lean(),
+      ]);
+      const runs = history.map((entry) => ({ run: entry.run, endedAtMs: entry.endedAtMs, outcome: entry.outcome })) as unknown as InsightRun[];
+      const activeRun = (runtime as { run?: InsightRun['run'] & { state?: string } } | null)?.run;
+      if (activeRun?.state === 'active' && !runs.some((entry) => entry.run.id === activeRun.id)) {
+        runs.push({ run: activeRun, endedAtMs: null, outcome: null });
+      }
+      return calculatePeriodInsights({
+        events: (previous ? [previous, ...events] : events) as any[],
+        categories: categories as any[],
+        runs,
+        startDateMs: input.startDateMs,
+        endDateMs: input.endDateMs,
+        previousStartDateMs: input.previousStartDateMs,
+      });
+    })
 });

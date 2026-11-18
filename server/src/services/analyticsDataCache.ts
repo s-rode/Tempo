@@ -30,11 +30,11 @@ export async function analyticsInputsFor(
   const [previous, events, categories] = await Promise.all([
     ActiveWindowEventModel.findOne({ userId, timestamp: { $lt: startDateMs } })
       .sort({ timestamp: -1 })
-      .select('_id ownerName type categoryId timestamp')
+      .select('_id ownerName type browser categoryId timestamp pageKind activityLabel')
       .lean(),
     ActiveWindowEventModel.find({ userId, timestamp: { $gte: startDateMs, $lt: endDateMs } })
       .sort({ timestamp: 1 })
-      .select('_id ownerName type categoryId timestamp')
+      .select('_id ownerName type browser categoryId timestamp pageKind activityLabel')
       .lean(),
     CategoryModel.find({ userId }).select('_id name color isProductive').lean(),
   ]);
