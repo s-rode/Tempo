@@ -11,10 +11,11 @@ const categories: Category[] = [
   { _id: 'work', userId: 'u', name: 'Work', color: '#22c55e', isProductive: true, createdAt: new Date(), updatedAt: new Date() },
   { _id: 'fun', userId: 'u', name: 'Fun', color: '#f43f5e', isProductive: false, createdAt: new Date(), updatedAt: new Date() },
 ];
-const work = (timestamp: number, ownerName = 'Xcode'): ActiveWindowEvent => ({ userId: 'u', ownerName, type: 'window', timestamp, categoryId: 'work' });
+const work = (timestamp: number, ownerName = 'Xcode'): ActiveWindowEvent => ({ userId: 'u', ownerName, title: ownerName, type: 'window', timestamp, categoryId: 'work' });
 const fun = (timestamp: number, extra: Partial<ActiveWindowEvent> = {}): ActiveWindowEvent => ({
   userId: 'u',
   ownerName: 'Firefox',
+  title: 'Firefox',
   type: 'browser',
   browser: 'firefox',
   pageKind: 'entertainment',
@@ -23,7 +24,7 @@ const fun = (timestamp: number, extra: Partial<ActiveWindowEvent> = {}): ActiveW
   categoryId: 'fun',
   ...extra,
 });
-const sleep = (timestamp: number): ActiveWindowEvent => ({ userId: 'u', ownerName: 'System Sleep', type: 'system', timestamp });
+const sleep = (timestamp: number): ActiveWindowEvent => ({ userId: 'u', ownerName: 'System Sleep', title: 'System Sleep', type: 'system', timestamp });
 
 const intervalsFor = (events: ActiveWindowEvent[], end = monday + day) => buildIntervals(events, categories, monday, end, end);
 
@@ -78,7 +79,7 @@ describe('period insights', () => {
       const morning = previousMonday + offset * day + 9 * hour;
       events.push(work(morning), sleep(morning + 30 * minute));
     }
-    return events.sort((a, b) => a.timestamp - b.timestamp);
+    return events.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
   };
 
   test('summarises focus, deep work and the comparison period', () => {
