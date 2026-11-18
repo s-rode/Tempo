@@ -397,7 +397,12 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
     },
     run: runtime.run?.state === 'active' ? runValue : null,
     currentPhase: current ? { ...phaseValue, activeElapsedMs: phaseElapsedMs } : null,
-    phaseRemainingMs: current ? Math.max(0, current.plannedDurationMs - phaseElapsedMs) : null,
+    // An open-ended task has no countdown in focus; Pomodoro blocks still do.
+    phaseRemainingMs:
+      !current ||
+      (taskTarget?.openEnded && runtime.run?.kind === 'custom' && current.kind === 'work')
+        ? null
+        : Math.max(0, current.plannedDurationMs - phaseElapsedMs),
     taskProgress: taskTarget
       ? {
           taskId: taskTarget.taskId,
@@ -408,6 +413,7 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
           workTargetMs: taskTarget.workTargetMs,
           workElapsedMs: workElapsed(runtime.run, now),
           checkpointAtMs: taskTarget.checkpointAtMs || null,
+          openEnded: Boolean(taskTarget.openEnded),
           sampledAtMs: now,
         }
       : null,
@@ -548,6 +554,7 @@ export const createCustomRun = (
         estimatedMinutes: originalEstimateMinutes,
         workTargetMs: durationMinutes * minute,
         checkpointAtMs: null,
+        openEnded: false,
       }
     : null,
   startedAtMs: now,
@@ -602,6 +609,7 @@ export const createPomodoroRun = (
           estimatedMinutes: originalEstimateMinutes,
           workTargetMs: workTargetMinutes * minute,
           checkpointAtMs: null,
+          openEnded: false,
         }
       : null,
   startedAtMs: now,

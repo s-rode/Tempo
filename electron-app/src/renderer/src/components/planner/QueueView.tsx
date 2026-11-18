@@ -19,6 +19,7 @@ import {
   type PlannerTask
 } from '../../lib/plannerModel'
 import { displayMinutes } from '../../lib/taskEstimate'
+import { useDashboardVisibility } from '../../hooks/useDashboardVisibility'
 import { cn } from '../../lib/utils'
 import type { FocusRuntimeSnapshot } from '../FocusRuntimeControls'
 import { Button } from '../ui/button'
@@ -27,7 +28,7 @@ import { AddTask } from './AddTask'
 import { GoalChip } from './GoalBits'
 import { TaskCard } from './TaskCard'
 import type { Planner } from './usePlanner'
-import type { QueueSession } from './useQueueSession'
+import { QUEUE_TIMERS, type QueueSession, type QueueTimer } from './useQueueSession'
 
 const SESSION_LENGTHS = [15, 25, 30, 45, 60, 90]
 
@@ -115,23 +116,71 @@ function QueueList({
   )
 }
 
-/** Live work time for the task in focus, ticking only while work is counted. */
-function useWorkElapsed(runtime: FocusRuntimeSnapshot | undefined): number {
+/**
+ * Live clocks for the task in focus: its work time, and what is left of the
+ * current Pomodoro block or break. One timer ticks only while a clock moves.
+ */
+function useLiveClocks(runtime: FocusRuntimeSnapshot | undefined): {
+  elapsedMs: number
+  phaseLeftMs: number | null
+} {
   const progress = runtime?.taskProgress
-  const counting =
-    Boolean(runtime?.run) &&
-    runtime?.currentPhase?.kind === 'work' &&
-    runtime.currentPhase.state === 'running' &&
-    !runtime.suspension.reasons.length
+  const phase = runtime?.currentPhase
+  const running = Boolean(runtime?.run) && phase?.state === 'running'
+  const counting = running && phase?.kind === 'work' && !runtime?.suspension.reasons.length
+  // A hidden window does not need a second hand; it catches up when shown.
+  const visible = useDashboardVisibility()
+  const ticking = visible && (counting || (running && phase?.kind !== 'work'))
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
     setNow(Date.now())
-    if (!counting) return
+    if (!ticking) return
     const interval = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(interval)
-  }, [counting, progress?.sampledAtMs])
+  }, [ticking, progress?.sampledAtMs])
+  const sinceSample = progress?.sampledAtMs ? Math.max(0, now - progress.sampledAtMs) : 0
   const base = progress?.workElapsedMs || 0
-  return counting && progress?.sampledAtMs ? base + Math.max(0, now - progress.sampledAtMs) : base
+  const left = runtime?.phaseRemainingMs
+  const moving = running && phase?.kind !== 'work'
+  return {
+    elapsedMs: counting ? base + sinceSample : base,
+    phaseLeftMs:
+      left === null || left === undefined
+        ? null
+        : Math.max(0, left - (counting || moving ? sinceSample : 0))
+  }
+}
+
+const shortClock = (ms: number) => {
+  const seconds = Math.ceil(ms / 1000)
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+/** Chooses how the next task session is timed. */
+function TimerPicker({
+  value,
+  onChange
+}: {
+  value: QueueTimer
+  onChange: (value: QueueTimer) => void
+}): ReactElement {
+  const current = QUEUE_TIMERS.find((timer) => timer.value === value) || QUEUE_TIMERS[0]
+  return (
+    <label className="planner-session-length" title={current.detail}>
+      <span>Timer</span>
+      <select
+        value={value}
+        aria-label="How task sessions are timed"
+        onChange={(event) => onChange(event.target.value as QueueTimer)}
+      >
+        {QUEUE_TIMERS.map((timer) => (
+          <option key={timer.value} value={timer.value}>
+            {timer.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
 }
 
 export function QueueView({
@@ -155,7 +204,7 @@ export function QueueView({
 }): ReactElement {
   const [showRest, setShowRest] = useState(false)
   const [showDone, setShowDone] = useState(false)
-  const elapsedMs = useWorkElapsed(runtime)
+  const { elapsedMs, phaseLeftMs } = useLiveClocks(runtime)
   const { activeTask, upcoming } = session
   const date = dateFromKey(day.dateKey)
   const dateLabel = date.toLocaleDateString(undefined, {
@@ -204,7 +253,34 @@ export function QueueView({
     const reached = Boolean(progress?.checkpointAtMs)
     const onBreak = runtime?.currentPhase?.kind !== 'work'
     const paused = !onBreak && Boolean(runtime?.suspension.reasons.length)
-    const share = targetMs ? Math.min(100, (elapsedMs / targetMs) * 100) : 0
+    const pomodoro = runtime?.run?.kind === 'pomodoro'
+    const openEnded = Boolean(progress?.openEnded) && !reached
+    const blockMs = runtime?.currentPhase?.plannedDurationMs || 0
+    // A Pomodoro shows its current block or break; an estimate shows the target.
+    const share =
+      pomodoro && openEnded
+        ? blockMs && phaseLeftMs !== null
+          ? Math.min(100, ((blockMs - phaseLeftMs) / blockMs) * 100)
+          : 0
+        : targetMs && !openEnded
+          ? Math.min(100, (elapsedMs / targetMs) * 100)
+          : 0
+    const status = paused
+      ? 'Paused'
+      : onBreak
+        ? phaseLeftMs !== null
+          ? `Break · ${shortClock(phaseLeftMs)} left`
+          : 'On a break'
+        : reached
+          ? `Planned ${displayMinutes(Math.round(targetMs / 60000))} reached`
+          : pomodoro && openEnded
+            ? phaseLeftMs !== null
+              ? `Pomodoro · ${shortClock(phaseLeftMs)} left in this block`
+              : 'Pomodoro'
+            : openEnded
+              ? 'Counting up'
+              : `of ${displayMinutes(Math.round(targetMs / 60000))}`
+    const showBar = !(openEnded && !pomodoro)
     const goal = goalOf(activeTask)
     const place = day.done.length + 1
     return (
@@ -220,26 +296,28 @@ export function QueueView({
           <h2>{activeTask.text}</h2>
           <div className="planner-now-clock" role="timer" aria-live="off">
             <span className="planner-now-time">{formatClock(elapsedMs)}</span>
-            <span className="planner-now-target">
-              {onBreak
-                ? 'On a break'
-                : paused
-                  ? 'Paused'
-                  : reached
-                    ? `Planned ${displayMinutes(Math.round(targetMs / 60000))} reached`
-                    : `of ${displayMinutes(Math.round(targetMs / 60000))}`}
-            </span>
+            <span className="planner-now-target">{status}</span>
           </div>
-          <div
-            className="planner-now-bar"
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(share)}
-            aria-label="Share of the planned time used"
-          >
-            <span style={{ width: `${share}%` }} />
-          </div>
+          {showBar ? (
+            <div
+              className="planner-now-bar"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(share)}
+              aria-label={
+                pomodoro && openEnded
+                  ? onBreak
+                    ? 'Share of the break used'
+                    : 'Share of this Pomodoro block used'
+                  : 'Share of the planned time used'
+              }
+            >
+              <span style={{ width: `${share}%` }} />
+            </div>
+          ) : (
+            <div className="planner-now-bar is-empty" aria-hidden="true" />
+          )}
           <div className="planner-now-actions">
             <Button
               size="sm"
@@ -376,7 +454,8 @@ export function QueueView({
           </p>
         </div>
         <div className="planner-queue-start">
-          {!first.estimatedMinutes && (
+          <TimerPicker value={session.timer} onChange={session.setTimer} />
+          {session.timer === 'estimate' && !first.estimatedMinutes && (
             <label className="planner-session-length" title="Used for tasks without an estimate">
               <span>Session</span>
               <select
@@ -399,7 +478,13 @@ export function QueueView({
             className="planner-primary"
             disabled={!session.canStart}
             onClick={() => session.start()}
-            title={`Start a ${displayMinutes(firstMinutes)} session on the first task (⌘↵)`}
+            title={
+              session.timer === 'estimate'
+                ? `Start a ${displayMinutes(firstMinutes)} session on the first task (⌘↵)`
+                : session.timer === 'open'
+                  ? 'Start on the first task and count up until it is done (⌘↵)'
+                  : 'Start on the first task in Pomodoro blocks until it is done (⌘↵)'
+            }
           >
             <Play size={13} fill="currentColor" />
             Start Working

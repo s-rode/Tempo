@@ -6,7 +6,9 @@ const goalPlans = { find: jest.fn(), findOne: jest.fn(), updateOne: jest.fn() };
 mock.module('../models/user', () => ({ User: users }));
 mock.module('../models/goalPlan', () => ({ GoalPlanModel: goalPlans }));
 
-const { forgetRollover, getPlannerState, rollOverUnfinished } = await import('./plannerState');
+const { forgetPlannerState, forgetRollover, getPlannerState, rollOverUnfinished } = await import(
+  './plannerState'
+);
 
 const lean = (value: unknown) => ({ lean: jest.fn().mockResolvedValue(value) });
 const userWith = (settings: Record<string, unknown> | undefined) =>
@@ -25,13 +27,25 @@ describe('planner carry-over', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     forgetRollover('user-1');
+    forgetPlannerState('user-1');
     goalPlans.updateOne.mockResolvedValue({});
   });
 
   test('Reminders stays the default source', async () => {
     userWith({});
     expect(await getPlannerState('user-1')).toEqual({ enabled: false, sinceDateKey: null });
+    forgetPlannerState('user-1');
     userWith(undefined);
+    expect((await getPlannerState('user-1')).enabled).toBe(false);
+  });
+
+  test('remembers the source until it is changed', async () => {
+    userWith({ planningSource: 'planner' });
+    expect((await getPlannerState('user-1')).enabled).toBe(true);
+    userWith({ planningSource: 'reminders' });
+    expect((await getPlannerState('user-1')).enabled).toBe(true);
+    expect(users.findById).toHaveBeenCalledTimes(1);
+    forgetPlannerState('user-1');
     expect((await getPlannerState('user-1')).enabled).toBe(false);
   });
 

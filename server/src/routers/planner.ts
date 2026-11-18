@@ -7,6 +7,7 @@ import { User as UserModel } from '../models/user';
 import { localTimeZone } from '../services/goalPlans';
 import {
   forgetRollover,
+  forgetPlannerState,
   getPlannerState,
   rollOverUnfinished,
   serializePlanner,
@@ -164,6 +165,7 @@ export const plannerRouter = router({
             : {}),
         },
       });
+      forgetPlannerState(userId);
       forgetRollover(userId);
       return { ...(await changed(userId, before)), source: input.source };
     }),

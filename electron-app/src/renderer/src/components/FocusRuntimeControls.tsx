@@ -40,6 +40,7 @@ export interface FocusRuntimeSnapshot {
     kind: 'work' | 'short_break' | 'long_break'
     state: 'awaiting_goal' | 'running' | 'suspended'
     goal?: string | null
+    plannedDurationMs?: number
     todayPlanTask?: { taskId: string; dateKey: string } | null
     contextList?: { listId: string } | null
   } | null
@@ -53,6 +54,8 @@ export interface FocusRuntimeSnapshot {
     workTargetMs?: number
     workElapsedMs?: number
     checkpointAtMs?: number | null
+    /** Counts up until the task is finished instead of toward an estimate. */
+    openEnded?: boolean
     sampledAtMs?: number
   } | null
   suspension: { reasons: string[]; pausedUntilMs?: number | null }
@@ -216,12 +219,21 @@ export function FocusRuntimeControls({
       setChangingTaskGoal(false)
     }
   }, [open])
+  // The toolbar label of an open-ended task counts up, so it ticks while the
+  // window is visible; otherwise only the open popover needs a live clock.
+  const liveLabel = Boolean(runtime?.taskProgress?.openEnded) && runtime?.run?.kind === 'custom'
   useEffect(() => {
-    if (!dashboardVisible || !open || !runtime?.taskProgress || runtime.trackingState !== 'active') return
+    if (
+      !dashboardVisible ||
+      !(open || liveLabel) ||
+      !runtime?.taskProgress ||
+      runtime.trackingState !== 'active'
+    )
+      return
     setClockNow(Date.now())
     const interval = window.setInterval(() => setClockNow(Date.now()), 1000)
     return () => window.clearInterval(interval)
-  }, [dashboardVisible, open, runtime?.taskProgress?.taskId, runtime?.trackingState])
+  }, [dashboardVisible, open, liveLabel, runtime?.taskProgress?.taskId, runtime?.trackingState])
 
   if (!token || !runtime) return null
   const phase = runtime.currentPhase
@@ -237,6 +249,9 @@ export function FocusRuntimeControls({
     (runtime.trackingState === 'active' && taskProgress?.sampledAtMs
       ? Math.max(0, clockNow - taskProgress.sampledAtMs)
       : 0)
+  // An open-ended task session has no countdown, so the toolbar counts up.
+  const countsUp =
+    Boolean(taskProgress?.openEnded) && activeRun?.kind === 'custom' && !awaitingTaskDecision
   const hasGoal = Boolean(
     selectedTask ? selectedTask.source !== 'reminder' || dailyPlan?.canStart : goal.trim()
   )
@@ -273,7 +288,9 @@ export function FocusRuntimeControls({
           ? `Break · ${clock(runtime.phaseRemainingMs)}`
           : isPaused
             ? 'Paused'
-            : `${activeRun.kind === 'pomodoro' ? 'Pomodoro' : 'Focus'} · ${clock(runtime.phaseRemainingMs)}`
+            : countsUp
+              ? `Focus · ${clock(liveTaskWorkMs)}`
+              : `${activeRun.kind === 'pomodoro' ? 'Pomodoro' : 'Focus'} · ${clock(runtime.phaseRemainingMs)}`
   const icon = !activeRun ? (
     <Timer size={16} />
   ) : isBreak ? (
@@ -530,7 +547,9 @@ export function FocusRuntimeControls({
               <span className="font-mono text-sm font-semibold tabular-nums">
                 {awaitingTaskDecision
                   ? `+${clock(Math.max(0, liveTaskWorkMs - (taskProgress?.workTargetMs || 0)))}`
-                  : clock(runtime.phaseRemainingMs)}
+                  : countsUp
+                    ? clock(liveTaskWorkMs)
+                    : clock(runtime.phaseRemainingMs)}
               </span>
             </div>
             <div className="h-1 overflow-hidden rounded-full bg-muted">
@@ -540,7 +559,9 @@ export function FocusRuntimeControls({
               <p className="text-xs text-muted-foreground" aria-live="polite">
                 {awaitingTaskDecision
                   ? 'Your planned work time is complete. Keep working, or choose what to do next.'
-                  : `${displayMinutes(Math.floor(liveTaskWorkMs / 60_000))} worked of ${displayMinutes(Math.ceil((taskProgress.workTargetMs || 0) / 60_000))} target`}
+                  : taskProgress.openEnded
+                    ? `${displayMinutes(Math.floor(liveTaskWorkMs / 60_000))} worked · runs until you finish the task`
+                    : `${displayMinutes(Math.floor(liveTaskWorkMs / 60_000))} worked of ${displayMinutes(Math.ceil((taskProgress.workTargetMs || 0) / 60_000))} target`}
                 {taskProgress.estimatedMinutes
                   ? ` · original estimate ${displayMinutes(taskProgress.estimatedMinutes)}`
                   : ''}

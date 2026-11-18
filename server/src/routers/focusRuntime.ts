@@ -45,6 +45,8 @@ const pauseDurations = z.union([
   z.literal(120),
 ]);
 const goal = z.string().trim().min(1).max(500);
+/** An open-ended task session counts up until it is finished, capped at 12 hours. */
+const OPEN_ENDED_TASK_MINUTES = 720;
 const taskMinutes = z.number().int().min(1).max(720);
 const goalSource = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('custom'), goal, listId: z.string().min(1).max(1000).optional() }),
@@ -215,7 +217,13 @@ export const focusRuntimeRouter = router({
   }),
 
   startCustom: publicProcedure
-    .input(tokenInput.extend({ goalSource, durationMinutes: taskMinutes }))
+    .input(
+      tokenInput.extend({
+        goalSource,
+        durationMinutes: taskMinutes,
+        openEnded: z.boolean().optional(),
+      })
+    )
     .mutation(async ({ input }) => {
       const userId = verifyToken(input.token).userId;
       const runtime = await runtimeFor(input.token);
@@ -232,14 +240,16 @@ export const focusRuntimeRouter = router({
           code: 'BAD_REQUEST',
           message: 'Work time must be at most 12 hours.',
         });
+      const openEnded = Boolean(input.openEnded && resolvedGoal.todayPlanTask);
       runtime.run = createCustomRun(
         resolvedGoal.goal,
-        input.durationMinutes,
+        openEnded ? OPEN_ENDED_TASK_MINUTES : input.durationMinutes,
         Date.now(),
         resolvedGoal.todayPlanTask,
         resolvedGoal.estimatedMinutes,
         resolvedGoal.contextList
       );
+      if (openEnded && runtime.run.taskTarget) runtime.run.taskTarget.openEnded = true;
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
       await saveRuntime(runtime);
@@ -249,7 +259,11 @@ export const focusRuntimeRouter = router({
 
   startPomodoro: publicProcedure
     .input(
-      tokenInput.extend({ firstGoalSource: goalSource, workTargetMinutes: taskMinutes.optional() })
+      tokenInput.extend({
+        firstGoalSource: goalSource,
+        workTargetMinutes: taskMinutes.optional(),
+        openEnded: z.boolean().optional(),
+      })
     )
     .mutation(async ({ input }) => {
       const userId = verifyToken(input.token).userId;
@@ -262,16 +276,20 @@ export const focusRuntimeRouter = router({
           message: 'Finish the current focus session first.',
         });
       const resolvedGoal = await resolveGoalSource(userId, input.firstGoalSource);
+      const openEnded = Boolean(input.openEnded && resolvedGoal.todayPlanTask);
       runtime.run = createPomodoroRun(
         resolvedGoal.goal,
         Date.now(),
         resolvedGoal.todayPlanTask,
         resolvedGoal.todayPlanTask
-          ? (input.workTargetMinutes ?? resolvedGoal.estimatedMinutes ?? 120)
+          ? openEnded
+            ? OPEN_ENDED_TASK_MINUTES
+            : (input.workTargetMinutes ?? resolvedGoal.estimatedMinutes ?? 120)
           : null,
         resolvedGoal.estimatedMinutes,
         resolvedGoal.contextList
       );
+      if (openEnded && runtime.run.taskTarget) runtime.run.taskTarget.openEnded = true;
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
       await saveRuntime(runtime);

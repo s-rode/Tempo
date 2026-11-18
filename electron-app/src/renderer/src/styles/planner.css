@@ -1200,3 +1200,6 @@
 .planner-day-task-time .tempo-timeline-rail {
   width: 100%;
 }
+.planner-now-bar.is-empty {
+  background: transparent;
+}

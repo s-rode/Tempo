@@ -8,6 +8,27 @@ import type { FocusRuntimeSnapshot } from '../FocusRuntimeControls'
 
 const SESSION_KEY = 'tempoPlannerSessionMinutes'
 const AUTO_NEXT_KEY = 'tempoPlannerAutoNext'
+const TIMER_KEY = 'tempoPlannerTimer'
+
+/**
+ * How a task session is timed: counting down the task's estimate, counting up
+ * until the task is done, or in Pomodoro blocks until the task is done.
+ */
+export type QueueTimer = 'estimate' | 'open' | 'pomodoro'
+export const QUEUE_TIMERS: { value: QueueTimer; label: string; detail: string }[] = [
+  { value: 'estimate', label: 'Estimate', detail: 'Counts down the task’s estimate' },
+  { value: 'open', label: 'Count Up', detail: 'Runs until you mark the task done' },
+  { value: 'pomodoro', label: 'Pomodoro', detail: '30-minute blocks with breaks until done' }
+]
+
+const storedTimer = (): QueueTimer => {
+  try {
+    const value = localStorage.getItem(TIMER_KEY)
+    return value === 'open' || value === 'pomodoro' ? value : 'estimate'
+  } catch {
+    return 'estimate'
+  }
+}
 
 const storedMinutes = (): number => {
   const value = Number(localStorage.getItem(SESSION_KEY))
@@ -28,6 +49,7 @@ export function useQueueSession(runtime: FocusRuntimeSnapshot | undefined, queue
     () => localStorage.getItem(AUTO_NEXT_KEY) !== 'false'
   )
   const [working, setWorking] = useState(false)
+  const [timer, setTimerState] = useState<QueueTimer>(storedTimer)
 
   const progress = runtime?.run ? runtime.taskProgress : null
   const activeTaskId = progress?.taskId && progress.source !== 'reminder' ? progress.taskId : null
@@ -48,6 +70,7 @@ export function useQueueSession(runtime: FocusRuntimeSnapshot | undefined, queue
   }, [utils, token])
 
   const startCustom = trpc.focusRuntime.startCustom.useMutation()
+  const startPomodoro = trpc.focusRuntime.startPomodoro.useMutation()
   const finishTask = trpc.focusRuntime.finishTaskSession.useMutation()
   const endRun = trpc.focusRuntime.endRun.useMutation()
   const extend = trpc.focusRuntime.extendTaskSession.useMutation()
@@ -73,12 +96,17 @@ export function useQueueSession(runtime: FocusRuntimeSnapshot | undefined, queue
     [token, working, synced]
   )
 
-  const begin = (task: PlannerTask) =>
-    startCustom.mutateAsync({
+  const begin = (task: PlannerTask) => {
+    const goalSource = { kind: 'today_plan_task' as const, taskId: task.id }
+    if (timer === 'pomodoro')
+      return startPomodoro.mutateAsync({ ...auth, firstGoalSource: goalSource, openEnded: true })
+    return startCustom.mutateAsync({
       ...auth,
-      goalSource: { kind: 'today_plan_task', taskId: task.id },
-      durationMinutes: task.estimatedMinutes || defaultMinutes
+      goalSource,
+      durationMinutes: task.estimatedMinutes || defaultMinutes,
+      openEnded: timer === 'open'
     })
+  }
 
   const start = (task?: PlannerTask) => {
     const first = task || queue[0]
@@ -136,6 +164,15 @@ export function useQueueSession(runtime: FocusRuntimeSnapshot | undefined, queue
     blocked,
     working,
     canStart: !runtime?.run && !working,
+    timer,
+    setTimer: (value: QueueTimer) => {
+      try {
+        localStorage.setItem(TIMER_KEY, value)
+      } catch {
+        /* the choice then lasts for this window only */
+      }
+      setTimerState(value)
+    },
     defaultMinutes,
     setDefaultMinutes: (minutes: number) => {
       localStorage.setItem(SESSION_KEY, String(minutes))

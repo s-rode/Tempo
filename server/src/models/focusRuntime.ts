@@ -81,6 +81,8 @@ const focusRunSchema = new Schema(
       estimatedMinutes: { type: Number, default: null },
       workTargetMs: { type: Number, default: null },
       checkpointAtMs: { type: Number, default: null },
+      // Counts up with no planned length: the work target is only a 12-hour cap.
+      openEnded: { type: Boolean, default: false },
     },
     startedAtMs: { type: Number, required: true },
     completedAtMs: { type: Number, default: null },

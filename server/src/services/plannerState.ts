@@ -7,9 +7,25 @@ export type PlanningSource = 'reminders' | 'planner';
 const todayKey = (now = Date.now()): string => keyFromDate(new Date(now));
 const zone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
-export async function getPlannerState(
-  userId: string
-): Promise<{ enabled: boolean; sinceDateKey: string | null }> {
+type PlannerState = { enabled: boolean; sinceDateKey: string | null };
+
+// Every classification asks whether the planner is on. The answer changes only
+// through `planner.setSource`, which calls `forgetPlannerState`, so it is cached.
+const stateCache = new Map<string, PlannerState>();
+
+export const forgetPlannerState = (userId: string): void => {
+  stateCache.delete(userId);
+};
+
+export async function getPlannerState(userId: string): Promise<PlannerState> {
+  const cached = stateCache.get(userId);
+  if (cached) return cached;
+  const state = await readPlannerState(userId);
+  stateCache.set(userId, state);
+  return state;
+}
+
+async function readPlannerState(userId: string): Promise<PlannerState> {
   const user = (await UserModel.findById(userId)
     .select('electronAppSettings.planningSource electronAppSettings.plannerSinceDateKey')
     .lean()) as any;
