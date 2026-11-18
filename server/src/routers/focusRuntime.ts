@@ -35,14 +35,6 @@ import {
 } from '../services/categorization/goalSupportProfileScheduler';
 
 const tokenInput = z.object({ token: z.string() });
-const durations = z.union([
-  z.literal(15),
-  z.literal(30),
-  z.literal(45),
-  z.literal(60),
-  z.literal(90),
-  z.literal(120),
-]);
 const pauseDurations = z.union([
   z.literal(1),
   z.literal(5),
@@ -234,13 +226,11 @@ export const focusRuntimeRouter = router({
           message: 'Finish the current focus session first.',
         });
       const resolvedGoal = await resolveGoalSource(userId, input.goalSource);
-      if (resolvedGoal.todayPlanTask && input.durationMinutes > 720)
+      if (input.durationMinutes > 720)
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'Work time must be at most 12 hours.',
         });
-      if (!resolvedGoal.todayPlanTask && !durations.safeParse(input.durationMinutes).success)
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Choose a standard focus duration.' });
       runtime.run = createCustomRun(
         resolvedGoal.goal,
         input.durationMinutes,

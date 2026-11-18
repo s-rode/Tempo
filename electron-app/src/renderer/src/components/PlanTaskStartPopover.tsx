@@ -6,6 +6,7 @@ import { trpc } from '../utils/trpc'
 import { scheduleGoalProfileRefresh } from '../lib/goalProfileRefresh'
 import { pomodoroSummary } from '../lib/taskEstimate'
 import { Button } from './ui/button'
+import { DurationSlider } from './ui/DurationSlider'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import type { FocusRuntimeSnapshot } from './FocusRuntimeControls'
 type PlanTask = { id: string; source?: 'reminder'; text: string; estimatedMinutes?: number | null }
@@ -112,16 +113,11 @@ export function PlanTaskStartPopover({
           </div>
           {!isWaitingForGoal && (
             <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-muted-foreground">Work time · minutes</span>
-              <input
-                type="number"
-                min={1}
-                max={720}
-                step={1}
-                className="tempo-field w-full"
+              <span className="text-xs font-medium text-muted-foreground">Work time</span>
+              <DurationSlider
                 value={duration}
-                onChange={(event) => setDuration(Number(event.target.value))}
-                aria-label="Task work time in minutes"
+                onChange={setDuration}
+                label="Task work time in minutes"
               />
             </label>
           )}
