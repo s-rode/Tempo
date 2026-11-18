@@ -888,7 +888,7 @@ export function MainAppContent() {
   }, [])
 
   return (
-    <div className="h-full flex min-h-0 overflow-hidden">
+    <div className="tempo-shell h-full flex min-h-0 overflow-hidden">
       {!sidebarCollapsed && (
         <>
           <div
@@ -912,7 +912,7 @@ export function MainAppContent() {
           />
         </>
       )}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="tempo-content flex min-w-0 flex-1 flex-col overflow-hidden">
         <TempoToolbar
           page={activePage}
           sidebarCollapsed={sidebarCollapsed}

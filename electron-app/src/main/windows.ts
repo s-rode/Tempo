@@ -38,7 +38,11 @@ export function createMainWindow(
     title: 'Tempo',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     autoHideMenuBar: false,
-    backgroundColor: '#F5F5F7',
+    // On macOS the window itself carries the system sidebar material; the
+    // renderer paints opaque content everywhere except the sidebar pane.
+    ...(process.platform === 'darwin'
+      ? { vibrancy: 'sidebar' as const, visualEffectState: 'followWindow' as const, backgroundColor: '#00000000' }
+      : { backgroundColor: '#F5F5F7' }),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

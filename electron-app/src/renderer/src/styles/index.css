@@ -90,16 +90,90 @@
 }
 
 @layer components {
-  .tempo-sidebar {
-    width: 100%;
-    flex: 1 1 auto;
-    min-width: 0;
-    background: color-mix(in srgb, hsl(var(--secondary)) 70%, transparent);
+  /* Liquid glass sidebar.  The pane shows the window's native sidebar
+     material on macOS (vibrancy, see windows.ts) and a flat fill elsewhere.
+     The sidebar floats on it as a lighter glass sheet: a soft tint, a
+     specular rim that is brightest at the top edge, and a gentle shadow. */
+  body:has(.tempo-shell) {
+    background: hsl(var(--background));
+  }
+  .tempo-vibrancy body:has(.tempo-shell) {
+    background: transparent;
+  }
+  .tempo-content {
+    background: hsl(var(--background));
   }
   .tempo-sidebar-pane {
     display: flex;
     min-width: 0;
     flex: 0 0 auto;
+    padding: 8px;
+    background: hsl(var(--secondary));
+  }
+  .tempo-vibrancy .tempo-sidebar-pane {
+    background: transparent;
+  }
+  .tempo-sidebar {
+    --glass-tint-top: rgb(255 255 255 / 0.58);
+    --glass-tint-bottom: rgb(255 255 255 / 0.34);
+    --glass-rim: rgb(255 255 255 / 0.95);
+    --glass-rim-soft: rgb(255 255 255 / 0.18);
+    --glass-edge: rgb(0 0 0 / 0.07);
+    --glass-shadow: rgb(0 0 0 / 0.14);
+    --glass-divider: rgb(0 0 0 / 0.08);
+    --glass-hover: rgb(0 0 0 / 0.045);
+    --glass-pill-top: rgb(255 255 255 / 0.82);
+    --glass-pill-bottom: rgb(255 255 255 / 0.55);
+    position: relative;
+    isolation: isolate;
+    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+    border-radius: 16px;
+    background: linear-gradient(180deg, var(--glass-tint-top), var(--glass-tint-bottom));
+    box-shadow:
+      inset 0 1px 0 var(--glass-rim),
+      0 0 0 0.5px var(--glass-edge),
+      0 1px 2px var(--glass-edge),
+      0 10px 28px -12px var(--glass-shadow);
+  }
+  /* Specular rim: a hairline gradient border masked to the sheet's edge. */
+  .tempo-sidebar::before {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      160deg,
+      var(--glass-rim) 0%,
+      var(--glass-rim-soft) 28%,
+      transparent 55%,
+      var(--glass-rim-soft) 85%,
+      var(--glass-rim) 100%
+    );
+    content: '';
+    pointer-events: none;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  .dark .tempo-sidebar {
+    --glass-tint-top: rgb(255 255 255 / 0.1);
+    --glass-tint-bottom: rgb(255 255 255 / 0.045);
+    --glass-rim: rgb(255 255 255 / 0.2);
+    --glass-rim-soft: rgb(255 255 255 / 0.05);
+    --glass-edge: rgb(0 0 0 / 0.45);
+    --glass-shadow: rgb(0 0 0 / 0.55);
+    --glass-divider: rgb(255 255 255 / 0.08);
+    --glass-hover: rgb(255 255 255 / 0.06);
+    --glass-pill-top: rgb(255 255 255 / 0.16);
+    --glass-pill-bottom: rgb(255 255 255 / 0.09);
+  }
+  .tempo-sidebar-footer {
+    border-top: 1px solid var(--glass-divider);
   }
   /* A one-pixel separator with a forgiving, macOS-style resize hit target. */
   .tempo-pane-resize-handle {
@@ -134,7 +208,9 @@
     display: flex;
     min-height: 32px;
     align-items: center;
-    margin: 42px 8px 12px;
+    /* The sheet sits 8px into the window; keep the title clear of the
+       traffic lights at the same height as before. */
+    margin: 34px 8px 12px;
     color: hsl(var(--foreground));
     font-size: 20px;
     font-weight: 650;
@@ -147,15 +223,29 @@
     width: 100%;
     min-height: 28px;
     padding: 4px 10px;
-    border-radius: 6px;
+    border-radius: 9px;
     color: hsl(var(--foreground));
     text-align: left;
+    transition:
+      background-color 140ms ease,
+      box-shadow 140ms ease;
   }
   .tempo-sidebar-item:hover {
-    background: hsl(var(--muted));
+    background: var(--glass-hover);
   }
+  /* The selection is a small raised glass pill, tinted with the accent. */
   .tempo-sidebar-item[data-active='true'] {
-    background: hsl(var(--accent));
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--tempo-system-accent) 10%, transparent),
+        color-mix(in srgb, var(--tempo-system-accent) 16%, transparent)
+      ),
+      linear-gradient(180deg, var(--glass-pill-top), var(--glass-pill-bottom));
+    box-shadow:
+      inset 0 0.5px 0 var(--glass-rim),
+      0 0 0 0.5px var(--glass-edge),
+      0 1px 3px -1px var(--glass-shadow);
     color: hsl(var(--accent-foreground));
     font-weight: 600;
   }
@@ -1281,8 +1371,24 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .tempo-sidebar {
+  .tempo-sidebar-pane,
+  .tempo-vibrancy .tempo-sidebar-pane {
     background: hsl(var(--secondary));
+  }
+  .tempo-sidebar {
+    background: hsl(var(--card));
+  }
+  .tempo-sidebar::before {
+    display: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .tempo-sidebar {
+    box-shadow: 0 0 0 1px hsl(var(--border));
+  }
+  .tempo-sidebar::before {
+    display: none;
   }
 }
 
