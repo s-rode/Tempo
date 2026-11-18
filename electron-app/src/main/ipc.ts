@@ -6,6 +6,7 @@ import {
   BrowserWindow,
   clipboard,
   ipcMain,
+  nativeTheme,
   Notification,
   shell,
   systemPreferences
@@ -157,6 +158,12 @@ export function registerIpcHandlers(
   ipcMain.handle('force-enable-permission-requests', () => {
     logMainToFile('Force enabling permission requests via settings')
     nativeWindows.setShouldRequestPermissions(true)
+  })
+
+  // The window's vibrancy follows the native appearance, not the page's
+  // `.dark` class, so an explicit in-app theme has to reach nativeTheme.
+  ipcMain.on('set-native-theme', (_event, theme: unknown) => {
+    if (theme === 'light' || theme === 'dark' || theme === 'system') nativeTheme.themeSource = theme
   })
 
   ipcMain.on('open-external-url', (_event, url: string) => {

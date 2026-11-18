@@ -9,6 +9,9 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { createTrpcClient, trpc } from './utils/trpc'
 import { configureServerConnection } from './lib/serverConnection'
 
+// macOS windows carry a native sidebar material behind the page (see windows.ts).
+if (navigator.userAgent.includes('Macintosh')) document.documentElement.classList.add('tempo-vibrancy')
+
 function Main() {
   const [queryClient] = useState(() => new QueryClient())
   const [client] = useState(() => createTrpcClient())

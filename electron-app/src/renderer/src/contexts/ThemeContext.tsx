@@ -46,6 +46,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     localStorage.setItem('theme', theme) // Store theme preference
+    window.api?.setNativeTheme?.(theme)
 
     return () => {
       mediaQuery.removeEventListener('change', handleChange)

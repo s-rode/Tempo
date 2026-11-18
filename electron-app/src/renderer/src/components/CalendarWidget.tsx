@@ -181,7 +181,7 @@ const CalendarWidget = ({
           <ToggleGroup
             type="single"
             size="sm"
-            variant="outline"
+            className="tempo-glass-segmented"
             value={viewMode}
             onValueChange={(value) => {
               if (value) onViewModeChange(value as TimelineViewMode)

@@ -90,16 +90,81 @@
 }
 
 @layer components {
-  .tempo-sidebar {
-    width: 100%;
-    flex: 1 1 auto;
-    min-width: 0;
-    background: color-mix(in srgb, hsl(var(--secondary)) 70%, transparent);
+  /* Translucent sidebar.  On macOS the window carries the native sidebar
+     material (vibrancy, see windows.ts) and the page is transparent behind
+     the sidebar only, so the desktop shows through blurred, edge to edge.
+     Other platforms get a flat fill.  The content area stays opaque. */
+  body:has(.tempo-shell) {
+    background: hsl(var(--background));
+  }
+  .tempo-vibrancy body:has(.tempo-shell) {
+    background: transparent;
+  }
+  .tempo-content {
+    background: hsl(var(--background));
   }
   .tempo-sidebar-pane {
     display: flex;
     min-width: 0;
     flex: 0 0 auto;
+  }
+  /* Liquid glass tokens, shared by the sidebar and every floating surface
+     (popovers, menus, tooltips, dialogs) and the segmented control. */
+  :root {
+    --glass-divider: rgb(0 0 0 / 0.08);
+    --glass-hover: rgb(255 255 255 / 0.28);
+    --glass-pill-top: rgb(255 255 255 / 0.62);
+    --glass-pill-bottom: rgb(255 255 255 / 0.36);
+    --glass-rim: rgb(255 255 255 / 0.85);
+    --glass-edge: rgb(0 0 0 / 0.06);
+    --glass-shadow: rgb(0 0 0 / 0.12);
+    --glass-sheen: rgb(255 255 255 / 0.18);
+    --glass-surface-top: rgb(255 255 255 / 0.74);
+    --glass-surface-bottom: rgb(255 255 255 / 0.6);
+    --glass-surface-shadow: rgb(0 0 0 / 0.18);
+    --glass-track: rgb(0 0 0 / 0.05);
+  }
+  .dark {
+    --glass-divider: rgb(255 255 255 / 0.08);
+    --glass-hover: rgb(255 255 255 / 0.07);
+    --glass-pill-top: rgb(255 255 255 / 0.16);
+    --glass-pill-bottom: rgb(255 255 255 / 0.08);
+    --glass-rim: rgb(255 255 255 / 0.22);
+    --glass-edge: rgb(0 0 0 / 0.35);
+    --glass-shadow: rgb(0 0 0 / 0.4);
+    --glass-sheen: rgb(255 255 255 / 0.06);
+    --glass-surface-top: rgb(48 48 52 / 0.72);
+    --glass-surface-bottom: rgb(34 34 38 / 0.66);
+    --glass-surface-shadow: rgb(0 0 0 / 0.5);
+    --glass-track: rgb(255 255 255 / 0.06);
+  }
+  .tempo-sidebar {
+    position: relative;
+    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+    background: hsl(var(--secondary));
+  }
+  /* Over the native material: no fill, just a faint sheen at the top and
+     a thin light catch along the edge, like the rim of a glass pane. */
+  .tempo-vibrancy .tempo-sidebar {
+    background: linear-gradient(180deg, var(--glass-sheen), transparent 180px);
+    box-shadow: inset -1px 0 0 var(--glass-sheen);
+  }
+  /* A floating glass sheet: translucent, blurring what is behind it, with
+     a light rim along the top edge and a soft drop shadow. */
+  .tempo-glass-surface {
+    border-radius: 12px;
+    background: linear-gradient(180deg, var(--glass-surface-top), var(--glass-surface-bottom));
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    backdrop-filter: blur(28px) saturate(180%);
+    box-shadow:
+      inset 0 1px 0 var(--glass-rim),
+      0 0 0 0.5px var(--glass-edge),
+      0 14px 36px -10px var(--glass-surface-shadow);
+  }
+  .tempo-sidebar-footer {
+    border-top: 1px solid var(--glass-divider);
   }
   /* A one-pixel separator with a forgiving, macOS-style resize hit target. */
   .tempo-pane-resize-handle {
@@ -147,15 +212,23 @@
     width: 100%;
     min-height: 28px;
     padding: 4px 10px;
-    border-radius: 6px;
+    border-radius: 9px;
     color: hsl(var(--foreground));
     text-align: left;
+    transition:
+      background-color 140ms ease,
+      box-shadow 140ms ease;
   }
   .tempo-sidebar-item:hover {
-    background: hsl(var(--muted));
+    background: var(--glass-hover);
   }
+  /* The selected page is a small glass pill: translucent, lit from above. */
   .tempo-sidebar-item[data-active='true'] {
-    background: hsl(var(--accent));
+    background: linear-gradient(180deg, var(--glass-pill-top), var(--glass-pill-bottom));
+    box-shadow:
+      inset 0 0.5px 0 var(--glass-rim),
+      0 0 0 0.5px var(--glass-edge),
+      0 1px 3px -1px var(--glass-shadow);
     color: hsl(var(--accent-foreground));
     font-weight: 600;
   }
@@ -188,10 +261,6 @@
     padding: 0 10px;
     background: hsl(var(--accent));
     color: hsl(var(--accent-foreground));
-  }
-  .tempo-focus-popover {
-    border-radius: 10px;
-    box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
   }
   .tempo-planned-goal {
     padding: 8px 10px;
@@ -1280,9 +1349,46 @@
   }
 }
 
+/* Segmented control: a faint glass track with the selected segment as the
+   same raised pill as the selected sidebar page.  Unlayered so it wins over
+   the shared toggle's utility classes. */
+.tempo-glass-segmented {
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--glass-track);
+}
+.tempo-glass-segmented > button {
+  height: 26px;
+  min-width: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+}
+.tempo-glass-segmented > button:hover {
+  background: var(--glass-hover);
+  color: hsl(var(--foreground));
+}
+.tempo-glass-segmented > button[data-state='on'] {
+  background: linear-gradient(180deg, var(--glass-pill-top), var(--glass-pill-bottom));
+  box-shadow:
+    inset 0 0.5px 0 var(--glass-rim),
+    0 0 0 0.5px var(--glass-edge),
+    0 1px 3px -1px var(--glass-shadow);
+  color: hsl(var(--foreground));
+}
+
 @media (prefers-reduced-transparency: reduce) {
-  .tempo-sidebar {
+  .tempo-glass-surface {
+    background: hsl(var(--popover));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .tempo-sidebar,
+  .tempo-vibrancy .tempo-sidebar {
     background: hsl(var(--secondary));
+    box-shadow: none;
   }
 }
 
