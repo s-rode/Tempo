@@ -48,7 +48,7 @@ Most time trackers can tell you that you spent the morning in Firefox. Tempo can
 
 You pick a task. A small language model running on your own Mac compares what is on screen with what you meant to do, and nothing leaves the machine. You get a timeline you can read back, a timer that lives in the notch, and a nudge when you drift.
 
-![Tempo's Today view with tasks, Calendar, and tracked activity](docs/images/tempo-today.png)
+![Tempo's Today view with the plan, Calendar, time per task and the timeline](docs/images/tempo-today.png)
 
 <div align="center">
 <table>
@@ -168,7 +168,7 @@ A session belongs to a task. You can pause it, change the goal while it runs, or
 
 ### Analysis
 
-![Tempo's weekly analytics](docs/images/tempo-analysis.png)
+![Tempo's Analysis tab for one week, with suggestions and focus by day](docs/images/tempo-analysis.png)
 
 The Analysis tab looks at a week or a month. It shows your focus day by day, the hours you focus best in, how long your focus blocks last, which apps and sites pull you away and how long it takes to get back, how timed sessions went against their estimates, and how much you switch between apps. From this it picks up to three suggestions for what to try next.
 
