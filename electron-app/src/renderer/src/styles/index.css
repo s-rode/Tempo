@@ -1379,6 +1379,63 @@
   color: hsl(var(--foreground));
 }
 
+/* Analysis page.  Cards are panes of the same glass family as the sidebar:
+   a faint vertical sheen, a light rim along the top and a soft shadow, on
+   the opaque content background so the charts stay crisp. */
+:root {
+  --insight-deep: #166534;
+  --insight-focus: #22c55e;
+  --insight-distract: #e11d48;
+  --insight-uncertain: rgb(120 120 128 / 0.35);
+  --insight-card-top: rgb(255 255 255 / 0.96);
+  --insight-card-bottom: rgb(255 255 255 / 0.78);
+  --insight-glow: rgb(34 197 94 / 0.14);
+  --insight-glow-2: rgb(0 122 255 / 0.1);
+}
+.dark {
+  --insight-deep: #15803d;
+  --insight-focus: #38c98a;
+  --insight-distract: #f43f5e;
+  --insight-uncertain: rgb(160 160 170 / 0.3);
+  --insight-card-top: rgb(46 46 50 / 0.92);
+  --insight-card-bottom: rgb(36 36 40 / 0.86);
+  --insight-glow: rgb(56 201 138 / 0.16);
+  --insight-glow-2: rgb(10 132 255 / 0.12);
+}
+.tempo-insight-card {
+  position: relative;
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--insight-card-top), var(--insight-card-bottom));
+  box-shadow:
+    inset 0 1px 0 var(--glass-rim),
+    0 0 0 0.5px var(--glass-edge),
+    0 6px 20px -12px var(--glass-surface-shadow);
+}
+.tempo-insight-hero {
+  overflow: hidden;
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--insight-glow), transparent 55%),
+    radial-gradient(90% 120% at 100% 0%, var(--insight-glow-2), transparent 60%),
+    linear-gradient(180deg, var(--insight-card-top), var(--insight-card-bottom));
+}
+.tempo-insight-tile {
+  border-radius: 11px;
+  background: var(--glass-track);
+  box-shadow: inset 0 0.5px 0 var(--glass-sheen);
+}
+.tempo-insight-suggestion {
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--glass-pill-top), var(--glass-pill-bottom));
+  box-shadow:
+    inset 0 0.5px 0 var(--glass-rim),
+    0 0 0 0.5px var(--glass-edge),
+    0 2px 8px -4px var(--glass-shadow);
+}
+.tempo-insight-bar-track {
+  border-radius: 999px;
+  background: var(--glass-track);
+}
+
 @media (prefers-reduced-transparency: reduce) {
   .tempo-glass-surface {
     background: hsl(var(--popover));
