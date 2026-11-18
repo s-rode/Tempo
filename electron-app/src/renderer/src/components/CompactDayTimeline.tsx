@@ -1,5 +1,5 @@
 import { ChevronDown, Clock3, Focus } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   buildTimelineChapters,
   TIMELINE_GAP_MS,
@@ -19,6 +19,8 @@ interface CompactDayTimelineProps {
   selectedSessionId: string | null
   selectedActivityKey: string | null
   onSelectSession: (session: ActivitySessionBlock) => void
+  /** Time per planned task, shown between the day totals and the blocks. */
+  taskSummary?: ReactNode
 }
 
 const timeLabel = (value: Date) =>
@@ -44,8 +46,10 @@ const focusPhaseLabel = (goal: TimelineFocusGoal) =>
   goal.kind === 'pomodoro'
     ? `Pomodoro work ${Math.floor(goal.phaseIndex / 2) + 1}`
     : goal.runIds && goal.runIds.length > 1
-      ? `${goal.runIds.length} focus sessions`
-      : 'Focus session'
+      ? `${goal.taskId ? 'Task · ' : ''}${goal.runIds.length} focus sessions`
+      : goal.taskId
+        ? 'Task'
+        : 'Focus session'
 
 function FocusGoalDetail({
   focusGoal,
@@ -218,7 +222,8 @@ export default function CompactDayTimeline({
   chapters,
   selectedSessionId,
   selectedActivityKey,
-  onSelectSession
+  onSelectSession,
+  taskSummary
 }: CompactDayTimelineProps) {
   const [expandedChapterId, setExpandedChapterId] = useState<string | null>(null)
   const displayedChapters = chapters || buildTimelineChapters(sessions)
@@ -276,6 +281,7 @@ export default function CompactDayTimeline({
             </p>
           </details>
         </div>
+        {taskSummary}
         <div role="list" aria-label="Activity timeline">
           {displayedChapters.map((chapter, index) => {
             const previous = displayedChapters[index - 1]

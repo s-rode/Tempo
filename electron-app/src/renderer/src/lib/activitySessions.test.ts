@@ -7,7 +7,8 @@ import {
   buildTimelineChapters,
   sessionTotals,
   summarizeTimelineChapterApps,
-  type FocusTimelineRun
+  type FocusTimelineRun,
+  summarizeTaskTime
 } from './activitySessions'
 
 const base = new Date('2026-09-02T10:00:00.000Z').getTime()
@@ -708,4 +709,65 @@ test('keeps the same goal together across timer restarts but retains distinct go
   expect(chapters[0].focusGoal?.focusedMs).toBe(60 * 60_000)
   third.run.phases[0].goal = 'A different task'
   expect(buildTimelineChapters(input, [first, second, third])).toHaveLength(2)
+})
+
+describe('task time summary', () => {
+  const taskRun = (id: string, taskId: string, goal: string, startMin: number, minutes: number) => {
+    const run = focusRun(minutes)
+    const startedAtMs = base + startMin * 60_000
+    const endMs = startedAtMs + minutes * 60_000
+    return {
+      endedAtMs: endMs,
+      outcome: 'completed' as const,
+      run: {
+        ...run.run,
+        id,
+        startedAtMs,
+        completedAtMs: endMs,
+        phases: [
+          {
+            ...run.run.phases[0],
+            goal,
+            todayPlanTask: { taskId, dateKey: '2026-11-18', source: 'manual' as const },
+            startedAtMs,
+            completedAtMs: endMs
+          }
+        ]
+      }
+    } as FocusTimelineRun
+  }
+
+  test('totals focused and distracted time per task across its sessions', () => {
+    const blocks = [
+      block({ startTime: new Date(base), durationMs: 20 * 60_000 }),
+      block({
+        startTime: new Date(base + 20 * 60_000),
+        durationMs: 10 * 60_000,
+        isProductive: false,
+        categoryId: 'distraction',
+        categoryName: 'Distraction',
+        ownerName: 'Safari',
+        name: 'News',
+        title: 'News',
+        activityKey: 'safari:news',
+        activityLabel: 'News'
+      }),
+      block({ startTime: new Date(base + 30 * 60_000), durationMs: 15 * 60_000 }),
+      block({ startTime: new Date(base + 60 * 60_000), durationMs: 10 * 60_000 })
+    ]
+    const sessions = buildActivitySessions(blocks)
+    const summary = summarizeTaskTime(sessions, [
+      taskRun('a', 'task-1', 'Write results', 0, 30),
+      taskRun('b', 'task-2', 'Design editor', 30, 15),
+      taskRun('c', 'task-1', 'Write results', 60, 10),
+      focusRun(5)
+    ])
+    expect(summary.map((task) => task.taskId)).toEqual(['task-1', 'task-2'])
+    expect(summary[0].sessionCount).toBe(2)
+    expect(Math.round(summary[0].focusedMs / 60_000)).toBe(30)
+    expect(Math.round(summary[0].distractedMs / 60_000)).toBe(10)
+    expect(Math.round(summary[0].trackedMs / 60_000)).toBe(40)
+    expect(Math.round(summary[1].focusedMs / 60_000)).toBe(15)
+    expect(summary[1].distractedMs).toBe(0)
+  })
 })

@@ -2,7 +2,7 @@ import { requestEventsRefresh } from './lib/eventsRefresh'
 import { recategorizeRequest } from './lib/recategorizeRequest'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Category } from 'shared'
-import { DashboardView } from './components/DashboardView'
+import { DashboardView, type DayCommand } from './components/DashboardView'
 import { OnboardingModal } from './components/OnboardingModal'
 import RecategorizeDialog from './components/RecategorizeDialog'
 import DistractionStatusBar from './components/ui/DistractionStatusBar'
@@ -17,6 +17,7 @@ import {
 } from './lib/activityCaptureState'
 import { SettingsPage } from './pages/SettingsPage'
 import { AnalysisPage } from './pages/AnalysisPage'
+import { PlanPage } from './pages/PlanPage'
 import { type FirefoxCompanionState } from './components/FirefoxCompanionStatus'
 import { TempoSidebar, type TempoPage } from './components/TempoSidebar'
 import { TempoToolbar } from './components/TempoToolbar'
@@ -73,6 +74,9 @@ export function MainAppContent() {
   const [focusOpenRequest, setFocusOpenRequest] = useState(0)
   const [focusQuickActionRequest, setFocusQuickActionRequest] = useState(0)
   const [todayPlanOpenRequest, setTodayPlanOpenRequest] = useState(0)
+  const [dayCommand, setDayCommand] = useState<{ command: DayCommand; request: number } | null>(
+    null
+  )
   const [planningOpenRequest, setPlanningOpenRequest] = useState(0)
   const [isSystemResumePending, setIsSystemResumePending] = useState(false)
   const [systemSuspension, setSystemSuspension] = useState({
@@ -109,6 +113,10 @@ export function MainAppContent() {
       // focus run no longer requires a permanent ten-second heartbeat.
       refetchOnWindowFocus: true
     }
+  )
+  const { data: plannerSource } = trpc.planner.getSource.useQuery(
+    { token: token || '' },
+    { enabled: !!token }
   )
   const focusRuntimeUtils = trpc.useContext()
   useEffect(() => window.api?.onCalendarRuntimeChanged(() => {
@@ -871,7 +879,12 @@ export function MainAppContent() {
   useEffect(() => {
     if (!window.api?.onTempoDesktopCommand) return () => {}
     return window.api.onTempoDesktopCommand((command) => {
-      if (command === 'dashboard' || command === 'analysis' || command === 'settings')
+      if (
+        command === 'dashboard' ||
+        command === 'plan' ||
+        command === 'analysis' ||
+        command === 'settings'
+      )
         setActivePage(command)
       if (command === 'toggle-sidebar') setSidebarCollapsed((collapsed) => !collapsed)
       if (command === 'start-focus') setFocusOpenRequest((request) => request + 1)
@@ -879,6 +892,17 @@ export function MainAppContent() {
       if (command === 'set-today-plan') {
         setActivePage('dashboard')
         setTodayPlanOpenRequest((request) => request + 1)
+      }
+      if (
+        command === 'day-view-timeline' ||
+        command === 'day-view-hours' ||
+        command === 'day-view-week' ||
+        command === 'previous-day' ||
+        command === 'next-day' ||
+        command === 'go-to-today'
+      ) {
+        setActivePage('dashboard')
+        setDayCommand((current) => ({ command, request: (current?.request ?? 0) + 1 }))
       }
       if (command === 'set-weekly-focus') {
         setActivePage('settings')
@@ -900,6 +924,7 @@ export function MainAppContent() {
               onNavigate={setActivePage}
               collapsed={sidebarCollapsed}
               firefoxState={firefoxCompanionState}
+              showPlan={plannerSource?.source === 'planner'}
             />
           </div>
           <PaneResizeHandle
@@ -940,6 +965,29 @@ export function MainAppContent() {
         {activePage === 'dashboard' && (
           <DashboardView
             todayPlanOpenRequest={todayPlanOpenRequest}
+            dayCommand={dayCommand}
+            nowActivity={
+              <DistractionStatusBar
+                activeWindow={activeWindow}
+                onOpenMiniTimerClick={handleOpenMiniTimer}
+                isMiniTimerVisible={isMiniTimerVisible}
+                onOpenRecategorizeDialog={openRecategorizeDialog}
+                onSettingsClick={() => setActivePage('settings')}
+                isSettingsOpen={false}
+                focusRuntime={focusRuntime}
+                systemSuspension={systemSuspension}
+                localPause={notchPause}
+                onResumeTracking={handleResumeTrackingAfterSystemSleep}
+                onOpenFocusControls={() => setFocusOpenRequest((request) => request + 1)}
+                isResumingTracking={isSystemResumePending}
+              />
+            }
+          />
+        )}
+        {activePage === 'plan' && (
+          <PlanPage
+            runtime={focusRuntime}
+            onOpenSettings={() => setActivePage('settings')}
             nowActivity={
               <DistractionStatusBar
                 activeWindow={activeWindow}

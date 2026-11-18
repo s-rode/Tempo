@@ -5,7 +5,6 @@ import { useAuth } from '../../contexts/AuthContext'
 import { formatDuration } from '../../lib/activityByCategoryWidgetHelpers'
 import { trpc } from '../../utils/trpc'
 import { type DurationPoint } from './AnalyticsCharts'
-import { Card, CardContent } from '../ui/card'
 
 type WeeklyFocusPoint = DurationPoint & {
   dayStartMs: number
@@ -270,57 +269,50 @@ export function DashboardFocusCard() {
   const currentIndex = points.findIndex((point) => point.dayStartMs === todayStart.getTime())
 
   return (
-    <Card className="mb-3 overflow-hidden border-border bg-card">
-      <CardContent className="p-4">
-        <div className="flex items-baseline justify-between gap-3">
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-400">
-            Focus this week
+    <section className="tempo-glass-card tempo-focus-week" aria-label="Focus this week">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-[13px] font-semibold">Focus this week</h3>
+        <span className="text-[11px] text-muted-foreground">Updated {dayTimeLabel(now)}</span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 divide-x divide-border">
+        <div className="pr-3">
+          <p className="text-[11px] text-muted-foreground">Today through {dayTimeLabel(now)}</p>
+          <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+            {isLoading ? '—' : formatDuration(todayFocusedMs)}
           </p>
-          <span className="text-[11px] text-muted-foreground">Updated {dayTimeLabel(now)}</span>
+          <p className="text-xs text-muted-foreground">focused</p>
         </div>
-        <div className="mt-3 grid grid-cols-2 divide-x divide-border">
-          <div className="pr-3">
-            <p className="text-[11px] text-muted-foreground">Today through {dayTimeLabel(now)}</p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
-              {isLoading ? '—' : formatDuration(todayFocusedMs)}
-            </p>
-            <p className="text-xs text-muted-foreground">focused</p>
-          </div>
-          <div className="pl-3">
-            <p className="text-[11px] text-muted-foreground">Normal pace by now</p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
-              {isLoading ? '—' : usualMs === null ? '—' : formatDuration(usualMs)}
-            </p>
-            <p className="text-xs text-muted-foreground">{comparisonCopy(comparisonMode, now)}</p>
-          </div>
-        </div>
-        {delta !== null ? (
-          <div
-            className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground"
-            aria-live="polite"
-          >
-            {delta >= 0 ? (
-              <TrendingUp size={14} className="mt-0.5 shrink-0 text-emerald-500" />
-            ) : (
-              <TrendingDown size={14} className="mt-0.5 shrink-0 text-rose-500" />
-            )}
-            <span>
-              {Math.abs(delta) < 60_000
-                ? `On pace with your normal day by ${dayTimeLabel(now)}.`
-                : `${formatDuration(Math.abs(delta))} ${delta >= 0 ? 'ahead of' : 'behind'} your normal pace by ${dayTimeLabel(now)}.`}
-            </span>
-          </div>
-        ) : (
-          <p className="mt-3 text-xs text-muted-foreground">
-            No comparable tracked days yet. Tempo will show a normal pace after it has history for
-            this setting ({sampleCount}/4).
+        <div className="pl-3">
+          <p className="text-[11px] text-muted-foreground">Normal pace by now</p>
+          <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+            {isLoading ? '—' : usualMs === null ? '—' : formatDuration(usualMs)}
           </p>
-        )}
-        <WeekFocusBars
-          points={points}
-          currentIndex={currentIndex >= 0 ? currentIndex : undefined}
-        />
-      </CardContent>
-    </Card>
+          <p className="text-xs text-muted-foreground">{comparisonCopy(comparisonMode, now)}</p>
+        </div>
+      </div>
+      {delta !== null ? (
+        <div
+          className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground"
+          aria-live="polite"
+        >
+          {delta >= 0 ? (
+            <TrendingUp size={14} className="mt-0.5 shrink-0 text-emerald-500" />
+          ) : (
+            <TrendingDown size={14} className="mt-0.5 shrink-0 text-rose-500" />
+          )}
+          <span>
+            {Math.abs(delta) < 60_000
+              ? `On pace with your normal day by ${dayTimeLabel(now)}.`
+              : `${formatDuration(Math.abs(delta))} ${delta >= 0 ? 'ahead of' : 'behind'} your normal pace by ${dayTimeLabel(now)}.`}
+          </span>
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-muted-foreground">
+          No comparable tracked days yet. Tempo will show a normal pace after it has history for
+          this setting ({sampleCount}/4).
+        </p>
+      )}
+      <WeekFocusBars points={points} currentIndex={currentIndex >= 0 ? currentIndex : undefined} />
+    </section>
   )
 }

@@ -1,14 +1,15 @@
-import { AlertCircle, CalendarDays, Compass, Pencil, ShieldCheck } from 'lucide-react'
-import { ReactElement, useEffect, useState } from 'react'
+import { AlertCircle } from 'lucide-react'
+import { ReactElement, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { trpc } from '../../utils/trpc'
 import { scheduleGoalProfileRefresh } from '../../lib/goalProfileRefresh'
 import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
-import { RemindersSettings } from '../RemindersPanel'
+import { SettingsRow, SettingsSection } from './SettingsLayout'
 
 interface PlanningSettingsProps {
   openRequest?: number
+  onOpenRequestHandled?: (request: number) => void
 }
 
 const weekRange = (weekStartKey?: string): string => {
@@ -19,7 +20,11 @@ const weekRange = (weekStartKey?: string): string => {
   return `${start.toLocaleDateString([], { month: 'short', day: 'numeric' })}–${end.toLocaleDateString([], { month: 'short', day: 'numeric' })}`
 }
 
-export function PlanningSettings({ openRequest = 0 }: PlanningSettingsProps): ReactElement {
+export function PlanningSettings({
+  openRequest = 0,
+  onOpenRequestHandled
+}: PlanningSettingsProps): ReactElement {
+  const handledRequest = useRef(0)
   const { token } = useAuth()
   const utils = trpc.useContext()
   const { data: planning } = trpc.goals.getPlanning.useQuery(
@@ -81,7 +86,11 @@ export function PlanningSettings({ openRequest = 0 }: PlanningSettingsProps): Re
     )
   }
   useEffect(() => {
-    if (openRequest && planning) begin('weekly')
+    // Open the editor once per request, not again whenever planning refetches.
+    if (!openRequest || !planning || handledRequest.current === openRequest) return
+    handledRequest.current = openRequest
+    onOpenRequestHandled?.(openRequest)
+    begin('weekly')
   }, [openRequest, planning])
   const saveShortcut = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Escape') setEditing(null)
@@ -89,122 +98,124 @@ export function PlanningSettings({ openRequest = 0 }: PlanningSettingsProps): Re
   }
   const isSaving = weekly.isLoading || direction.isLoading
 
-  return (
-    <div className="tempo-planning-settings">
-      <RemindersSettings />
-      <section className="tempo-planning-row" aria-labelledby="weekly-focus-heading">
-        <div className="tempo-planning-row-icon" aria-hidden="true">
-          <CalendarDays size={16} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-3">
-            <h3 id="weekly-focus-heading">This week’s focus</h3>
-            <span>{weekRange(planning?.weekStartKey)}</span>
-          </div>
-          <p>A concise positive objective used only after Today’s Plan is complete.</p>
-          {editing === 'weekly' ? (
-            <div className="mt-2 space-y-3">
-              <label className="tempo-planning-field">
-                <span>Focus</span>
-                <Textarea
-                  autoFocus
-                  rows={2}
-                  value={weeklyFocus}
-                  onChange={(event) => setWeeklyFocus(event.target.value)}
-                  onKeyDown={saveShortcut}
-                />
-              </label>
-              <label className="tempo-planning-field">
-                <span className="flex items-center gap-1.5">
-                  <ShieldCheck size={14} /> Attention guardrail <em>Optional</em>
-                </span>
-                <Textarea
-                  rows={2}
-                  value={attentionGuardrail}
-                  onChange={(event) => setAttentionGuardrail(event.target.value)}
-                  onKeyDown={saveShortcut}
-                />
-                <small>
-                  Only resolves genuinely ambiguous activity toward distraction. It never makes work
-                  productive.
-                </small>
-              </label>
-            </div>
-          ) : (
-            <>
-              <p className="tempo-planning-value">{planning?.weeklyFocus || 'Not set'}</p>
-              {planning?.attentionGuardrail && (
-                <p className="tempo-planning-secondary">Guardrail: {planning.attentionGuardrail}</p>
-              )}
-              {planning?.needsWeeklyFocusReview && (
-                <p className="tempo-planning-secondary flex items-center gap-1.5">
-                  <AlertCircle size={14} /> Review imported focus to separate your objective and
-                  guardrail.
-                </p>
-              )}
-            </>
-          )}
-        </div>
-        {editing === 'weekly' ? (
-          <div className="flex shrink-0 gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setEditing(null)}>
-              Cancel
-            </Button>
-            <Button size="sm" disabled={isSaving} onClick={save}>
-              Save
-            </Button>
-          </div>
-        ) : (
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => begin('weekly')}
-            aria-label="Edit this week’s focus"
-          >
-            <Pencil size={15} />
-          </Button>
-        )}
-      </section>
+  const editActions = (
+    <>
+      <Button variant="glass" size="compact" onClick={() => setEditing(null)}>
+        Cancel
+      </Button>
+      <Button size="compact" disabled={isSaving} onClick={save}>
+        Save
+      </Button>
+    </>
+  )
 
-      <section className="tempo-planning-row" aria-labelledby="direction-heading">
-        <div className="tempo-planning-row-icon" aria-hidden="true">
-          <Compass size={16} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 id="direction-heading">Longer-term direction</h3>
-          <p>For reflection only. Tempo never uses it to classify activity.</p>
-          {editing === 'direction' ? (
+  return (
+    <SettingsSection title="Goals">
+      <SettingsRow
+        title={
+          <span className="flex items-baseline gap-2">
+            This week’s focus
+            <span className="tempo-pref-meta">{weekRange(planning?.weekStartKey)}</span>
+          </span>
+        }
+        description="A concise, positive objective. Used for classification only after Today’s Plan is complete."
+        control={
+          editing === 'weekly' ? (
+            editActions
+          ) : (
+            <Button
+              variant="glass"
+              size="compact"
+              onClick={() => begin('weekly')}
+              aria-label="Edit this week’s focus"
+            >
+              Edit
+            </Button>
+          )
+        }
+      >
+        {editing === 'weekly' ? (
+          <div className="tempo-pref-form-grid">
+            <label htmlFor="weekly-focus">Focus</label>
             <Textarea
+              id="weekly-focus"
               autoFocus
-              rows={3}
-              value={directionValue}
-              onChange={(event) => setDirectionValue(event.target.value)}
+              rows={2}
+              className="tempo-pref-input"
+              value={weeklyFocus}
+              onChange={(event) => setWeeklyFocus(event.target.value)}
               onKeyDown={saveShortcut}
             />
-          ) : (
-            <p className="tempo-planning-value">{planning?.longTermDirection || 'Not set'}</p>
-          )}
-        </div>
-        {editing === 'direction' ? (
-          <div className="flex shrink-0 gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setEditing(null)}>
-              Cancel
-            </Button>
-            <Button size="sm" disabled={isSaving} onClick={save}>
-              Save
-            </Button>
+            <label htmlFor="attention-guardrail">Guardrail</label>
+            <div>
+              <Textarea
+                id="attention-guardrail"
+                rows={2}
+                className="tempo-pref-input"
+                placeholder="Optional"
+                value={attentionGuardrail}
+                onChange={(event) => setAttentionGuardrail(event.target.value)}
+                onKeyDown={saveShortcut}
+              />
+              <p className="tempo-pref-description mt-1.5">
+                Only tips genuinely ambiguous activity toward distraction. It never makes work
+                productive.
+              </p>
+            </div>
           </div>
         ) : (
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => begin('direction')}
-            aria-label="Edit longer-term direction"
-          >
-            <Pencil size={15} />
-          </Button>
+          <div className="tempo-pref-value">
+            <p data-empty={!planning?.weeklyFocus || undefined}>
+              {planning?.weeklyFocus || 'Not set'}
+            </p>
+            {planning?.attentionGuardrail && (
+              <p className="tempo-pref-description">Guardrail: {planning.attentionGuardrail}</p>
+            )}
+            {planning?.needsWeeklyFocusReview && (
+              <p className="tempo-pref-description flex items-center gap-1.5">
+                <AlertCircle size={13} aria-hidden="true" /> Review the imported focus to separate
+                your objective and guardrail.
+              </p>
+            )}
+          </div>
         )}
-      </section>
-    </div>
+      </SettingsRow>
+      <SettingsRow
+        title="Longer-term direction"
+        description="For reflection only. Tempo never uses it to classify activity."
+        control={
+          editing === 'direction' ? (
+            editActions
+          ) : (
+            <Button
+              variant="glass"
+              size="compact"
+              onClick={() => begin('direction')}
+              aria-label="Edit longer-term direction"
+            >
+              Edit
+            </Button>
+          )
+        }
+      >
+        {editing === 'direction' ? (
+          <Textarea
+            autoFocus
+            rows={3}
+            aria-label="Longer-term direction"
+            className="tempo-pref-input"
+            value={directionValue}
+            onChange={(event) => setDirectionValue(event.target.value)}
+            onKeyDown={saveShortcut}
+          />
+        ) : (
+          <div className="tempo-pref-value">
+            <p data-empty={!planning?.longTermDirection || undefined}>
+              {planning?.longTermDirection || 'Not set'}
+            </p>
+          </div>
+        )}
+      </SettingsRow>
+    </SettingsSection>
   )
 }

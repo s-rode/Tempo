@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { getReminderIntegration, getReminderTasks } from './reminders';
+import { plannerEnabled, rollOverUnfinished } from './plannerState';
 import { randomUUID } from 'crypto';
 import { ActivityCorrectionRuleModel } from '../models/activityCorrectionRule';
 import { GoalSupportProfileModel } from '../models/goalSupportProfile';
@@ -327,7 +328,9 @@ export async function getDailyPlan(
 ): Promise<DailyPlanSnapshot> {
   await ensureGoalPlanMigration(userId);
   const dateKey = localDateKey(timestamp);
-  if (dateKey === localDateKey()) {
+  const planner = await plannerEnabled(userId);
+  if (planner) await rollOverUnfinished(userId);
+  if (dateKey === localDateKey() && !planner) {
     const reminders = await getReminderTasks(userId);
     if (reminders.enabled)
       return {
@@ -344,7 +347,10 @@ export async function getDailyPlan(
     dateKey,
     timeZone: plan?.timeZone || localTimeZone(),
     isToday: dateKey === localDateKey(),
-    canCopyToToday: dateKey === localDateKey() || !(await getReminderIntegration(userId))?.enabled,
+    // The planner carries unfinished tasks forward by itself.
+    canCopyToToday:
+      !planner &&
+      (dateKey === localDateKey() || !(await getReminderIntegration(userId))?.enabled),
     tasks: sortedTasks((plan?.tasks || []) as GoalTask[]),
   };
 }
@@ -480,11 +486,21 @@ export async function resolveEffectiveGoalContext(userId: string): Promise<Effec
   }
 
   const now = Date.now();
-  const [daily, weekly] = await Promise.all([
+  const [dailyAtStart, weekly] = await Promise.all([
     GoalPlanModel.findOne({ userId, scope: 'daily', periodKey: localDateKey(now) }).lean(),
     GoalPlanModel.findOne({ userId, scope: 'weekly', periodKey: weekStartKey(now) }).lean(),
   ]);
-  const reminders = await getReminderTasks(userId, now);
+  let daily = dailyAtStart;
+  const planner = await plannerEnabled(userId);
+  if (planner && (await rollOverUnfinished(userId, now)))
+    daily = await GoalPlanModel.findOne({
+      userId,
+      scope: 'daily',
+      periodKey: localDateKey(now),
+    }).lean();
+  const reminders = planner
+    ? { enabled: false, canStart: false, tasks: [] }
+    : await getReminderTasks(userId, now);
   const remainingTasks = reminders.enabled
     ? reminders.tasks
     : activeTasks((daily?.tasks || []) as GoalTask[]);

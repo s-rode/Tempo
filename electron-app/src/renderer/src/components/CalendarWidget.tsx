@@ -1,11 +1,12 @@
-import { Calendar1, CalendarDaysIcon, ChartNoAxesGantt, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Category } from 'shared'
-import { useDarkMode } from '../hooks/useDarkMode'
 import type { ActivitySessionBlock, TimelineChapter } from '../lib/activitySessions'
+import { buildDayOverview } from '../lib/dayOverview'
 import type { ProcessedEventBlock, TimelineViewMode } from './DashboardView'
 import { DayCalendarComparison } from './DayCalendarComparison'
 import CompactDayTimeline from './CompactDayTimeline'
+import DayHero from './DayHero'
 import DayOverviewTimeline from './DayOverviewTimeline'
 import { Button } from './ui/button'
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group'
@@ -24,6 +25,7 @@ interface CalendarWidgetProps {
   onDaySelect: (day: Date | null) => void
   daySessions: ActivitySessionBlock[]
   dayChapters: TimelineChapter[]
+  dayTaskSummary?: ReactNode
   selectedSessionId: string | null
   selectedActivityKey: string | null
   onSelectSession: (session: ActivitySessionBlock) => void
@@ -44,13 +46,13 @@ const CalendarWidget = ({
   onDaySelect,
   daySessions,
   dayChapters,
+  dayTaskSummary,
   selectedSessionId,
   selectedActivityKey,
   onSelectSession,
   categories,
   refetchEvents
 }: CalendarWidgetProps) => {
-  const isDarkMode = useDarkMode()
   const [wasSetToToday, setWasSetToToday] = useState(false)
   // Navigation steps by the period shown; the overview covers one day.
   const period = viewMode === 'week' ? 'week' : 'day'
@@ -83,7 +85,9 @@ const CalendarWidget = ({
     }
     scheduleMidnight()
     // Refresh immediately if a sleeping or hidden dashboard missed midnight.
-    const onVisible = () => { if (!document.hidden) refreshDate() }
+    const onVisible = () => {
+      if (!document.hidden) refreshDate()
+    }
     window.addEventListener('focus', refreshDate)
     document.addEventListener('visibilitychange', onVisible)
     return () => {
@@ -95,6 +99,13 @@ const CalendarWidget = ({
 
   // Check if we're viewing today
   const isToday = selectedDate.toDateString() === new Date().toDateString()
+  const overview = useMemo(
+    () => (viewMode === 'week' ? null : buildDayOverview(selectedDate, daySessions)),
+    [viewMode, selectedDate, daySessions]
+  )
+  // Read at render: the day data refreshes as activity arrives, so the marker
+  // follows along without a timer of its own.
+  const nowMs = isToday ? Date.now() : null
 
   const canGoNext = () => {
     const delta = viewMode === 'week' ? 7 : 1
@@ -161,19 +172,41 @@ const CalendarWidget = ({
   }, [selectedDate, viewMode])
 
   return (
-    <section className="tempo-day-workspace h-full w-full flex flex-col" aria-label="Activity calendar">
+    <section
+      className="tempo-day-workspace h-full w-full flex flex-col"
+      aria-label="Activity calendar"
+    >
       <header className="tempo-day-toolbar">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="xs" className="tempo-date-button" onClick={handlePrev} aria-label={`Previous ${period}`}>
-              <ChevronLeft size={20} />
+        <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+          <div className="flex items-center space-x-1">
+            <Button
+              variant="ghost"
+              size="xs"
+              className="tempo-date-button"
+              onClick={handlePrev}
+              aria-label={`Previous ${period}`}
+            >
+              <ChevronLeft size={17} />
             </Button>
             <span className="tempo-date-title">{formattedDate}</span>
-            <Button variant="ghost" size="xs" className="tempo-date-button" onClick={handleNext} disabled={!canGoNext()} aria-label={`Next ${period}`}>
-              <ChevronRight size={20} />
+            <Button
+              variant="ghost"
+              size="xs"
+              className="tempo-date-button"
+              onClick={handleNext}
+              disabled={!canGoNext()}
+              aria-label={`Next ${period}`}
+            >
+              <ChevronRight size={17} />
             </Button>
             {period === 'day' && (
-              <Button variant="ghost" size="xs" className="tempo-date-now" onClick={() => onDateChange(new Date())} disabled={isToday}>
+              <Button
+                variant="ghost"
+                size="xs"
+                className="tempo-date-now"
+                onClick={() => onDateChange(new Date())}
+                disabled={isToday}
+              >
                 Today
               </Button>
             )}
@@ -181,56 +214,76 @@ const CalendarWidget = ({
           <ToggleGroup
             type="single"
             size="sm"
-            className="tempo-glass-segmented"
+            className="tempo-glass-segmented tempo-day-view-switch"
             value={viewMode}
+            aria-label="View"
             onValueChange={(value) => {
               if (value) onViewModeChange(value as TimelineViewMode)
             }}
           >
-            <ToggleGroupItem value="week" aria-label="Week" title="Week">
-              <CalendarDaysIcon size={16} />
+            <ToggleGroupItem value="day" title="Your day as blocks, in order">
+              Timeline
             </ToggleGroupItem>
-            <ToggleGroupItem value="day" aria-label="Day" title="Day">
-              <Calendar1 size={16} />
+            <ToggleGroupItem value="overview" title="The whole day, one row per hour">
+              Hours
             </ToggleGroupItem>
-            <ToggleGroupItem value="overview" aria-label="Whole day overview" title="Whole day overview">
-              <ChartNoAxesGantt size={16} />
+            <ToggleGroupItem value="week" title="Week">
+              Week
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
       </header>
 
-      {viewMode === 'day' ? (
-        <div className="flex-1 overflow-y-auto">
-          <DayCalendarComparison date={selectedDate} sessions={daySessions} onSelectSession={onSelectSession} />
-          <CompactDayTimeline
-            sessions={daySessions}
-            chapters={dayChapters}
-            selectedSessionId={selectedSessionId}
-            selectedActivityKey={selectedActivityKey}
-            onSelectSession={onSelectSession}
-          />
-        </div>
-      ) : viewMode === 'overview' ? (
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <DayOverviewTimeline
-            date={selectedDate}
-            sessions={daySessions}
-            selectedSessionId={selectedSessionId}
-            selectedActivityKey={selectedActivityKey}
-            onSelectSession={onSelectSession}
-            categories={categories}
-            refetchEvents={refetchEvents}
-          />
-        </div>
-      ) : (
+      {viewMode === 'week' ? (
         <WeekView
           processedEvents={processedEvents}
           selectedDate={selectedDate}
-          isDarkMode={isDarkMode}
           selectedDay={selectedDay}
           onDaySelect={onDaySelect}
         />
+      ) : (
+        <div className="tempo-day-scroll">
+          {viewMode === 'day' && (
+            <DayCalendarComparison
+              date={selectedDate}
+              sessions={daySessions}
+              onSelectSession={onSelectSession}
+            />
+          )}
+          {!overview ? (
+            <div className="tempo-day-empty-state">
+              <CalendarOff size={22} aria-hidden="true" />
+              <p>No tracked activity</p>
+              <span>
+                {isToday
+                  ? 'Activity appears here as you work.'
+                  : 'Tempo did not record anything on this day.'}
+              </span>
+            </div>
+          ) : viewMode === 'day' ? (
+            <CompactDayTimeline
+              sessions={daySessions}
+              chapters={dayChapters}
+              selectedSessionId={selectedSessionId}
+              selectedActivityKey={selectedActivityKey}
+              onSelectSession={onSelectSession}
+              taskSummary={dayTaskSummary}
+            />
+          ) : (
+            <>
+              <DayHero overview={overview} />
+              <DayOverviewTimeline
+                overview={overview}
+                nowMs={nowMs}
+                selectedSessionId={selectedSessionId}
+                selectedActivityKey={selectedActivityKey}
+                onSelectSession={onSelectSession}
+                categories={categories}
+                refetchEvents={refetchEvents}
+              />
+            </>
+          )}
+        </div>
       )}
     </section>
   )

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Badge } from '../ui/badge'
+import { RefreshCw } from 'lucide-react'
 import { Button } from '../ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { SettingsRow, SettingsSection } from './SettingsLayout'
 
 const permissions = [
   {
@@ -31,10 +31,13 @@ export function PermissionsStatus() {
       ])
       if (!active.current) return
       setEnabled(Boolean(requestsEnabled))
-      setStatus(Object.fromEntries(permissions.map(({ type }, index) => [type, Number(values[index])])))
+      setStatus(
+        Object.fromEntries(permissions.map(({ type }, index) => [type, Number(values[index])]))
+      )
       setError(null)
     } catch {
-      if (active.current) setError('Permission status is unavailable. Try again when Tempo is ready.')
+      if (active.current)
+        setError('Permission status is unavailable. Try again when Tempo is ready.')
     }
   }, [])
   useEffect(() => {
@@ -86,43 +89,72 @@ export function PermissionsStatus() {
     }
   }
   return (
-    <Card>
-      <CardHeader><CardTitle>Permissions</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          These permissions are optional. Browser Automation access is managed by macOS when
-          Chrome or Safari capture is used. Apple Reminders access is requested after Connect.
-        </p>
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        {!enabled && (
-          <Button variant="outline" onClick={async () => {
-            try {
-              await window.api.forceEnablePermissionRequests()
-              await refresh()
-            } catch { setError('Permission requests could not be enabled.') }
-          }}>Enable explicit requests</Button>
-        )}
-        {permissions.map(({ type, name, description }) => (
-          <div key={type} className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
-            <div className="min-w-0 flex-1 basis-48">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-sm">{name}</span>
-                <Badge variant="secondary">
-                  {status[type] === undefined ? 'Checking…' : status[type] === 1 ? 'Granted' : 'Optional'}
-                </Badge>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-            </div>
-            {status[type] !== 1 && enabled && (
-              <Button size="sm" variant="outline" disabled={pending !== null}
-                onClick={() => void request(type)}>
-                {pending === type ? 'Waiting…' : 'Request access'}
-              </Button>
-            )}
-          </div>
-        ))}
-        <Button size="sm" variant="outline" onClick={() => void refresh()}>Refresh status</Button>
-      </CardContent>
-    </Card>
+    <SettingsSection
+      title="Permissions"
+      description="Both are optional. macOS manages Browser Automation access when Chrome or Safari capture is used, and asks for Apple Reminders access after you connect."
+      actions={
+        <Button variant="glass" size="compact" onClick={() => void refresh()}>
+          <RefreshCw aria-hidden="true" />
+          Refresh
+        </Button>
+      }
+      footer={
+        error && (
+          <p role="alert" className="text-destructive">
+            {error}
+          </p>
+        )
+      }
+    >
+      {!enabled && (
+        <SettingsRow
+          title="Permission requests"
+          description="Tempo asks for access only after you allow explicit requests."
+          control={
+            <Button
+              variant="glass"
+              size="compact"
+              onClick={async () => {
+                try {
+                  await window.api.forceEnablePermissionRequests()
+                  await refresh()
+                } catch {
+                  setError('Permission requests could not be enabled.')
+                }
+              }}
+            >
+              Allow requests
+            </Button>
+          }
+        />
+      )}
+      {permissions.map(({ type, name, description }) => {
+        const granted = status[type] === 1
+        return (
+          <SettingsRow
+            key={type}
+            title={name}
+            description={description}
+            control={
+              <>
+                <span className="tempo-pref-status" data-granted={granted || undefined}>
+                  {status[type] === undefined ? 'Checking…' : granted ? 'Allowed' : 'Not allowed'}
+                </span>
+                {!granted && enabled && (
+                  <Button
+                    size="compact"
+                    variant="glass"
+                    disabled={pending !== null}
+                    onClick={() => void request(type)}
+                  >
+                    {pending === type ? 'Waiting…' : 'Request…'}
+                  </Button>
+                )}
+              </>
+            }
+          />
+        )
+      })}
+    </SettingsSection>
   )
 }

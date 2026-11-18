@@ -2,68 +2,137 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { trpc } from '../../utils/trpc'
 import { Button } from '../ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
-import { Label } from '../ui/label'
 import { Switch } from '../ui/switch'
+import { SettingsRow, SettingsSection, SettingsSegmented } from './SettingsLayout'
+
+type TimerMode = 'streak' | 'workday'
+type ToggleKey = 'animateNotchTimerDigits' | 'notchTimerShowSeconds'
+
+const MODES: ReadonlyArray<{ value: TimerMode; label: string }> = [
+  { value: 'streak', label: 'Current streak' },
+  { value: 'workday', label: 'Workday totals' }
+]
+
+const MODE_DESCRIPTIONS: Record<TimerMode, string> = {
+  streak: 'The counters reset after one minute of distraction.',
+  workday: 'The counters add up focused and distracted time since 06:00.'
+}
 
 export function TimerDisplaySettings() {
   const { token } = useAuth()
-  const { data: settings } = trpc.user.getElectronAppSettings.useQuery({ token: token || '' }, { enabled: !!token })
   const utils = trpc.useContext()
-  const update = trpc.user.updateElectronAppSettings.useMutation({ onSuccess: () => utils.user.getElectronAppSettings.invalidate() })
-  const [mode, setMode] = useState<'streak' | 'workday'>('streak')
+  const { data: settings } = trpc.user.getElectronAppSettings.useQuery(
+    { token: token || '' },
+    { enabled: !!token }
+  )
+  const update = trpc.user.updateElectronAppSettings.useMutation({
+    onSuccess: () => utils.user.getElectronAppSettings.invalidate()
+  })
+  const [mode, setMode] = useState<TimerMode>('streak')
   const [animateDigits, setAnimateDigits] = useState(false)
   const [showSeconds, setShowSeconds] = useState(true)
-  useEffect(() => { if (settings?.notchTimerMode === 'streak' || settings?.notchTimerMode === 'workday') setMode(settings.notchTimerMode) }, [settings])
-  useEffect(() => { setAnimateDigits(settings?.animateNotchTimerDigits === true) }, [settings?.animateNotchTimerDigits])
-  useEffect(() => { setShowSeconds(settings?.notchTimerShowSeconds !== false) }, [settings?.notchTimerShowSeconds])
+  useEffect(() => {
+    if (settings?.notchTimerMode === 'streak' || settings?.notchTimerMode === 'workday')
+      setMode(settings.notchTimerMode)
+  }, [settings?.notchTimerMode])
+  useEffect(() => {
+    setAnimateDigits(settings?.animateNotchTimerDigits === true)
+  }, [settings?.animateNotchTimerDigits])
+  useEffect(() => {
+    setShowSeconds(settings?.notchTimerShowSeconds !== false)
+  }, [settings?.notchTimerShowSeconds])
   if (!token) return null
-  const changeMode = (next: 'streak' | 'workday') => {
+
+  const changeMode = (next: TimerMode) => {
     setMode(next)
     update.mutate({ token, notchTimerMode: next })
   }
-  const changeDigitAnimation = (next: boolean) => {
-    const previous = animateDigits
-    setAnimateDigits(next)
-    utils.user.getElectronAppSettings.setData({ token }, current => current ? { ...current, animateNotchTimerDigits: next } : current)
+  const changeToggle = (key: ToggleKey, next: boolean, setLocal: (value: boolean) => void) => {
+    const previous = !next
+    setLocal(next)
+    utils.user.getElectronAppSettings.setData({ token }, (current) =>
+      current ? { ...current, [key]: next } : current
+    )
     update.mutate(
-      { token, animateNotchTimerDigits: next },
+      { token, [key]: next },
       {
         onError: () => {
-          setAnimateDigits(previous)
-          utils.user.getElectronAppSettings.setData({ token }, current => current ? { ...current, animateNotchTimerDigits: previous } : current)
+          setLocal(previous)
+          utils.user.getElectronAppSettings.setData({ token }, (current) =>
+            current ? { ...current, [key]: previous } : current
+          )
         }
       }
     )
   }
-  const changeShowSeconds = (next: boolean) => {
-    const previous = showSeconds
-    setShowSeconds(next)
-    utils.user.getElectronAppSettings.setData({ token }, current => current ? { ...current, notchTimerShowSeconds: next } : current)
-    update.mutate(
-      { token, notchTimerShowSeconds: next },
-      {
-        onError: () => {
-          setShowSeconds(previous)
-          utils.user.getElectronAppSettings.setData({ token }, current => current ? { ...current, notchTimerShowSeconds: previous } : current)
+
+  return (
+    <SettingsSection title="Notch timers">
+      <SettingsRow
+        title="Counters show"
+        description={MODE_DESCRIPTIONS[mode]}
+        control={
+          <SettingsSegmented
+            aria-label="What the notch counters show"
+            value={mode}
+            options={MODES}
+            onChange={changeMode}
+          />
         }
-      }
-    )
-  }
-  return <Card>
-    <CardHeader><CardTitle>Notch timers</CardTitle><CardDescription>Choose what the two compact counters represent.</CardDescription></CardHeader>
-    <CardContent className="space-y-3 text-sm">
-      <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3"><input type="radio" checked={mode === 'streak'} onChange={() => changeMode('streak')} /><span><b>Current streak</b><br /><span className="text-muted-foreground">Resets after one minute of distraction.</span></span></label>
-      <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3"><input type="radio" checked={mode === 'workday'} onChange={() => changeMode('workday')} /><span><b>Workday totals</b><br /><span className="text-muted-foreground">Accumulated focused and distracted time since 06:00.</span></span></label>
-      {mode === 'workday' && <Button variant="outline" disabled={update.isLoading} onClick={() => { if (window.confirm('Reset the visible workday counters? Activity history will be kept.')) update.mutate({ token, resetWorkdayTimer: true }) }}>Reset workday counters</Button>}
-      <div className="flex items-center justify-between gap-4 border-t pt-3">
-        <div className="space-y-0.5"><Label htmlFor="show-notch-timer-seconds" className="text-sm font-medium">Show seconds</Label><p className="text-xs text-muted-foreground">Turn off to show whole minutes only (e.g. 12m), which is less distracting.</p></div>
-        <Switch id="show-notch-timer-seconds" checked={showSeconds} disabled={update.isLoading} onCheckedChange={changeShowSeconds} />
-      </div>
-      <div className="flex items-center justify-between gap-4 border-t pt-3">
-        <div className="space-y-0.5"><Label htmlFor="animate-notch-timer-digits" className="text-sm font-medium">Animate timer digits</Label><p className="text-xs text-muted-foreground">Off by default to save energy. Timers still update every second.</p></div>
-        <Switch id="animate-notch-timer-digits" checked={animateDigits} disabled={update.isLoading} onCheckedChange={changeDigitAnimation} />
-      </div>
-    </CardContent>
-  </Card>
+      />
+      {mode === 'workday' && (
+        <SettingsRow
+          title="Workday counters"
+          description="Start today’s totals from zero. Activity history is kept."
+          control={
+            <Button
+              variant="glass"
+              size="compact"
+              disabled={update.isLoading}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Reset the visible workday counters? Activity history will be kept.'
+                  )
+                )
+                  update.mutate({ token, resetWorkdayTimer: true })
+              }}
+            >
+              Reset…
+            </Button>
+          }
+        />
+      )}
+      <SettingsRow
+        title="Show seconds"
+        htmlFor="show-notch-timer-seconds"
+        description="Turn off to show whole minutes only, such as 12m, which is calmer."
+        control={
+          <Switch
+            id="show-notch-timer-seconds"
+            size="sm"
+            checked={showSeconds}
+            disabled={update.isLoading}
+            onCheckedChange={(next) => changeToggle('notchTimerShowSeconds', next, setShowSeconds)}
+          />
+        }
+      />
+      <SettingsRow
+        title="Animate digits"
+        htmlFor="animate-notch-timer-digits"
+        description="Off by default to save energy. The timers still update every second."
+        control={
+          <Switch
+            id="animate-notch-timer-digits"
+            size="sm"
+            checked={animateDigits}
+            disabled={update.isLoading}
+            onCheckedChange={(next) =>
+              changeToggle('animateNotchTimerDigits', next, setAnimateDigits)
+            }
+          />
+        }
+      />
+    </SettingsSection>
+  )
 }

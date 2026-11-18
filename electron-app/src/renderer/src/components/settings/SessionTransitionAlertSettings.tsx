@@ -1,10 +1,8 @@
-import { BellRing, Volume2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { trpc } from '../../utils/trpc'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
-import { Label } from '../ui/label'
 import { Switch } from '../ui/switch'
+import { SettingsRow, SettingsSection } from './SettingsLayout'
 
 /** Focus-boundary feedback is intentionally separate from distraction nudges. */
 export function SessionTransitionAlertSettings() {
@@ -37,28 +35,18 @@ export function SessionTransitionAlertSettings() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Session transition alerts</CardTitle>
-        <CardDescription>
-          Surface natural focus and Pomodoro boundaries in the notch and Notification Center.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <BellRing className="mt-0.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            <div className="space-y-0.5">
-              <Label htmlFor="session-transition-alerts" className="text-sm font-medium">
-                Show transition alerts
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Shows a 10-second notch card and one actionable system notification.
-              </p>
-            </div>
-          </div>
+    <SettingsSection
+      title="Session transitions"
+      description="Natural focus and Pomodoro boundaries, in the notch and Notification Center."
+    >
+      <SettingsRow
+        title="Show transition alerts"
+        htmlFor="session-transition-alerts"
+        description="A 10-second notch card and one actionable notification."
+        control={
           <Switch
             id="session-transition-alerts"
+            size="sm"
             checked={enabled}
             disabled={update.isLoading}
             onCheckedChange={(next) => {
@@ -66,21 +54,17 @@ export function SessionTransitionAlertSettings() {
               updateLocally({ sessionTransitionAlerts: next })
             }}
           />
-        </div>
-        <div className="flex items-center justify-between gap-4 border-t pt-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <Volume2 className="mt-0.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            <div className="space-y-0.5">
-              <Label htmlFor="session-transition-chime" className="text-sm font-medium">
-                Play completion chime
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                A single short system chime for each natural session boundary.
-              </p>
-            </div>
-          </div>
+        }
+      />
+      <SettingsRow
+        title="Play completion chime"
+        htmlFor="session-transition-chime"
+        description="One short system chime at each boundary."
+        inactive={!enabled}
+        control={
           <Switch
             id="session-transition-chime"
+            size="sm"
             checked={chime}
             disabled={!enabled || update.isLoading}
             onCheckedChange={(next) => {
@@ -88,8 +72,8 @@ export function SessionTransitionAlertSettings() {
               updateLocally({ playSessionTransitionChime: next })
             }}
           />
-        </div>
-      </CardContent>
-    </Card>
+        }
+      />
+    </SettingsSection>
   )
 }

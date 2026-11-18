@@ -5,6 +5,7 @@ import { Button } from './ui/button'
 
 const labels: Record<TempoPage, { title: string; subtitle: string }> = {
   dashboard: { title: 'Today', subtitle: 'Your activity, at a glance' },
+  plan: { title: 'Plan', subtitle: 'Goals, your week and today’s queue' },
   analysis: { title: 'Analysis', subtitle: 'Local activity patterns' },
   settings: { title: 'Settings', subtitle: 'Tempo preferences' }
 }

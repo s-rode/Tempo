@@ -7,6 +7,10 @@ const goalTaskSchema = new mongoose.Schema(
     estimatedMinutes: { type: Number, default: null, min: 1, max: 720 },
     position: { type: Number, required: true, min: 0 },
     completedAtMs: { type: Number, default: null },
+    // Built-in planner only: the long-term goal this task works toward, and
+    // the day it was first planned for when it rolled over unfinished.
+    goalId: { type: String, default: null },
+    carriedFromDateKey: { type: String, default: null },
   },
   { _id: false }
 );
@@ -45,6 +49,8 @@ export interface GoalTask {
   estimatedMinutes?: number | null;
   position: number;
   completedAtMs: number | null;
+  goalId?: string | null;
+  carriedFromDateKey?: string | null;
 }
 
 export const GoalPlanModel = mongoose.model('GoalPlan', goalPlanSchema);

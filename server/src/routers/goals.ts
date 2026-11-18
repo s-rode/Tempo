@@ -3,6 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { GoalPlanModel, GoalTask } from '../models/goalPlan';
 import { getReminderIntegration } from '../services/reminders';
+import { plannerEnabled } from '../services/plannerState';
 import {
   DailyPlanSnapshot,
   fingerprintClassificationContext,
@@ -30,9 +31,12 @@ const persistedTask = z.object({
   estimatedMinutes: estimatedMinutes.optional(),
   position: z.number().int().min(0).max(99),
   completedAtMs: z.number().nullable(),
+  // Planner links survive an undo of a delete made from Today's Plan.
+  goalId: z.string().uuid().nullable().optional(),
+  carriedFromDateKey: z.string().max(10).nullable().optional(),
 });
 
-const changed = async (userId: string, beforeFingerprint: string) => {
+export const changed = async (userId: string, beforeFingerprint: string) => {
   cancelPendingEnrichment(userId);
   const context = await resolveEffectiveGoalContext(userId);
   ensureGoalSupportProfiles(userId, context);
@@ -47,14 +51,14 @@ const changed = async (userId: string, beforeFingerprint: string) => {
 // Stop a queued rich-copy request before a mutation changes the context it was
 // built around. `changed` repeats the cancellation after persistence to cover
 // the tiny interval in which a new capture could arrive.
-const prepareGoalMutation = async (userId: string): Promise<string> => {
+export const prepareGoalMutation = async (userId: string): Promise<string> => {
   cancelPendingEnrichment(userId);
   cancelPendingGoalSupportProfiles(userId);
   return fingerprintEffectiveGoalContext(await resolveEffectiveGoalContext(userId));
 };
 
 const requireCurrentDaily = async (userId: string) => {
-  if ((await getReminderIntegration(userId))?.enabled) throw new TRPCError({
+  if (!(await plannerEnabled(userId)) && (await getReminderIntegration(userId))?.enabled) throw new TRPCError({
     code: 'PRECONDITION_FAILED', message: 'Edit your tasks in Reminders, or disconnect Reminders to use manual Tempo tasks.',
   });
   const periodKey = goalPeriodFor.dayKey();

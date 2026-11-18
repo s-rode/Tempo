@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { toast } from '../hooks/use-toast'
 import type { ActivitySessionBlock } from '../lib/activitySessions'
 import { formatDuration } from '../lib/activityByCategoryWidgetHelpers'
-import { buildDayOverview, type DayOverviewState } from '../lib/dayOverview'
+import { sessionState, type DayOverview, type DayOverviewState } from '../lib/dayOverview'
 import { cn } from '../lib/utils'
 import { trpc } from '../utils/trpc'
 import {
@@ -18,8 +18,9 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 
 interface DayOverviewTimelineProps {
-  date: Date
-  sessions: ActivitySessionBlock[]
+  overview: DayOverview
+  /** Current time when the shown day is today, used for the "now" marker. */
+  nowMs?: number | null
   selectedSessionId: string | null
   selectedActivityKey: string | null
   onSelectSession: (session: ActivitySessionBlock) => void
@@ -35,7 +36,8 @@ interface ClassifyMenu {
 
 // A segment wide enough for a readable label: about seven minutes of an hour.
 const LABEL_MIN_WIDTH = 0.12
-const MAX_ROW_HEIGHT = 34
+const MAX_ROW_HEIGHT = 32
+const LEGEND: DayOverviewState[] = ['focused', 'distracted', 'uncertain']
 
 const timeLabel = (ms: number) =>
   new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -48,8 +50,8 @@ const STATE_LABEL: Record<DayOverviewState, string> = {
 
 /** The whole tracked day as one hour per row, sized to fit without scrolling. */
 export default function DayOverviewTimeline({
-  date,
-  sessions,
+  overview,
+  nowMs,
   selectedSessionId,
   selectedActivityKey,
   onSelectSession,
@@ -59,7 +61,6 @@ export default function DayOverviewTimeline({
   const { token } = useAuth()
   const trpcUtils = trpc.useUtils()
   const [menu, setMenu] = useState<ClassifyMenu | null>(null)
-  const overview = useMemo(() => buildDayOverview(date, sessions), [date, sessions])
   // Productive categories first, so the likely choice is at the top of the menu.
   const classifyChoices = useMemo(
     () => [...categories].sort((a, b) => Number(b.isProductive) - Number(a.isProductive)),
@@ -89,7 +90,10 @@ export default function DayOverviewTimeline({
       })
   })
 
-  const openClassifyMenu = (event: MouseEvent<HTMLButtonElement>, session: ActivitySessionBlock) => {
+  const openClassifyMenu = (
+    event: MouseEvent<HTMLButtonElement>,
+    session: ActivitySessionBlock
+  ) => {
     event.preventDefault()
     // Keyboard invocations (Shift+F10, the Menu key) report 0,0; anchor those to the block.
     const box = event.currentTarget.getBoundingClientRect()
@@ -109,21 +113,10 @@ export default function DayOverviewTimeline({
       newCategoryId: categoryId,
       correctionActionId: crypto.randomUUID(),
       rememberExactMatch: true,
-      applyToSession: true
+      // Uncertain time from the same app in the session is classified with it.
+      applyToSession: sessionState(session) === 'uncertain'
     })
   }
-  if (!overview) {
-    return <div className="tempo-day-empty-state">No tracked activity for this day.</div>
-  }
-
-  const elapsed = overview.endMs - overview.startMs
-  const totals = [
-    { state: 'is-focused', label: 'focused', durationMs: overview.focusedMs },
-    { state: 'is-distracted', label: 'distracted', durationMs: overview.distractedMs },
-    { state: 'is-uncertain', label: 'uncertain', durationMs: overview.uncertainMs },
-    { state: 'is-idle', label: 'idle', durationMs: overview.idleMs }
-  ].filter((item) => item.durationMs > 0 || item.state !== 'is-uncertain')
-
   // Arrow keys step through blocks in time order, matching list navigation in
   // native macOS views; Tab still visits every block.
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -148,48 +141,21 @@ export default function DayOverviewTimeline({
 
   return (
     <TooltipProvider delayDuration={250}>
-      <section className="tempo-day-overview" aria-label="Whole day overview">
-        <div className="tempo-day-overview-header">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="text-sm font-medium">Whole day</h3>
-            <span className="text-[11px] tabular-nums text-muted-foreground">
-              {timeLabel(overview.startMs)}–{timeLabel(overview.endMs)} ·{' '}
-              {formatDuration(overview.focusedMs + overview.distractedMs + overview.uncertainMs)}{' '}
-              tracked
-            </span>
-          </div>
-          <div
-            className="tempo-day-overview-summary"
-            role="img"
-            aria-label={totals
-              .map((item) => `${formatDuration(item.durationMs)} ${item.label}`)
-              .join(', ')}
-          >
-            {totals.map((item) =>
-              item.durationMs > 0 ? (
-                <span
-                  key={item.state}
-                  className={item.state}
-                  style={{ width: `${(item.durationMs / elapsed) * 100}%` }}
-                />
-              ) : null
+      <section className="tempo-glass-card tempo-hours" aria-label="Hour by hour">
+        <div className="tempo-hours-heading">
+          <h3>Hour by hour</h3>
+          <div className="tempo-hours-legend">
+            {LEGEND.filter((state) => state !== 'uncertain' || overview.uncertainMs > 0).map(
+              (state) => (
+                <span key={state}>
+                  <span className={cn('tempo-day-dot', `is-${state}`)} aria-hidden="true" />
+                  {STATE_LABEL[state]}
+                </span>
+              )
             )}
           </div>
-          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-            {totals.map((item) => (
-              <span key={item.state} className="inline-flex items-center gap-1.5">
-                <span className={cn('tempo-day-overview-dot', item.state)} aria-hidden="true" />
-                <span className="tabular-nums">{formatDuration(item.durationMs)}</span> {item.label}
-              </span>
-            ))}
-          </div>
-          {overview.uncertainMs > 0 && (
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Right-click an amber block to classify it.
-            </p>
-          )}
         </div>
-        <div className="tempo-day-overview-ruler" aria-hidden="true">
+        <div className="tempo-hours-ruler" aria-hidden="true">
           <span />
           <div>
             <span style={{ left: '0%' }}>:00</span>
@@ -197,98 +163,119 @@ export default function DayOverviewTimeline({
             <span style={{ left: '50%' }}>:30</span>
             <span style={{ left: '75%' }}>:45</span>
           </div>
+          <span>Focused</span>
         </div>
         <div
-          className="tempo-day-overview-grid"
+          className={cn('tempo-hours-grid', selectedSessionId && 'has-selection')}
           role="list"
           aria-label="Tracked activity by hour"
           style={{
-            gridTemplateRows: `repeat(${overview.rows.length}, minmax(14px, ${MAX_ROW_HEIGHT}px))`
+            gridTemplateRows: `repeat(${overview.rows.length}, minmax(20px, ${MAX_ROW_HEIGHT}px))`
           }}
           onKeyDown={handleKeyDown}
         >
-          {overview.rows.map((row) => (
-            <div
-              key={row.hourStartMs}
-              role="listitem"
-              className="tempo-day-overview-row"
-              aria-label={`${timeLabel(row.hourStartMs)}: ${formatDuration(row.focusedMs)} focused, ${formatDuration(row.distractedMs)} distracted${row.uncertainMs ? `, ${formatDuration(row.uncertainMs)} uncertain` : ''}, ${formatDuration(row.idleMs)} idle`}
-            >
-              <time
-                className="tempo-day-overview-hour"
-                dateTime={new Date(row.hourStartMs).toISOString()}
+          {overview.rows.map((row, rowIndex) => {
+            const hourEndMs = overview.rows[rowIndex + 1]?.hourStartMs ?? overview.endMs
+            const nowOffset =
+              nowMs && nowMs >= row.hourStartMs && nowMs < hourEndMs
+                ? (nowMs - row.hourStartMs) / (hourEndMs - row.hourStartMs)
+                : null
+            return (
+              <div
+                key={row.hourStartMs}
+                role="listitem"
+                className={cn('tempo-hours-row', row.segments.length === 0 && 'is-empty')}
+                aria-label={`${timeLabel(row.hourStartMs)}: ${formatDuration(row.focusedMs)} focused, ${formatDuration(row.distractedMs)} distracted${row.uncertainMs ? `, ${formatDuration(row.uncertainMs)} uncertain` : ''}, ${formatDuration(row.idleMs)} idle`}
               >
-                {timeLabel(row.hourStartMs)}
-              </time>
-              <div className="tempo-day-overview-track">
-                {row.segments.map((segment) => {
-                  const { session } = segment
-                  const selected = selectedSessionId === session.id
-                  const related = !selected && selectedActivityKey === session.displayKey
-                  return (
-                    <Tooltip key={`${session.id}:${segment.startMs}`}>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          data-overview-segment
-                          className={cn(
-                            'tempo-day-overview-segment',
-                            `is-${segment.state}`,
-                            selected && 'is-selected',
-                            related && 'is-related'
-                          )}
-                          style={{
-                            left: `${segment.offset * 100}%`,
-                            width: `${segment.width * 100}%`
-                          }}
-                          onClick={() => onSelectSession(session)}
-                          onContextMenu={
-                            segment.state === 'uncertain'
-                              ? (event) => openClassifyMenu(event, session)
-                              : undefined
-                          }
-                          aria-pressed={selected}
-                          aria-label={`${session.label}, ${session.ownerName}. ${timeLabel(+session.startTime)} to ${timeLabel(+session.endTime)}, ${formatDuration(session.activeDurationMs)} ${STATE_LABEL[segment.state].toLowerCase()}. Select activity.${segment.state === 'uncertain' ? ' Open the context menu to classify it.' : ''}`}
-                        >
-                          {segment.width >= LABEL_MIN_WIDTH && (
-                            <span className="tempo-day-overview-label">{session.label}</span>
-                          )}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" align="start" className="w-60 p-3">
-                        <p className="truncate text-xs font-medium text-foreground">
-                          {session.label}
-                        </p>
-                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                          {session.ownerName}
-                          {session.categoryName ? ` · ${session.categoryName}` : ''}
-                        </p>
-                        <div className="mt-2 flex items-center justify-between gap-3 border-t border-border pt-2 text-[11px] text-muted-foreground">
-                          <span className="inline-flex items-center gap-1.5">
-                            <span
-                              className={cn('tempo-day-overview-dot', `is-${segment.state}`)}
-                              aria-hidden="true"
-                            />
-                            {STATE_LABEL[segment.state]}
-                          </span>
-                          <span className="tabular-nums">
-                            {timeLabel(+session.startTime)}–{timeLabel(+session.endTime)} ·{' '}
-                            {formatDuration(session.activeDurationMs)}
-                          </span>
-                        </div>
-                        {segment.state === 'uncertain' && (
-                          <p className="mt-1.5 text-[11px] text-muted-foreground">
-                            Right-click to classify.
+                <time
+                  className="tempo-hours-hour"
+                  dateTime={new Date(row.hourStartMs).toISOString()}
+                >
+                  {timeLabel(row.hourStartMs)}
+                </time>
+                <div className="tempo-hours-track">
+                  {row.segments.map((segment) => {
+                    const { session } = segment
+                    const selected = selectedSessionId === session.id
+                    const related = !selected && selectedActivityKey === session.displayKey
+                    return (
+                      <Tooltip key={`${session.id}:${segment.startMs}`}>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            data-overview-segment
+                            className={cn(
+                              'tempo-hours-segment',
+                              `is-${segment.state}`,
+                              selected && 'is-selected',
+                              related && 'is-related',
+                              // A session that crosses the hour reads as one bar
+                              // continuing on the next row.
+                              +session.startTime < segment.startMs && 'continues-before',
+                              +session.endTime > segment.endMs && 'continues-after'
+                            )}
+                            style={{
+                              left: `${segment.offset * 100}%`,
+                              width: `${segment.width * 100}%`
+                            }}
+                            onClick={() => onSelectSession(session)}
+                            onContextMenu={(event) => openClassifyMenu(event, session)}
+                            aria-pressed={selected}
+                            aria-label={`${session.label}, ${session.ownerName}. ${timeLabel(+session.startTime)} to ${timeLabel(+session.endTime)}, ${formatDuration(session.activeDurationMs)} ${STATE_LABEL[segment.state].toLowerCase()}. Select activity. Open the context menu to change its category.`}
+                          >
+                            {segment.width >= LABEL_MIN_WIDTH && (
+                              <span className="tempo-hours-label">{session.label}</span>
+                            )}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" align="start" className="w-60 p-3">
+                          <p className="truncate text-xs font-semibold text-foreground">
+                            {session.label}
                           </p>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
-                  )
-                })}
+                          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                            {session.ownerName}
+                            {session.categoryName ? ` · ${session.categoryName}` : ''}
+                          </p>
+                          <div className="tempo-hours-tip-row">
+                            <span>
+                              <span
+                                className={cn('tempo-day-dot', `is-${segment.state}`)}
+                                aria-hidden="true"
+                              />
+                              {STATE_LABEL[segment.state]}
+                            </span>
+                            <span className="tabular-nums">
+                              {timeLabel(+session.startTime)}–{timeLabel(+session.endTime)} ·{' '}
+                              {formatDuration(session.activeDurationMs)}
+                            </span>
+                          </div>
+                          {segment.state === 'uncertain' && (
+                            <p className="mt-1.5 text-[11px] text-muted-foreground">
+                              Right-click to classify.
+                            </p>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    )
+                  })}
+                  {nowOffset !== null && (
+                    <span
+                      className="tempo-day-now"
+                      style={{ left: `${nowOffset * 100}%` }}
+                      aria-hidden="true"
+                    />
+                  )}
+                </div>
+                <span className="tempo-hours-total">
+                  {row.focusedMs >= 60_000 ? formatDuration(row.focusedMs) : '–'}
+                </span>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
+        {overview.uncertainMs > 0 && (
+          <p className="tempo-hours-hint">Right-click an amber block to classify it.</p>
+        )}
         <DropdownMenu open={menu !== null} onOpenChange={(open) => !open && setMenu(null)}>
           <DropdownMenuTrigger asChild>
             <span
@@ -297,19 +284,32 @@ export default function DayOverviewTimeline({
               style={{ left: menu?.x ?? 0, top: menu?.y ?? 0 }}
             />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-52" onCloseAutoFocus={(e) => e.preventDefault()}>
+          <DropdownMenuContent
+            align="start"
+            className="min-w-52"
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
             <DropdownMenuLabel className="max-w-64 truncate text-xs font-medium">
-              Classify “{menu?.session.label}”
+              {menu?.session.label}
             </DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => menu && onSelectSession(menu.session)}>
+              {menu?.session.id === selectedSessionId ? 'Clear Selection' : 'Show Details'}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+              {menu && sessionState(menu.session) === 'uncertain'
+                ? 'Classify as'
+                : 'Change category to'}
+            </DropdownMenuLabel>
             {classifyChoices.map((category) => (
               <DropdownMenuItem
                 key={category._id}
+                disabled={category._id === menu?.session.categoryId}
                 onSelect={() => menu && classifySession(menu.session, category._id)}
               >
                 <span
                   className={cn(
-                    'tempo-day-overview-dot',
+                    'tempo-day-dot',
                     category.isProductive ? 'is-focused' : 'is-distracted'
                   )}
                   aria-hidden="true"
@@ -322,8 +322,9 @@ export default function DayOverviewTimeline({
             ))}
             <DropdownMenuSeparator />
             <p className="max-w-64 px-2 py-1 text-[11px] text-muted-foreground">
-              Also applies to other uncertain time from {menu?.session.ownerName} in the same focus
-              session.
+              {menu && sessionState(menu.session) === 'uncertain'
+                ? `Also applies to other uncertain time from ${menu.session.ownerName} in the same focus session.`
+                : 'Only this activity changes.'}
             </p>
           </DropdownMenuContent>
         </DropdownMenu>

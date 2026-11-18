@@ -1,27 +1,30 @@
-import { BarChart3, CalendarDays, CircleDot, MonitorCog, Settings } from 'lucide-react'
+import { BarChart3, CalendarDays, CircleDot, ListChecks, MonitorCog, Settings } from 'lucide-react'
 import type { FirefoxCompanionState } from './FirefoxCompanionStatus'
 import { FirefoxCompanionStatus } from './FirefoxCompanionStatus'
 
-export type TempoPage = 'dashboard' | 'analysis' | 'settings'
+export type TempoPage = 'dashboard' | 'plan' | 'analysis' | 'settings'
 
 const entries: Array<{ page: TempoPage; label: string; Icon: typeof CalendarDays }> = [
   { page: 'dashboard', label: 'Today', Icon: CalendarDays },
+  { page: 'plan', label: 'Plan', Icon: ListChecks },
   { page: 'analysis', label: 'Analysis', Icon: BarChart3 },
   { page: 'settings', label: 'Settings', Icon: Settings }
 ]
 
-export function TempoSidebar({ activePage, onNavigate, collapsed, firefoxState }: {
+export function TempoSidebar({ activePage, onNavigate, collapsed, firefoxState, showPlan = false }: {
   activePage: TempoPage
   onNavigate: (page: TempoPage) => void
   collapsed: boolean
   firefoxState: FirefoxCompanionState
+  /** The Plan page belongs to Tempo's own planner and is hidden while Reminders supplies tasks. */
+  showPlan?: boolean
 }) {
   if (collapsed) return null
   return (
     <aside className="tempo-sidebar flex min-h-0 flex-col px-2 pb-3" aria-label="Tempo navigation">
       <div className="tempo-sidebar-brand" aria-label="Tempo">Tempo</div>
       <nav className="space-y-0.5" aria-label="Primary navigation">
-        {entries.map(({ page, label, Icon }) => <button key={page} type="button" className="tempo-sidebar-item" data-active={activePage === page} onClick={() => onNavigate(page)} aria-current={activePage === page ? 'page' : undefined}><Icon size={16} strokeWidth={1.8} /><span>{label}</span></button>)}
+        {entries.filter(({ page }) => page !== 'plan' || showPlan).map(({ page, label, Icon }) => <button key={page} type="button" className="tempo-sidebar-item" data-active={activePage === page} onClick={() => onNavigate(page)} aria-current={activePage === page ? 'page' : undefined}><Icon size={16} strokeWidth={1.8} /><span>{label}</span></button>)}
       </nav>
       <div className="tempo-sidebar-footer mt-auto space-y-2 pt-3">
         <div className="flex items-center gap-2 px-2 text-xs text-muted-foreground"><MonitorCog size={14} /><span>Monitoring active</span></div>

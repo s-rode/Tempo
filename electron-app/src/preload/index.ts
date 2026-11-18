@@ -236,12 +236,19 @@ const api = {
       command:
         | 'dashboard'
         | 'analysis'
+        | 'plan'
         | 'settings'
         | 'toggle-sidebar'
         | 'start-focus'
         | 'pause-or-resume'
         | 'set-today-plan'
         | 'set-weekly-focus'
+        | 'day-view-timeline'
+        | 'day-view-hours'
+        | 'day-view-week'
+        | 'previous-day'
+        | 'next-day'
+        | 'go-to-today'
     ) => void
   ) => {
     const listener = (
@@ -249,12 +256,19 @@ const api = {
       command:
         | 'dashboard'
         | 'analysis'
+        | 'plan'
         | 'settings'
         | 'toggle-sidebar'
         | 'start-focus'
         | 'pause-or-resume'
         | 'set-today-plan'
         | 'set-weekly-focus'
+        | 'day-view-timeline'
+        | 'day-view-hours'
+        | 'day-view-week'
+        | 'previous-day'
+        | 'next-day'
+        | 'go-to-today'
     ) => callback(command)
     ipcRenderer.on('tempo-desktop-command', listener)
     return () => ipcRenderer.removeListener('tempo-desktop-command', listener)

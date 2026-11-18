@@ -108,6 +108,12 @@ const userSchema = new mongoose.Schema({
       default: 'strict',
     },
     learnFromCorrections: { type: Boolean, default: true },
+    // Where Today's tasks come from: Apple Reminders (or the simple manual
+    // list when Reminders is not connected), or Tempo's own planner.
+    planningSource: { type: String, enum: ['reminders', 'planner'], default: 'reminders' },
+    // Unfinished planner tasks roll forward only from this local day onward,
+    // so switching the planner on never drags in old manual leftovers.
+    plannerSinceDateKey: { type: String, default: null },
     // Hardcoded per-app verdicts; they take precedence over every classifier.
     appRules: {
       type: [

@@ -78,7 +78,7 @@ function ActivitiesByCategoryWidget(props: Props) {
       })
   }
   return (
-    <Card>
+    <Card className="tempo-glass-card border-0">
       <CardContent className="space-y-4 px-2 pt-2 pb-3">
         {props.selectedHour !== null && (
           <div className="flex items-center justify-between gap-2 rounded-sm bg-muted px-3 py-2">
@@ -116,7 +116,7 @@ function ActivitiesByCategoryWidget(props: Props) {
         ) : (
           groups.map((group) => (
             <section key={group.id}>
-              <div className="sticky top-0 z-10 mb-1 flex items-center justify-between border-b border-border bg-card py-2 ml-2">
+              <div className="mb-1 flex items-center justify-between border-b border-border py-2 ml-2">
                 <h3 className="flex min-w-0 items-center text-md font-semibold text-primary">
                   <span
                     className="mr-2 size-4 shrink-0 rounded-full"

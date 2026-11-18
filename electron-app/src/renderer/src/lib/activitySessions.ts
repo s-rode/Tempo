@@ -99,6 +99,8 @@ export interface TimelineFocusGoal {
   adherenceLabel: string
   isLead: boolean
   runIds?: string[]
+  /** Set when the goal was a planned task, so the block can be tied back to it. */
+  taskId?: string
 }
 
 /** A privacy-preserving, app-level view of a compact timeline chapter. */
@@ -466,6 +468,7 @@ const focusGoalCandidates = (runs: FocusTimelineRun[], nowMs: number): FocusGoal
             phaseIndex,
             kind: run.kind,
             goal: segment.goal.trim(),
+            taskId: segment.todayPlanTask?.taskId || undefined,
             startTime: new Date(segmentStartMs),
             endTime: new Date(segmentEndMs),
             focusedMs: 0,
@@ -546,6 +549,76 @@ export const attachFocusGoalsToTimelineChapters = (
       }
     }
   })
+}
+
+/** How much of a day went into one planned task, across all its focus sessions. */
+export interface TaskTimeSummary {
+  taskId: string
+  title: string
+  startTime: Date
+  endTime: Date
+  sessionCount: number
+  focusedMs: number
+  distractedMs: number
+  uncertainMs: number
+  trackedMs: number
+  isRunning: boolean
+}
+
+/**
+ * Totals the tracked activity inside every focus session of each planned task.
+ * Unlike a timeline block, a task keeps the distractions that happened while it
+ * was the active goal, so the total answers how long the task really took.
+ */
+export const summarizeTaskTime = (
+  sessions: ActivitySessionBlock[],
+  runs: FocusTimelineRun[] | undefined,
+  nowMs = Date.now()
+): TaskTimeSummary[] => {
+  if (!runs?.length) return []
+  const activeRunIds = new Set(runs.filter((entry) => !entry.outcome).map((entry) => entry.run.id))
+  const byTask = new Map<string, TaskTimeSummary & { runIds: Set<string> }>()
+  for (const candidate of focusGoalCandidates(runs, nowMs)) {
+    if (!candidate.taskId) continue
+    const startMs = candidate.startTime.getTime()
+    const endMs = candidate.endTime.getTime()
+    let summary = byTask.get(candidate.taskId)
+    if (!summary) {
+      summary = {
+        taskId: candidate.taskId,
+        title: candidate.goal,
+        startTime: candidate.startTime,
+        endTime: candidate.endTime,
+        sessionCount: 0,
+        focusedMs: 0,
+        distractedMs: 0,
+        uncertainMs: 0,
+        trackedMs: 0,
+        isRunning: false,
+        runIds: new Set()
+      }
+      byTask.set(candidate.taskId, summary)
+    }
+    summary.runIds.add(candidate.runId)
+    summary.title = candidate.goal
+    if (startMs < +summary.startTime) summary.startTime = candidate.startTime
+    if (endMs > +summary.endTime) summary.endTime = candidate.endTime
+    if (activeRunIds.has(candidate.runId) && endMs >= nowMs - 1000) summary.isRunning = true
+    for (const session of sessions) {
+      const contribution = sessionContributionWithin(session, startMs, endMs)
+      if (contribution <= 0) continue
+      if (session.isProductive === true) summary.focusedMs += contribution
+      else if (session.isProductive === false) summary.distractedMs += contribution
+      else summary.uncertainMs += contribution
+    }
+  }
+  return [...byTask.values()]
+    .map(({ runIds, ...summary }) => ({
+      ...summary,
+      sessionCount: runIds.size,
+      trackedMs: summary.focusedMs + summary.distractedMs + summary.uncertainMs
+    }))
+    .sort((left, right) => +left.startTime - +right.startTime)
 }
 
 /**
