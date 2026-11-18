@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from '../../hooks/use-toast'
 import { trpc } from '../../utils/trpc'
+import { SettingsRow, SettingsSegmented } from './SettingsLayout'
 
 type Strictness = 'flexible' | 'balanced' | 'strict'
 
@@ -77,40 +78,18 @@ export function ClassifierStrictnessSettings() {
 
   const selected = options[indexFor(value)]
   return (
-    <section className="tempo-settings-row items-start">
-      <div className="min-w-0 flex-1">
-        <h2>Classifier strictness</h2>
-        <p>{selected.description} Manual corrections always take priority.</p>
-      </div>
-      <div className="w-[280px] shrink-0" aria-busy={update.isLoading}>
-        <input
-          className="tempo-strictness-slider w-full accent-primary"
-          type="range"
-          min="0"
-          max="2"
-          step="1"
-          value={indexFor(value)}
-          disabled={update.isLoading}
+    <SettingsRow
+      title="Strictness"
+      description={`${selected.description} Manual corrections always take priority.`}
+      control={
+        <SettingsSegmented
           aria-label="Classifier strictness"
-          aria-valuetext={selected.title}
-          onChange={(event) => choose(options[Number(event.target.value)].value)}
+          value={value}
+          options={options.map((option) => ({ value: option.value, label: option.title }))}
+          disabled={update.isLoading}
+          onChange={choose}
         />
-        <div className="mt-1 grid grid-cols-3 text-[11px] text-muted-foreground">
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              disabled={update.isLoading}
-              onClick={() => choose(option.value)}
-              className={`rounded px-1 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                value === option.value ? 'font-medium text-foreground' : 'hover:text-foreground'
-              } ${option.value === 'flexible' ? 'text-left' : option.value === 'strict' ? 'text-right' : 'text-center'}`}
-            >
-              {option.title}
-            </button>
-          ))}
-        </div>
-      </div>
-    </section>
+      }
+    />
   )
 }

@@ -39,6 +39,7 @@ import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { PlanTaskStartPopover } from './PlanTaskStartPopover'
+import { SettingsRow, SettingsSection } from './settings/SettingsLayout'
 import type { FocusRuntimeSnapshot } from './FocusRuntimeControls'
 
 type Status = inferRouterOutputs<AppRouter>['reminders']['getStatus']
@@ -67,93 +68,95 @@ export function RemindersSettings() {
   }
   if (!available) return null
   return (
-    <section className="tempo-planning-row" aria-labelledby="reminders-settings-heading">
-      <div className="tempo-planning-row-icon">
-        <ListChecks size={16} />
-      </div>
-      <div className="min-w-0 flex-1 space-y-3">
-        <div>
-          <h3 id="reminders-settings-heading">Apple Reminders</h3>
-          <p>
-            Use reminders as your tasks. Estimates, focus context, and session history stay in
-            Tempo.
-          </p>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          macOS requests full Reminders access. Tempo only reads; edit and complete your tasks in
-          Reminders.
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          {status?.enabled ? (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() => void run(window.api.refreshReminders)}
-              >
-                <RefreshCw size={14} />
-                Refresh
-              </Button>
-              {status.permission !== 'granted' && (
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => void run(window.api.connectReminders)}
-                >
-                  Reconnect
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => void run(window.api.disconnectReminders)}
-              >
-                Disconnect
-              </Button>
-            </>
-          ) : (
-            <Button
-              size="sm"
-              disabled={busy || !status}
-              onClick={() => void run(window.api.connectReminders)}
-            >
-              {busy ? 'Connecting…' : 'Connect Apple Reminders'}
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => void window.api.openReminders().catch(showError)}
-          >
-            <ExternalLink size={14} />
-            Open Reminders
-          </Button>
-        </div>
-        {status && <ReminderSyncStatus status={status} />}
-        {status?.enabled && (
+    <SettingsSection
+      title="Apple Reminders"
+      footer={status && <ReminderSyncStatus status={status} />}
+    >
+      <SettingsRow
+        title={status?.enabled ? 'Connected' : 'Use reminders as your tasks'}
+        description="Tempo only reads, and macOS asks for full Reminders access. Edit and complete tasks in Reminders; estimates, focus context and session history stay in Tempo."
+        control={
           <>
-            <RemindersFilters status={status} />
-            <DefaultListSelect status={status} />
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Focus context by list</h4>
-              <p className="text-xs text-muted-foreground">
-                Describe what these short task names mean once. You can override this for individual
-                reminders. Native tag filtering is not available in this version.
-              </p>
-              {status.lists.map((list) => (
-                <ListContextEditor
-                  key={list.id}
-                  list={list}
-                  value={status.listContexts[list.id] || ''}
-                />
-              ))}
-            </div>
+            <Button
+              size="compact"
+              variant="ghost"
+              className="tempo-pref-icon-button"
+              title="Open Reminders"
+              aria-label="Open Reminders"
+              onClick={() => void window.api.openReminders().catch(showError)}
+            >
+              <ExternalLink aria-hidden="true" />
+            </Button>
+            {status?.enabled ? (
+              <>
+                <Button
+                  size="compact"
+                  variant="ghost"
+                  className="tempo-pref-icon-button"
+                  title="Refresh"
+                  aria-label="Refresh reminders"
+                  disabled={busy}
+                  onClick={() => void run(window.api.refreshReminders)}
+                >
+                  <RefreshCw aria-hidden="true" />
+                </Button>
+                {status.permission !== 'granted' && (
+                  <Button
+                    size="compact"
+                    disabled={busy}
+                    onClick={() => void run(window.api.connectReminders)}
+                  >
+                    Reconnect
+                  </Button>
+                )}
+                <Button
+                  size="compact"
+                  variant="glass"
+                  disabled={busy}
+                  onClick={() => void run(window.api.disconnectReminders)}
+                >
+                  Disconnect
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="compact"
+                disabled={busy || !status}
+                onClick={() => void run(window.api.connectReminders)}
+              >
+                {busy ? 'Connecting…' : 'Connect…'}
+              </Button>
+            )}
           </>
-        )}
-      </div>
-    </section>
+        }
+      />
+      {status?.enabled && (
+        <>
+          <SettingsRow
+            title="Shown reminders"
+            description={reminderFilterSummary(status.filter, status.lists)}
+            control={<RemindersFilters status={status} />}
+          />
+          <DefaultListSelect status={status} />
+          <SettingsRow
+            title="Focus context by list"
+            description="Describe once what a list’s short task names mean. You can override it for individual reminders."
+          >
+            {status.lists.length > 0 && (
+              <div className="tempo-pref-subgroup">
+                {status.lists.map((list) => (
+                  <ListContextEditor
+                    key={list.id}
+                    list={list}
+                    value={status.listContexts[list.id] || ''}
+                  />
+                ))}
+              </div>
+            )}
+          </SettingsRow>
+        </>
+      )}
+    </SettingsSection>
   )
 }
 
@@ -168,29 +171,29 @@ function DefaultListSelect({ status }: { status: Status }) {
     ? status.defaultListId || ''
     : ''
   return (
-    <label className="block space-y-1.5">
-      <span className="text-sm font-medium">Default list for spontaneous tasks</span>
-      <p className="text-xs text-muted-foreground">
-        Preselected as list context when you start a focus session that is not a reminder. It helps
-        classify activity for short, ad-hoc goals.
-      </p>
-      <select
-        className="tempo-field w-full"
-        value={value}
-        disabled={mutation.isLoading}
-        onChange={(event) =>
-          mutation.mutate({ token: token || '', listId: event.target.value || null })
-        }
-        aria-label="Default list for spontaneous tasks"
-      >
-        <option value="">None</option>
-        {status.lists.map((list) => (
-          <option key={list.id} value={list.id}>
-            {list.name}
-          </option>
-        ))}
-      </select>
-    </label>
+    <SettingsRow
+      title="Default list for spontaneous tasks"
+      htmlFor="reminders-default-list"
+      description="Preselected as list context when a focus session is not a reminder, which helps classify short, ad-hoc goals."
+      control={
+        <select
+          id="reminders-default-list"
+          className="tempo-pref-select"
+          value={value}
+          disabled={mutation.isLoading}
+          onChange={(event) =>
+            mutation.mutate({ token: token || '', listId: event.target.value || null })
+          }
+        >
+          <option value="">None</option>
+          {status.lists.map((list) => (
+            <option key={list.id} value={list.id}>
+              {list.name}
+            </option>
+          ))}
+        </select>
+      }
+    />
   )
 }
 
@@ -270,53 +273,64 @@ function ListContextEditor({
     onError: showError
   })
   return (
-    <div className="rounded-md border p-2.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">
-          {list.name}
-          <span className="ml-2 text-xs font-normal text-muted-foreground">{list.accountName}</span>
-        </span>
-        <Button
-          variant="ghost"
-          size="xs"
-          aria-label={`Edit focus context for ${list.name}`}
-          onClick={() => {
-            setDraft(value)
-            setEditing(!editing)
-          }}
-        >
-          <Pencil size={13} />
-        </Button>
-      </div>
-      {editing ? (
-        <div className="mt-2 space-y-2">
-          <Textarea
-            aria-label={`Focus context for ${list.name}`}
-            rows={3}
-            maxLength={1000}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="For example: Watch Machine Learning lectures, review the material, and create related flashcards."
-          />
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="xs" onClick={() => setEditing(false)}>
-              Cancel
-            </Button>
-            <Button
-              size="xs"
-              disabled={mutation.isLoading}
-              onClick={() =>
-                mutation.mutate({ token: token || '', listId: list.id, focusContext: draft })
-              }
-            >
-              Save
-            </Button>
+    <div className="tempo-pref-subrow">
+      <div className="tempo-pref-row-main">
+        <div className="tempo-pref-row-text">
+          <div className="tempo-pref-title">
+            {list.name}
+            <span className="tempo-pref-meta ml-2">{list.accountName}</span>
           </div>
+          {!editing && (
+            <div className="tempo-pref-description whitespace-pre-wrap">
+              {value || 'No context. Tempo uses the reminder title and list name.'}
+            </div>
+          )}
         </div>
-      ) : (
-        <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
-          {value || 'No default context. Tempo uses the reminder title and list name.'}
-        </p>
+        <div className="tempo-pref-control">
+          {editing ? (
+            <>
+              <Button variant="glass" size="compact" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="compact"
+                disabled={mutation.isLoading}
+                onClick={() =>
+                  mutation.mutate({ token: token || '', listId: list.id, focusContext: draft })
+                }
+              >
+                Save
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              size="compact"
+              className="tempo-pref-icon-button"
+              aria-label={`Edit focus context for ${list.name}`}
+              title="Edit"
+              onClick={() => {
+                setDraft(value)
+                setEditing(true)
+              }}
+            >
+              <Pencil aria-hidden="true" />
+            </Button>
+          )}
+        </div>
+      </div>
+      {editing && (
+        <Textarea
+          autoFocus
+          aria-label={`Focus context for ${list.name}`}
+          rows={3}
+          maxLength={1000}
+          value={draft}
+          className="tempo-pref-input mt-2"
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => event.key === 'Escape' && setEditing(false)}
+          placeholder="For example: Watch Machine Learning lectures, review the material, and create related flashcards."
+        />
       )}
     </div>
   )

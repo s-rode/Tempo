@@ -1,21 +1,40 @@
+import { useEffect, useState } from 'react'
+import { AppRulesSettings } from '../components/settings/AppRulesSettings'
 import { AppleCalendarSettings } from '../components/settings/AppleCalendarSettings'
-import { RefreshCw, RotateCcw } from 'lucide-react'
-import { CategoryManagement } from '../components/settings/CategoryManagement' // We'll create this next
+import { BrowserTrackingSettings } from '../components/settings/BrowserTrackingSettings'
+import { CategoryManagement } from '../components/settings/CategoryManagement'
+import { ClassificationHealthSettings } from '../components/settings/ClassificationHealthSettings'
+import { ClassificationLearningSettings } from '../components/settings/ClassificationLearningSettings'
+import { ClassifierStrictnessSettings } from '../components/settings/ClassifierStrictnessSettings'
 import DistractionSoundSettings from '../components/settings/DistractionSoundSettings'
+import { FocusComparisonSettings } from '../components/settings/FocusComparisonSettings'
 import { PermissionsStatus } from '../components/settings/PermissionsStatus'
+import { PlanningSettings } from '../components/settings/PlanningSettings'
+import { RememberedCorrectionsSettings } from '../components/settings/RememberedCorrectionsSettings'
+import { SessionTransitionAlertSettings } from '../components/settings/SessionTransitionAlertSettings'
+import {
+  SettingsRow,
+  SettingsSection,
+  SettingsSegmented
+} from '../components/settings/SettingsLayout'
 import { ThemeSwitcher } from '../components/settings/ThemeSwitcher'
 import { TimerDisplaySettings } from '../components/settings/TimerDisplaySettings'
-import { BrowserTrackingSettings } from '../components/settings/BrowserTrackingSettings'
-import { FocusComparisonSettings } from '../components/settings/FocusComparisonSettings'
-import { SessionTransitionAlertSettings } from '../components/settings/SessionTransitionAlertSettings'
-import { RememberedCorrectionsSettings } from '../components/settings/RememberedCorrectionsSettings'
-import { PlanningSettings } from '../components/settings/PlanningSettings'
-import { ClassificationHealthSettings } from '../components/settings/ClassificationHealthSettings'
-import { AppRulesSettings } from '../components/settings/AppRulesSettings'
-import { ClassifierStrictnessSettings } from '../components/settings/ClassifierStrictnessSettings'
-import { ClassificationLearningSettings } from '../components/settings/ClassificationLearningSettings'
+import { RemindersSettings } from '../components/RemindersPanel'
 import { Button } from '../components/ui/button'
-import { useAuth } from '../contexts/AuthContext'
+
+type Pane = 'general' | 'planning' | 'alerts' | 'classification' | 'privacy'
+
+const PANES: ReadonlyArray<{ value: Pane; label: string }> = [
+  { value: 'general', label: 'General' },
+  { value: 'planning', label: 'Planning' },
+  { value: 'alerts', label: 'Alerts' },
+  { value: 'classification', label: 'Classification' },
+  { value: 'privacy', label: 'Privacy' }
+]
+
+// Kept across visits to Settings, like the selected pane of a macOS settings window.
+let lastPane: Pane = 'general'
+let handledPlanningRequest = 0
 
 interface SettingsPageProps {
   onResetOnboarding: () => void
@@ -28,101 +47,108 @@ export function SettingsPage({
   onRestartMonitoring,
   planningOpenRequest = 0
 }: SettingsPageProps) {
-  const { user, logout } = useAuth()
+  const pendingPlanningRequest =
+    planningOpenRequest > handledPlanningRequest ? planningOpenRequest : 0
+  const [pane, setPane] = useState<Pane>(() => (pendingPlanningRequest ? 'planning' : lastPane))
 
-  const LogOutButtonSection = () => {
-    return (
-      <section className="tempo-settings-row">
-        <div>
-          <h2>Account</h2>
-          <p>Logged in as: {user?.email || 'Unknown'}</p>
-        </div>
-        <Button onClick={logout} variant="destructive" size="sm">
-          Logout
-        </Button>
-      </section>
-    )
-  }
-
-  const OnboardingSection = () => {
-    return (
-      <section className="tempo-settings-row">
-        <div>
-          <h2>Onboarding</h2>
-          <p>Restart the setup process to review your plan and permissions.</p>
-        </div>
-        <Button onClick={onResetOnboarding} variant="outline" size="sm">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Reset Onboarding
-        </Button>
-      </section>
-    )
-  }
-
-  const MonitoringSection = () => (
-    <section className="tempo-settings-row">
-      <div>
-        <h2>Monitoring</h2>
-        <p>
-          If Tempo remains on an older activity after you switch apps, restart its local observer.
-          Your history, focus session, and timer settings are preserved.
-        </p>
-      </div>
-      <Button onClick={onRestartMonitoring} variant="outline" size="sm">
-        <RotateCcw className="w-4 h-4 mr-2" />
-        Restart monitoring
-      </Button>
-    </section>
-  )
+  useEffect(() => {
+    if (pendingPlanningRequest) setPane('planning')
+  }, [pendingPlanningRequest])
+  useEffect(() => {
+    lastPane = pane
+  }, [pane])
 
   return (
     <main className="flex-1 overflow-y-auto">
-      <div className="tempo-settings mx-auto max-w-3xl px-8 py-7">
-        <header className="mb-6">
-          <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Preferences are stored locally on this Mac.
-          </p>
+      <div className="tempo-prefs">
+        <header className="tempo-prefs-header">
+          <div>
+            <h1>Settings</h1>
+            <p>Preferences are stored locally on this Mac.</p>
+          </div>
+          <SettingsSegmented
+            aria-label="Settings section"
+            className="tempo-prefs-tabs"
+            value={pane}
+            options={PANES}
+            onChange={setPane}
+          />
         </header>
-        <section className="tempo-settings-group">
-          <h2>Planning and focus</h2>
-          <AppleCalendarSettings />
-          <PlanningSettings openRequest={planningOpenRequest} />
-          <SessionTransitionAlertSettings />
-        </section>
-        <section className="tempo-settings-group">
-          <h2>Appearance and timers</h2>
-          <ThemeSwitcher />
-          <TimerDisplaySettings />
-        </section>
-        <section className="tempo-settings-group">
-          <h2>Dashboard</h2>
-          <FocusComparisonSettings />
-        </section>
-        <section className="tempo-settings-group">
-          <h2>Browsers</h2>
-          <BrowserTrackingSettings />
-        </section>
-        <section className="tempo-settings-group">
-          <h2>Activity feedback</h2>
-          <CategoryManagement />
-          <DistractionSoundSettings />
-          <ClassifierStrictnessSettings />
-          <AppRulesSettings />
-          <ClassificationLearningSettings />
-          <RememberedCorrectionsSettings />
-          <ClassificationHealthSettings />
-        </section>
-        <section className="tempo-settings-group">
-          <h2>Privacy and permissions</h2>
-          <PermissionsStatus />
-        </section>
-        <section className="tempo-settings-group">
-          <h2>Support</h2>
-          <MonitoringSection />
-          <OnboardingSection />
-          <LogOutButtonSection />
-        </section>
+
+        {pane === 'general' && (
+          <>
+            <SettingsSection title="General">
+              <ThemeSwitcher />
+              <FocusComparisonSettings />
+            </SettingsSection>
+            <TimerDisplaySettings />
+            <SettingsSection
+              title="Troubleshooting"
+              footer="Your history, focus session and timer settings are kept."
+            >
+              <SettingsRow
+                title="Restart monitoring"
+                description="Use this if Tempo keeps showing an older activity after you switch apps."
+                control={
+                  <Button variant="glass" size="compact" onClick={onRestartMonitoring}>
+                    Restart
+                  </Button>
+                }
+              />
+              <SettingsRow
+                title="Onboarding"
+                description="Run the setup again to review your plan and permissions."
+                control={
+                  <Button variant="glass" size="compact" onClick={onResetOnboarding}>
+                    Run Setup…
+                  </Button>
+                }
+              />
+            </SettingsSection>
+          </>
+        )}
+
+        {pane === 'planning' && (
+          <>
+            <PlanningSettings
+              openRequest={pendingPlanningRequest}
+              onOpenRequestHandled={(request) => {
+                handledPlanningRequest = request
+              }}
+            />
+            <AppleCalendarSettings />
+            <RemindersSettings />
+          </>
+        )}
+
+        {pane === 'alerts' && (
+          <>
+            <DistractionSoundSettings />
+            <SessionTransitionAlertSettings />
+          </>
+        )}
+
+        {pane === 'classification' && (
+          <>
+            <SettingsSection title="Classifier">
+              <ClassifierStrictnessSettings />
+            </SettingsSection>
+            <CategoryManagement />
+            <AppRulesSettings />
+            <ClassificationLearningSettings />
+            <RememberedCorrectionsSettings />
+            <ClassificationHealthSettings />
+          </>
+        )}
+
+        {pane === 'privacy' && (
+          <>
+            <PermissionsStatus />
+            <SettingsSection title="Browsers">
+              <BrowserTrackingSettings />
+            </SettingsSection>
+          </>
+        )}
       </div>
     </main>
   )

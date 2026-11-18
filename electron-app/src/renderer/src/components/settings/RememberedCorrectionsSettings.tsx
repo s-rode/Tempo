@@ -3,6 +3,7 @@ import { toast } from '../../hooks/use-toast'
 import { useAuth } from '../../contexts/AuthContext'
 import { trpc } from '../../utils/trpc'
 import { Button } from '../ui/button'
+import { SettingsPlaceholder, SettingsSection } from './SettingsLayout'
 
 /** A compact, reviewable record of the user’s local correction choices. */
 export function RememberedCorrectionsSettings() {
@@ -52,84 +53,74 @@ export function RememberedCorrectionsSettings() {
   }
 
   return (
-    <section className="tempo-settings-row items-start max-md:flex-col">
-      <div>
-        <h2>Exact remembered corrections</h2>
-        <p>
-          Tempo remembers a corrected browser page only while the same effective goal is active.
-          These exact rules are separate from Classification learning.
-          Page addresses and captured text are never shown or stored here.
-        </p>
-      </div>
-      <div className="w-[340px] max-w-full shrink-0">
-        {corrections.isLoading ? (
-          <p className="flex items-center gap-2 py-1 text-xs text-muted-foreground">
+    <SettingsSection
+      title="Remembered corrections"
+      description="A corrected browser page is remembered only while the same goal is active. Page addresses and captured text are never shown or stored here."
+      footer={
+        remembered.length > 0 && (
+          <button
+            type="button"
+            className="tempo-pref-link"
+            disabled={busy}
+            onClick={() => {
+              if (
+                window.confirm(
+                  'Clear all exact remembered corrections? Learned patterns will remain.'
+                )
+              )
+                clear.mutate({ token })
+            }}
+          >
+            Clear remembered corrections…
+          </button>
+        )
+      }
+    >
+      {corrections.isLoading ? (
+        <SettingsPlaceholder>
+          <span className="inline-flex items-center gap-2">
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Loading corrections…
-          </p>
-        ) : remembered.length === 0 ? (
-          <p className="py-1 text-xs text-muted-foreground">No remembered corrections yet.</p>
-        ) : (
-          <>
-            <ul
-              className="overflow-hidden rounded-md border bg-background"
-              aria-label="Exact remembered corrections"
-            >
-              {remembered.map((correction) => (
-                <li
-                  key={correction.id}
-                  className="flex min-h-11 items-center gap-2 border-b px-2.5 last:border-b-0"
-                >
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{
-                      backgroundColor: correction.categoryColor || 'hsl(var(--muted-foreground))'
-                    }}
-                    aria-hidden="true"
-                  />
-                  <div className="min-w-0 flex-1 py-1.5">
-                    <p className="truncate text-xs font-medium text-foreground">
-                      {correction.label}
-                    </p>
-                    <p className="truncate text-[11px] text-muted-foreground">
-                      {correction.categoryName} ·{' '}
-                      {correction.scope === 'page_goal' ? 'Page for this goal' : 'Exact activity'}
-                    </p>
+          </span>
+        </SettingsPlaceholder>
+      ) : remembered.length === 0 ? (
+        <SettingsPlaceholder>No remembered corrections yet.</SettingsPlaceholder>
+      ) : (
+        <ul className="tempo-pref-scroll-list" aria-label="Remembered corrections">
+          {remembered.map((correction) => (
+            <li key={correction.id} className="tempo-pref-row tempo-pref-list-row">
+              <div className="tempo-pref-row-main">
+                <span
+                  className="tempo-pref-dot"
+                  style={{
+                    backgroundColor: correction.categoryColor || 'hsl(var(--muted-foreground))'
+                  }}
+                  aria-hidden="true"
+                />
+                <div className="tempo-pref-row-text">
+                  <div className="tempo-pref-title truncate">{correction.label}</div>
+                  <div className="tempo-pref-description truncate">
+                    {correction.categoryName} ·{' '}
+                    {correction.scope === 'page_goal' ? 'Page for this goal' : 'Exact activity'}
                   </div>
+                </div>
+                <div className="tempo-pref-control">
                   <Button
                     variant="ghost"
-                    size="xs"
+                    size="compact"
                     disabled={busy}
                     onClick={() => removeRule(correction.id, correction.label)}
                     aria-label={`Remove remembered correction for ${correction.label}`}
-                    title="Remove remembered correction"
-                    className="text-muted-foreground hover:text-destructive"
+                    title="Remove"
+                    className="tempo-pref-icon-button tempo-pref-danger"
                   >
-                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    <Trash2 aria-hidden="true" />
                   </Button>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-2 flex justify-end">
-              <Button
-                variant="outline"
-                size="xs"
-                disabled={busy}
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      'Clear all exact remembered corrections? Learned patterns will remain.'
-                    )
-                  ) {
-                    clear.mutate({ token })
-                  }
-                }}
-              >
-                Clear exact corrections
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
-    </section>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </SettingsSection>
   )
 }

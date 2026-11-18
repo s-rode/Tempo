@@ -1005,57 +1005,6 @@
     margin-top: 2px;
     font-size: 11px;
   }
-  .tempo-settings {
-    padding-bottom: 48px;
-  }
-  .tempo-settings-group {
-    margin-top: 28px;
-    border: 1px solid hsl(var(--border));
-    border-radius: 10px;
-    background: hsl(var(--card));
-    overflow: hidden;
-  }
-  .tempo-settings-group > h2 {
-    padding: 11px 14px;
-    border-bottom: 1px solid hsl(var(--border));
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
-  }
-  .tempo-settings-group > .rounded-lg,
-  .tempo-settings-group > [class*='rounded-lg'] {
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
-  .tempo-settings-group > .rounded-lg + .rounded-lg,
-  .tempo-settings-group > [class*='rounded-lg'] + [class*='rounded-lg'] {
-    border-top: 1px solid hsl(var(--border));
-  }
-  .tempo-settings-group > .rounded-lg > div:first-child,
-  .tempo-settings-group > [class*='rounded-lg'] > div:first-child {
-    padding-top: 16px;
-  }
-  .tempo-settings-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    padding: 14px;
-    border-top: 1px solid hsl(var(--border));
-  }
-  .tempo-settings-row h2 {
-    font-size: 13px;
-    font-weight: 600;
-  }
-  .tempo-settings-row p {
-    margin-top: 3px;
-    max-width: 560px;
-    font-size: 12px;
-    color: hsl(var(--muted-foreground));
-  }
   .tempo-today-plan {
     padding: 0 0 14px;
     border-bottom: 1px solid hsl(var(--border));
@@ -1263,71 +1212,6 @@
     background: hsl(var(--border));
     content: '';
   }
-  .tempo-planning-settings {
-    display: flex;
-    flex-direction: column;
-  }
-  .tempo-planning-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 14px;
-    border-top: 1px solid hsl(var(--border));
-  }
-  .tempo-planning-row:first-child {
-    border-top: 0;
-  }
-  .tempo-planning-row-icon {
-    display: flex;
-    width: 24px;
-    height: 24px;
-    flex: 0 0 24px;
-    align-items: center;
-    justify-content: center;
-    border-radius: 5px;
-    background: hsl(var(--muted));
-    color: hsl(var(--muted-foreground));
-  }
-  .tempo-planning-row h3 {
-    font-size: 13px;
-    font-weight: 600;
-  }
-  .tempo-planning-row h3 + span,
-  .tempo-planning-row p {
-    color: hsl(var(--muted-foreground));
-    font-size: 11px;
-  }
-  .tempo-planning-row p {
-    margin-top: 2px;
-  }
-  .tempo-planning-row textarea {
-    margin-top: 8px;
-    min-height: 64px;
-    font-size: 12px;
-  }
-  .tempo-planning-value {
-    color: hsl(var(--foreground)) !important;
-  }
-  .tempo-planning-field {
-    display: block;
-    color: hsl(var(--foreground));
-    font-size: 12px;
-    font-weight: 500;
-  }
-  .tempo-planning-field em {
-    color: hsl(var(--muted-foreground));
-    font-size: 10px;
-    font-style: normal;
-    font-weight: 400;
-  }
-  .tempo-planning-field small,
-  .tempo-planning-secondary {
-    color: hsl(var(--muted-foreground));
-    font-size: 11px;
-  }
-  .tempo-planning-secondary {
-    margin-top: 5px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1434,6 +1318,366 @@
 .tempo-insight-bar-track {
   border-radius: 999px;
   background: var(--glass-track);
+}
+
+/* Settings.  Laid out like a macOS settings pane: a titled section holds one
+   glass group of rows, each row with its label on the left and a single
+   control on the right, separated by inset hairlines.  The groups use the
+   same glass recipe as the Analysis cards. */
+.tempo-prefs {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 26px 32px 56px;
+}
+.tempo-prefs-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin-bottom: 22px;
+}
+.tempo-prefs-header h1 {
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.tempo-prefs-header p {
+  margin-top: 2px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+.tempo-glass-segmented.tempo-pref-segmented > button {
+  height: 22px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.tempo-glass-segmented.tempo-prefs-tabs > button {
+  height: 26px;
+  padding: 0 12px;
+}
+.tempo-pref-section + .tempo-pref-section {
+  margin-top: 24px;
+}
+.tempo-pref-section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px 7px;
+}
+.tempo-pref-section-header h2 {
+  color: hsl(var(--foreground));
+  font-size: 13px;
+  font-weight: 600;
+}
+.tempo-pref-section-header p {
+  max-width: 560px;
+  margin-top: 2px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.tempo-pref-group {
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--insight-card-top), var(--insight-card-bottom));
+  box-shadow:
+    inset 0 1px 0 var(--glass-rim),
+    0 0 0 0.5px var(--glass-edge),
+    0 6px 20px -12px var(--glass-surface-shadow);
+}
+.tempo-pref-group > :first-child {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+.tempo-pref-footnote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 7px 14px 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  line-height: 1.4;
+}
+.tempo-pref-footnote-actions {
+  display: inline-flex;
+  gap: 12px;
+}
+.tempo-pref-row,
+.tempo-pref-placeholder {
+  position: relative;
+  padding: 10px 14px;
+}
+/* Inset hairline between neighbouring rows, as in macOS grouped lists. */
+.tempo-pref-row + .tempo-pref-row::before,
+.tempo-pref-row + .tempo-pref-placeholder::before,
+.tempo-pref-placeholder + .tempo-pref-row::before,
+.tempo-pref-row + .tempo-pref-scroll-list::before,
+.tempo-pref-scroll-list + .tempo-pref-row::before,
+.tempo-pref-scroll-list > .tempo-pref-row + .tempo-pref-row::before,
+.tempo-pref-form + .tempo-pref-row::before,
+.tempo-pref-row + .tempo-pref-form::before,
+.tempo-pref-form + .tempo-pref-placeholder::before {
+  position: absolute;
+  top: 0;
+  right: 14px;
+  left: 14px;
+  height: 1px;
+  background: var(--glass-divider);
+  content: '';
+}
+.tempo-pref-scroll-list,
+.tempo-pref-form {
+  position: relative;
+}
+.tempo-pref-scroll-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.tempo-pref-row[data-inactive] .tempo-pref-row-text {
+  opacity: 0.5;
+}
+.tempo-pref-row-main {
+  display: flex;
+  min-height: 26px;
+  align-items: center;
+  gap: 12px;
+}
+.tempo-pref-row-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.tempo-pref-title {
+  display: block;
+  color: hsl(var(--foreground));
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.tempo-pref-description {
+  max-width: 520px;
+  margin-top: 2px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.tempo-pref-meta {
+  color: hsl(var(--muted-foreground));
+  font-size: 11.5px;
+  font-weight: 400;
+}
+.tempo-pref-control {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.tempo-pref-row-body {
+  margin-top: 10px;
+}
+.tempo-pref-placeholder {
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+.tempo-pref-list-row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.tempo-pref-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.12);
+}
+.tempo-pref-dot[data-tone='good'] {
+  background: var(--insight-focus);
+}
+.tempo-pref-dot[data-tone='bad'] {
+  background: var(--insight-distract);
+}
+.tempo-pref-dot[data-tone='muted'] {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+.tempo-pref-inline-label {
+  color: hsl(var(--muted-foreground));
+  font-size: 11.5px;
+}
+.tempo-pref-status {
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+.tempo-pref-status[data-granted] {
+  color: hsl(152 58% 36%);
+}
+.dark .tempo-pref-status[data-granted] {
+  color: hsl(152 52% 58%);
+}
+.tempo-pref-value p {
+  color: hsl(var(--foreground));
+  font-size: 12.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.tempo-pref-value p[data-empty] {
+  color: hsl(var(--muted-foreground));
+}
+.tempo-pref-value .tempo-pref-description {
+  margin-top: 4px;
+}
+/* Native pop-up button: system menu, glass pill face. */
+.tempo-pref-select {
+  height: 24px;
+  max-width: 220px;
+  appearance: none;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 26px 0 9px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12' viewBox='0 0 8 12' fill='none' stroke='%238e8e93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 4.5 4 1.5l3 3M1 7.5l3 3 3-3'/%3E%3C/svg%3E")
+      no-repeat right 9px center,
+    linear-gradient(180deg, var(--glass-pill-top), var(--glass-pill-bottom));
+  box-shadow:
+    inset 0 0.5px 0 var(--glass-rim),
+    0 0 0 0.5px var(--glass-edge),
+    0 1px 2px -1px var(--glass-shadow);
+  color: hsl(var(--foreground));
+  font-size: 12px;
+  outline: none;
+}
+.tempo-pref-select:focus-visible {
+  box-shadow:
+    0 0 0 0.5px var(--glass-edge),
+    0 0 0 3px color-mix(in srgb, var(--tempo-system-accent) 40%, transparent);
+}
+.tempo-pref-select:disabled {
+  opacity: 0.5;
+}
+.tempo-glass-button {
+  background: linear-gradient(180deg, var(--glass-pill-top), var(--glass-pill-bottom));
+  box-shadow:
+    inset 0 0.5px 0 var(--glass-rim),
+    0 0 0 0.5px var(--glass-edge),
+    0 1px 2px -1px var(--glass-shadow);
+}
+.tempo-glass-button:hover {
+  filter: brightness(1.03);
+}
+.dark .tempo-glass-button:hover {
+  filter: brightness(1.18);
+}
+.tempo-pref-icon-button {
+  width: 26px;
+  padding: 0;
+  color: hsl(var(--muted-foreground));
+}
+.tempo-pref-icon-button:hover {
+  background: var(--glass-track);
+  color: hsl(var(--foreground));
+}
+.tempo-pref-danger:hover {
+  color: hsl(var(--destructive));
+}
+.tempo-pref-link {
+  color: var(--tempo-system-accent);
+  font-size: 11px;
+}
+.tempo-pref-link:hover {
+  text-decoration: underline;
+}
+.tempo-pref-link:disabled {
+  opacity: 0.5;
+  text-decoration: none;
+}
+.tempo-pref-input {
+  height: 26px;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+textarea.tempo-pref-input {
+  height: auto;
+  min-height: 52px;
+  padding: 6px 8px;
+}
+.tempo-pref-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+.tempo-pref-number {
+  width: 54px;
+  border: 1px solid hsl(var(--input));
+  background: hsl(var(--background));
+  text-align: right;
+}
+.tempo-pref-form {
+  padding: 12px 14px;
+}
+.tempo-pref-form-grid {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px 12px;
+}
+.tempo-pref-form-grid > label,
+.tempo-pref-form-grid > span {
+  align-self: start;
+  padding-top: 5px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  text-align: right;
+}
+.tempo-pref-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.tempo-pref-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 3px;
+}
+.tempo-pref-swatch {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.18);
+  color: white;
+}
+.tempo-pref-swatch[aria-checked='true'] {
+  box-shadow:
+    0 0 0 2px hsl(var(--card)),
+    0 0 0 3.5px hsl(var(--foreground) / 0.35);
+}
+.tempo-pref-subgroup {
+  border-radius: 8px;
+  background: var(--glass-track);
+}
+.tempo-pref-subrow {
+  position: relative;
+  padding: 8px 10px;
+}
+.tempo-pref-subrow + .tempo-pref-subrow {
+  border-top: 1px solid var(--glass-divider);
+}
+.tempo-pref-stats {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 24px;
+  font-size: 12px;
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -1556,7 +1800,6 @@
 .tempo-calendar-agenda-row:hover, .tempo-calendar-agenda-row[aria-pressed=true] { background: hsl(var(--accent)); }
 .tempo-calendar-show-more { margin-top: 4px; font-size: 11px; color: hsl(var(--muted-foreground)); }
 .tempo-calendar-event-detail { margin-top: 8px; padding: 10px; border: 1px solid hsl(var(--border)); border-radius: 6px; background: hsl(var(--muted) / .5); overflow-wrap: anywhere; }
-.tempo-calendar-settings { padding-bottom: 14px; border-bottom: 1px solid hsl(var(--border)); }
 .tempo-calendar-source-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 4px; }
 .tempo-calendar-source { display: flex; min-width: 0; align-items: center; gap: 7px; border-radius: 5px; padding: 5px 6px; }
 .tempo-calendar-source:hover { background: hsl(var(--muted)); }
