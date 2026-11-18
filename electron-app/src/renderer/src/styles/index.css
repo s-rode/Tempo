@@ -312,9 +312,30 @@
     padding: 0 8px;
     font-size: 12px;
   }
+  /* The current-activity card at the top of the Today inspector. */
   .tempo-inspector-section {
-    border-bottom: 1px solid hsl(var(--border));
-    padding: 16px;
+    --now-tint: transparent;
+    border-radius: 14px;
+    padding: 12px 14px;
+    background:
+      linear-gradient(var(--now-tint), var(--now-tint)),
+      linear-gradient(180deg, var(--insight-card-top), var(--insight-card-bottom));
+    box-shadow:
+      inset 0 1px 0 var(--glass-rim),
+      0 0 0 0.5px var(--glass-edge),
+      0 6px 20px -12px var(--glass-surface-shadow);
+  }
+  .tempo-inspector-section[data-state='focused'] {
+    --now-tint: rgb(0 122 255 / 0.08);
+  }
+  .tempo-inspector-section[data-state='distracted'] {
+    --now-tint: rgb(255 59 48 / 0.1);
+  }
+  .dark .tempo-inspector-section[data-state='focused'] {
+    --now-tint: rgb(10 132 255 / 0.16);
+  }
+  .dark .tempo-inspector-section[data-state='distracted'] {
+    --now-tint: rgb(255 69 58 / 0.16);
   }
   .tempo-week-focus-chart {
     margin-top: 16px;
@@ -483,15 +504,13 @@
     background: hsl(var(--muted));
   }
   .tempo-day-workspace {
-    background: hsl(var(--card));
+    background: hsl(var(--background));
   }
   .tempo-day-toolbar {
     display: flex;
-    min-height: 44px;
+    min-height: 48px;
     align-items: center;
-    padding: 0 16px;
-    border-bottom: 1px solid hsl(var(--border));
-    background: hsl(var(--card));
+    padding: 8px 16px;
   }
   .tempo-date-button {
     height: 26px;
@@ -500,10 +519,12 @@
     border-radius: 5px;
   }
   .tempo-date-title {
-    min-width: 176px;
+    min-width: 132px;
     color: hsl(var(--foreground));
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
+    letter-spacing: -0.01em;
+    text-align: center;
   }
   .tempo-date-now {
     height: 26px;
@@ -515,484 +536,6 @@
   .tempo-date-now:disabled {
     color: hsl(var(--muted-foreground));
     opacity: 0.7;
-  }
-  .tempo-day-empty-state {
-    display: grid;
-    min-height: 220px;
-    place-items: center;
-    color: hsl(var(--muted-foreground));
-    font-size: 13px;
-  }
-  .tempo-day-timeline {
-    container-type: inline-size;
-    padding: 8px 16px 24px 8px;
-  }
-  .tempo-timeline-overview {
-    padding: 8px 12px 16px 74px;
-  }
-  .tempo-timeline-grouping {
-    margin-top: 9px;
-    font-size: 11px;
-    color: hsl(var(--muted-foreground));
-  }
-  .tempo-timeline-grouping summary {
-    cursor: pointer;
-    width: fit-content;
-  }
-  .tempo-timeline-grouping p {
-    max-width: 65ch;
-    margin-top: 6px;
-    line-height: 1.6;
-  }
-  .tempo-timeline-row-heading {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 4px 10px;
-    margin-bottom: 2px;
-  }
-  .tempo-timeline-block-kind {
-    font-size: 10px;
-    color: hsl(var(--muted-foreground));
-    font-weight: 500;
-  }
-  .tempo-timeline-block-title {
-    display: block;
-    font-size: 13px;
-    font-weight: 500;
-    overflow-wrap: anywhere;
-    line-height: 1.45;
-  }
-  .tempo-timeline-app-summary {
-    margin-top: 3px;
-    font-size: 11px;
-    color: hsl(var(--muted-foreground));
-    overflow-wrap: anywhere;
-  }
-  .tempo-timeline-mix {
-    margin-top: 4px;
-    font-size: 11px;
-    color: hsl(var(--muted-foreground));
-  }
-  .tempo-timeline-sequence {
-    margin: 12px 0;
-    border-top: 1px solid hsl(var(--border));
-    padding-top: 9px;
-  }
-  .tempo-timeline-step {
-    display: grid;
-    grid-template-columns: 35px minmax(0, 1fr) auto;
-    gap: 8px;
-    align-items: start;
-    width: 100%;
-    text-align: left;
-    border-radius: 4px;
-    padding: 7px 4px;
-    font-size: 11px;
-  }
-  .tempo-timeline-step:hover,
-  .tempo-timeline-step.is-selected {
-    background: hsl(var(--accent));
-  }
-  .tempo-timeline-step time {
-    color: hsl(var(--muted-foreground));
-    font-variant-numeric: tabular-nums;
-  }
-  .tempo-timeline-step-title {
-    display: block;
-    overflow-wrap: anywhere;
-  }
-  .tempo-timeline-step-meta {
-    display: block;
-    margin-top: 2px;
-    font-size: 10px;
-    color: hsl(var(--muted-foreground));
-  }
-  .tempo-timeline-step-state {
-    text-align: right;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-  .tempo-timeline-step-state > .tempo-timeline-state-dot {
-    margin-right: 4px;
-  }
-  .tempo-timeline-row:focus-visible,
-  .tempo-timeline-step:focus-visible,
-  .tempo-timeline-grouping summary:focus-visible {
-    outline: 2px solid var(--tempo-system-accent);
-    outline-offset: 2px;
-  }
-  .tempo-timeline-item {
-    display: grid;
-    grid-template-columns: 56px 18px minmax(0, 1fr);
-    min-height: 66px;
-  }
-  .tempo-timeline-time {
-    padding: 13px 8px 0 0;
-    color: hsl(var(--muted-foreground));
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-  }
-  .tempo-timeline-axis {
-    position: relative;
-    display: flex;
-    justify-content: center;
-  }
-  .tempo-timeline-axis::before {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background: hsl(var(--border));
-    content: '';
-  }
-  .tempo-timeline-axis > span {
-    position: relative;
-    z-index: 1;
-    display: block;
-    width: 7px;
-    height: 7px;
-    margin-top: 16px;
-    border: 2px solid hsl(var(--card));
-    border-radius: 999px;
-    background: hsl(var(--muted-foreground));
-  }
-  .tempo-timeline-axis.is-focused > span {
-    background: hsl(152 58% 44%);
-  }
-  .tempo-timeline-axis.is-distracted > span {
-    background: hsl(351 78% 59%);
-  }
-  .tempo-timeline-axis.is-uncertain > span {
-    background: hsl(38 92% 50%);
-  }
-  .tempo-timeline-row {
-    position: relative;
-    display: block;
-    width: 100%;
-    min-width: 0;
-    min-height: 58px;
-    margin: 4px 0;
-    overflow: hidden;
-    border-bottom: 1px solid hsl(var(--border));
-    border-radius: 6px;
-    padding: 9px 12px 8px;
-    color: hsl(var(--foreground));
-    text-align: left;
-    transition:
-      background-color 120ms ease,
-      box-shadow 120ms ease;
-  }
-  .tempo-timeline-row:hover {
-    background: hsl(var(--muted));
-  }
-  .tempo-timeline-row.is-related {
-    box-shadow: inset 2px 0 0 hsl(var(--ring) / 0.52);
-  }
-  .tempo-timeline-row.is-selected {
-    background: hsl(var(--accent));
-    box-shadow: inset 2px 0 0 var(--tempo-system-accent);
-  }
-  .tempo-timeline-content {
-    min-width: 0;
-  }
-  .tempo-timeline-row-content {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 9px;
-    padding-bottom: 6px;
-  }
-  .tempo-timeline-duration {
-    display: flex;
-    flex: none;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 1px;
-    color: hsl(var(--muted-foreground));
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-  }
-  .tempo-timeline-duration > span:first-child {
-    color: hsl(var(--foreground));
-    font-size: 12px;
-    font-weight: 600;
-  }
-  .tempo-timeline-disclosure {
-    flex: none;
-    margin-left: 3px;
-    color: hsl(var(--muted-foreground));
-    transition:
-      transform 120ms ease,
-      color 120ms ease;
-  }
-  .tempo-timeline-row:hover .tempo-timeline-disclosure {
-    color: hsl(var(--foreground));
-  }
-  .tempo-timeline-disclosure.is-expanded {
-    transform: rotate(180deg);
-    color: hsl(var(--foreground));
-  }
-  .tempo-timeline-focus-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: hsl(var(--muted-foreground));
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.035em;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-  .tempo-timeline-focus-adherence {
-    color: hsl(var(--muted-foreground));
-    font-size: 11px;
-    font-weight: 500;
-    white-space: nowrap;
-  }
-  .tempo-timeline-focus-adherence.is-on_track {
-    color: hsl(152 58% 38%);
-  }
-  .tempo-timeline-focus-adherence.is-mostly_on_track {
-    color: hsl(152 45% 40%);
-  }
-  .tempo-timeline-focus-adherence.is-interrupted {
-    color: hsl(351 65% 48%);
-  }
-  .tempo-timeline-focus-adherence.is-mostly_uncertain {
-    color: hsl(38 78% 42%);
-  }
-  .tempo-timeline-focus-detail {
-    margin-bottom: 9px;
-    border-bottom: 1px solid hsl(var(--border));
-    padding-bottom: 9px;
-  }
-  .tempo-timeline-focus-detail.is-compact {
-    margin-bottom: 8px;
-    padding-bottom: 8px;
-  }
-  .tempo-timeline-focus-detail .tempo-timeline-state-dot {
-    margin: 0 4px 1px 0;
-  }
-  .tempo-timeline-rail {
-    display: flex;
-    height: 3px;
-    overflow: hidden;
-    border-radius: 999px;
-    background: hsl(var(--muted));
-  }
-  .tempo-timeline-rail > span {
-    min-width: 2px;
-  }
-  .tempo-timeline-rail .is-focused {
-    background: hsl(152 58% 44%);
-  }
-  .tempo-timeline-rail .is-distracted {
-    background: hsl(351 78% 59%);
-  }
-  .tempo-timeline-rail .is-uncertain {
-    background: hsl(38 92% 50%);
-  }
-  .tempo-timeline-detail {
-    margin: 0 0 8px;
-    border-bottom: 1px solid hsl(var(--border));
-    padding: 2px 12px 10px;
-  }
-  .tempo-timeline-detail-card {
-    border-radius: 6px;
-    background: hsl(var(--muted) / 0.5);
-    padding: 10px 12px;
-  }
-  .tempo-timeline-state-dot {
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 999px;
-  }
-  .tempo-timeline-state-dot.is-focused {
-    background: hsl(152 58% 44%);
-  }
-  .tempo-timeline-state-dot.is-distracted {
-    background: hsl(351 78% 59%);
-  }
-  .tempo-timeline-state-dot.is-uncertain {
-    background: hsl(38 92% 50%);
-  }
-  .tempo-timeline-gap {
-    display: grid;
-    grid-template-columns: 56px 18px minmax(0, 1fr);
-    min-height: 36px;
-  }
-  .tempo-timeline-gap > span {
-    grid-column: 2;
-    position: relative;
-  }
-  .tempo-timeline-gap > span::before {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    border-left: 1px dashed hsl(var(--border));
-    content: '';
-  }
-  .tempo-timeline-gap > div {
-    grid-column: 3;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: hsl(var(--muted-foreground));
-    font-size: 11px;
-  }
-  /* Day-inspector source list: deliberately list-like rather than a stack of cards. */
-  .tempo-activity-source-list {
-    margin: 0 -6px;
-  }
-  .tempo-activity-source-row {
-    display: grid;
-    grid-template-columns: 20px minmax(0, 1fr) 62px;
-    align-items: center;
-    width: 100%;
-    min-height: 42px;
-    gap: 8px;
-    border-radius: 6px;
-    padding: 5px 6px;
-    color: hsl(var(--foreground));
-    text-align: left;
-    transition: background-color 120ms ease;
-  }
-  .tempo-activity-source-row:hover {
-    background: hsl(var(--muted));
-  }
-  .tempo-activity-source-row.is-selected,
-  .tempo-activity-source-row[aria-pressed='true'] {
-    background: hsl(var(--accent));
-    color: hsl(var(--accent-foreground));
-  }
-  .tempo-activity-source-name,
-  .tempo-activity-source-subtitle {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .tempo-activity-source-name {
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1.25;
-  }
-  .tempo-activity-source-subtitle {
-    margin-top: 1px;
-    color: hsl(var(--muted-foreground));
-    font-size: 10px;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.25;
-  }
-  .tempo-activity-source-duration {
-    display: grid;
-    justify-items: end;
-    gap: 4px;
-    color: hsl(var(--foreground));
-    font-size: 11px;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-  }
-  .tempo-activity-state-rail {
-    display: flex;
-    width: 58px;
-    height: 3px;
-    overflow: hidden;
-    border-radius: 999px;
-    background: hsl(var(--muted));
-  }
-  .tempo-activity-state-rail.is-empty {
-    opacity: 0.55;
-  }
-  .tempo-activity-state-rail > span {
-    min-width: 2px;
-  }
-  .tempo-activity-state-rail .is-focused,
-  .tempo-activity-state-dot.is-focused {
-    background: hsl(152 58% 44%);
-  }
-  .tempo-activity-state-rail .is-distracted,
-  .tempo-activity-state-dot.is-distracted {
-    background: hsl(351 78% 59%);
-  }
-  .tempo-activity-state-rail .is-uncertain,
-  .tempo-activity-state-dot.is-uncertain {
-    background: hsl(38 92% 50%);
-  }
-  .tempo-activity-inspector {
-    border-top: 1px solid hsl(var(--border));
-    padding-top: 12px;
-  }
-  .tempo-activity-inspector-heading {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .tempo-activity-breakdown {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
-    margin-top: 8px;
-  }
-  .tempo-activity-breakdown-row {
-    display: grid;
-    grid-template-columns: 6px auto auto;
-    align-items: center;
-    gap: 5px;
-    color: hsl(var(--muted-foreground));
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-  }
-  .tempo-activity-breakdown-row time,
-  .tempo-activity-detail-row time {
-    color: hsl(var(--foreground));
-  }
-  .tempo-activity-state-dot {
-    display: block;
-    width: 6px;
-    height: 6px;
-    border-radius: 999px;
-  }
-  .tempo-activity-inspector-section {
-    margin-top: 12px;
-    border-top: 1px solid hsl(var(--border));
-    padding-top: 10px;
-  }
-  .tempo-activity-inspector-label {
-    margin-bottom: 5px;
-    color: hsl(var(--muted-foreground));
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.055em;
-    text-transform: uppercase;
-  }
-  .tempo-activity-detail-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-    min-height: 22px;
-    color: hsl(var(--foreground));
-    font-size: 12px;
-  }
-  .tempo-activity-detail-row time {
-    flex: none;
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-  }
-  .tempo-activity-inspector-action {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 12px;
-    border-top: 1px solid hsl(var(--border));
-    padding-top: 10px;
   }
   .tempo-activity-inspector-empty {
     display: flex;
@@ -1453,74 +996,6 @@
   .tempo-date-title {
     min-width: 0;
   }
-  .tempo-timeline-item {
-    grid-template-columns: 48px 16px minmax(0, 1fr);
-  }
-  .tempo-timeline-gap {
-    grid-template-columns: 48px 16px minmax(0, 1fr);
-  }
-  .tempo-timeline-overview {
-    padding-left: 64px;
-  }
-  .tempo-timeline-row-content {
-    flex-wrap: wrap;
-  }
-  .tempo-timeline-duration {
-    max-width: 100%;
-  }
-  .tempo-timeline-duration > span:last-child {
-    display: block;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tempo-timeline-row,
-  .tempo-timeline-disclosure {
-    transition: none;
-  }
-}
-@media (prefers-contrast: more) {
-  .tempo-timeline-row,
-  .tempo-timeline-detail-card {
-    border: 1px solid hsl(var(--foreground));
-  }
-}
-
-@container (max-width: 500px) {
-  .tempo-timeline-row-content {
-    display: grid;
-    grid-template-columns: 19px minmax(0, 1fr) 14px;
-    align-items: start;
-    gap: 6px 8px;
-  }
-  .tempo-timeline-row-content > :first-child {
-    margin-top: 3px;
-  }
-  .tempo-timeline-row-content > div:first-of-type {
-    grid-column: 2;
-  }
-  .tempo-timeline-duration {
-    grid-column: 2;
-    grid-row: 2;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 3px 5px;
-  }
-  .tempo-timeline-disclosure {
-    grid-column: 3;
-    grid-row: 1;
-    margin-top: 3px;
-  }
-  .tempo-timeline-time {
-    padding-right: 3px;
-  }
-  .tempo-timeline-detail {
-    padding: 2px 0 10px;
-  }
-  .tempo-timeline-overview {
-    padding-left: 64px;
-  }
 }
 
 /* Planned and recorded intervals share one real time scale; neither lane adds
@@ -1565,38 +1040,4 @@
 @media (prefers-contrast: more) {
   .tempo-calendar-event-bar { border-width: 2px; }
   .tempo-calendar-recording { border: 1px solid hsl(var(--foreground)); }
-}
-
-/* Whole-day overview: one local hour per row, sized so a full day fits the
-   timeline pane. Unfilled track is time without tracked activity (idle). */
-.tempo-day-overview { display: flex; min-height: 100%; flex-direction: column; padding: 10px 16px 12px 12px; }
-.tempo-day-overview-header { margin-bottom: 8px; padding-left: 50px; }
-.tempo-day-overview-summary { display: flex; height: 6px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: hsl(var(--muted)); }
-.tempo-day-overview-summary > span { min-width: 2px; }
-.tempo-day-overview-dot { display: inline-block; width: 6px; height: 6px; flex: none; border-radius: 999px; }
-.tempo-day-overview-ruler { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 6px; height: 14px; }
-.tempo-day-overview-ruler > div { position: relative; }
-.tempo-day-overview-ruler > div > span { position: absolute; font-size: 9px; font-variant-numeric: tabular-nums; color: hsl(var(--muted-foreground)); }
-.tempo-day-overview-ruler > div > span:not(:first-child) { transform: translateX(-50%); }
-.tempo-day-overview-grid { display: grid; flex: 1; min-height: 0; align-content: start; row-gap: 3px; }
-.tempo-day-overview-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: stretch; gap: 6px; min-height: 0; }
-.tempo-day-overview-hour { align-self: center; text-align: right; font-size: 10px; font-variant-numeric: tabular-nums; color: hsl(var(--muted-foreground)); }
-.tempo-day-overview-track { position: relative; min-width: 0; overflow: hidden; border-radius: 4px; background: hsl(var(--muted) / .55); background-image: linear-gradient(90deg, transparent calc(25% - .5px), hsl(var(--border) / .7) calc(25% - .5px), hsl(var(--border) / .7) calc(25% + .5px), transparent calc(25% + .5px), transparent calc(50% - .5px), hsl(var(--border) / .7) calc(50% - .5px), hsl(var(--border) / .7) calc(50% + .5px), transparent calc(50% + .5px), transparent calc(75% - .5px), hsl(var(--border) / .7) calc(75% - .5px), hsl(var(--border) / .7) calc(75% + .5px), transparent calc(75% + .5px)); }
-.tempo-day-overview-segment { position: absolute; top: 2px; bottom: 2px; min-width: 2px; overflow: hidden; border-radius: 2px; padding: 0 4px; text-align: left; color: #fff; transition: filter 120ms ease; }
-.tempo-day-overview-segment:hover { filter: brightness(1.08) saturate(1.05); }
-.tempo-day-overview-segment.is-related { box-shadow: inset 0 0 0 1.5px hsl(var(--card) / .85); }
-.tempo-day-overview-segment.is-selected { outline: 2px solid var(--tempo-system-accent); outline-offset: 1px; z-index: 1; }
-.tempo-day-overview-segment:focus-visible { outline: 2px solid var(--tempo-system-accent); outline-offset: 2px; z-index: 2; }
-.tempo-day-overview-label { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 10px; font-weight: 500; line-height: 1; position: relative; top: 50%; transform: translateY(-50%); text-shadow: 0 0 2px rgb(0 0 0 / .18); }
-.tempo-day-overview-segment.is-focused, .tempo-day-overview-summary .is-focused, .tempo-day-overview-dot.is-focused { background: hsl(152 58% 40%); }
-.tempo-day-overview-segment.is-distracted, .tempo-day-overview-summary .is-distracted, .tempo-day-overview-dot.is-distracted { background: hsl(351 72% 54%); }
-.tempo-day-overview-segment.is-uncertain, .tempo-day-overview-summary .is-uncertain, .tempo-day-overview-dot.is-uncertain { background: hsl(38 92% 46%); }
-.tempo-day-overview-summary .is-idle { background: transparent; }
-.tempo-day-overview-dot.is-idle { background: hsl(var(--muted-foreground) / .35); }
-@media (prefers-reduced-motion: reduce) {
-  .tempo-day-overview-segment { transition: none; }
-}
-@media (prefers-contrast: more) {
-  .tempo-day-overview-track { border: 1px solid hsl(var(--foreground) / .5); }
-  .tempo-day-overview-segment { border: 1px solid hsl(var(--foreground)); }
 }

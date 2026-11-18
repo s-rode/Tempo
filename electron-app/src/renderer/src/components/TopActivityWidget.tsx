@@ -80,14 +80,14 @@ const TopActivityWidget: React.FC<TopActivityWidgetProps> = ({ processedEvents, 
     setTopApps((apps) => apps.map((app) => (app.name === appName ? { ...app, isExpanded: !app.isExpanded } : app)))
 
   if (isLoadingEvents && !topApps.length) {
-    return <Card className="p-4"><Skeleton className="h-20 w-full" /></Card>
+    return <Card className="tempo-glass-card border-0 p-4"><Skeleton className="h-20 w-full" /></Card>
   }
   if (!topApps.length) {
-    return <Card className="p-4 text-sm text-muted-foreground">No significant activity tracked yet today.</Card>
+    return <Card className="tempo-glass-card border-0 p-4 text-sm text-muted-foreground">No significant activity tracked yet today.</Card>
   }
 
   return (
-    <Card className="p-4">
+    <Card className="tempo-glass-card border-0 p-4">
       <ul className="space-y-3">
         {topApps.map((app, index) => (
           <motion.li key={app.name} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>

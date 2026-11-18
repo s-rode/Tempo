@@ -222,51 +222,53 @@ export function DashboardView({
     setSelectedHour(null)
   }, [])
 
-  const handleSelectSession = useCallback((session: ActivitySessionBlock) => {
-    setSelectedSessionId(session.id)
-    setSelectedActivityKey(session.displayKey)
-  }, [])
+  // Selecting the selected activity again clears the selection.
+  const handleSelectSession = useCallback(
+    (session: ActivitySessionBlock) => {
+      const deselect = selectedSessionId === session.id
+      setSelectedSessionId(deselect ? null : session.id)
+      setSelectedActivityKey(deselect ? null : session.displayKey)
+    },
+    [selectedSessionId]
+  )
 
   return (
     <div ref={workspaceRef} className={`flex flex-1 min-h-0 overflow-hidden ${className || ''}`}>
       <aside
-        className="min-h-0 shrink-0 overflow-y-auto bg-card scrollbar-thin"
+        className="tempo-inspector min-h-0 shrink-0 overflow-y-auto scrollbar-thin"
         style={{ width: inspectorWidth, flexBasis: inspectorWidth }}
+        aria-label="Today inspector"
       >
         {nowActivity}
-        <div className="tempo-inspector-section">
-          {isDayView && (
-            <TodayPlan selectedDate={selectedDate} openRequest={todayPlanOpenRequest} />
-          )}
-          <DashboardFocusCard />
-          {isDayView ? (
-            <DaySummaryPanel
-              dayRange={timelineDayRange}
-              sessions={daySessions}
-              categories={categories || []}
-              selectedSessionId={selectedSessionId}
-              selectedActivityKey={selectedActivityKey}
-              onSelectSession={handleSelectSession}
+        {isDayView && <TodayPlan selectedDate={selectedDate} openRequest={todayPlanOpenRequest} />}
+        <DashboardFocusCard />
+        {isDayView ? (
+          <DaySummaryPanel
+            dayRange={timelineDayRange}
+            sessions={daySessions}
+            categories={categories || []}
+            selectedSessionId={selectedSessionId}
+            selectedActivityKey={selectedActivityKey}
+            onSelectSession={handleSelectSession}
+            refetchEvents={refetchEvents}
+          />
+        ) : (
+          <>
+            <ActivitiesByCategoryWidget
+              processedEvents={activityWidgetProcessedEvents}
+              isLoadingEvents={isLoadingEvents}
               refetchEvents={refetchEvents}
+              selectedHour={selectedHour}
+              onHourSelect={handleHourSelect}
+              selectedDay={selectedDay}
+              onDaySelect={handleDaySelect}
             />
-          ) : (
-            <div className="flex flex-col gap-4">
-              <ActivitiesByCategoryWidget
-                processedEvents={activityWidgetProcessedEvents}
-                isLoadingEvents={isLoadingEvents}
-                refetchEvents={refetchEvents}
-                selectedHour={selectedHour}
-                onHourSelect={handleHourSelect}
-                selectedDay={selectedDay}
-                onDaySelect={handleDaySelect}
-              />
-              <TopActivityWidget
-                processedEvents={activityWidgetProcessedEvents}
-                isLoadingEvents={isLoadingEvents}
-              />
-            </div>
-          )}
-        </div>
+            <TopActivityWidget
+              processedEvents={activityWidgetProcessedEvents}
+              isLoadingEvents={isLoadingEvents}
+            />
+          </>
+        )}
       </aside>
       <PaneResizeHandle
         ariaLabel="Resize Today inspector and timeline"
@@ -276,7 +278,7 @@ export function DashboardView({
         defaultValue={DAY_INSPECTOR_DEFAULT_WIDTH}
         onValueChange={setInspectorWidth}
       />
-      <div className="min-h-0 min-w-0 flex-1 overflow-hidden bg-card">
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
         <CalendarWidget
           selectedDate={selectedDate}
           processedEvents={calendarProcessedEvents}
