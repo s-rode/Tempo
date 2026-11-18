@@ -27,6 +27,7 @@ import { armFocusRuntimeDeadline } from '../services/focusRuntimeScheduler';
 import { getCurrentDailyPlanTask, resolveEffectiveGoalContext } from '../services/goalPlans';
 import { GoalPlanModel } from '../models/goalPlan';
 import { getReminderStatus, getReminderTasks } from '../services/reminders';
+import { plannerEnabled } from '../services/plannerState';
 import { reminderClassificationText } from '../services/reminderRules';
 import type { ContextListRef } from '../../../shared/reminders';
 import {
@@ -512,16 +513,20 @@ export const focusRuntimeRouter = router({
           message: 'That planned task session is no longer active.',
         });
       // Historical day key is intentional: a session can cross midnight.
-      if (taskSource.source !== 'reminder')
-        await GoalPlanModel.updateOne(
-          {
-            userId,
-            scope: 'daily',
-            periodKey: taskSource.dateKey,
-            tasks: { $elemMatch: { id: taskSource.taskId, completedAtMs: null } },
-          },
-          { $set: { 'tasks.$.completedAtMs': Date.now() } }
+      if (taskSource.source !== 'reminder') {
+        const unfinished = {
+          tasks: { $elemMatch: { id: taskSource.taskId, completedAtMs: null } },
+        };
+        const completed = { $set: { 'tasks.$.completedAtMs': Date.now() } };
+        const onPlannedDay = await GoalPlanModel.updateOne(
+          { userId, scope: 'daily', periodKey: taskSource.dateKey, ...unfinished },
+          completed
         );
+        // The planner may have moved the task to another day (a drag in the
+        // week plan, or the nightly carry-over) while its session was running.
+        if (!onPlannedDay.modifiedCount && (await plannerEnabled(userId)))
+          await GoalPlanModel.updateOne({ userId, scope: 'daily', ...unfinished }, completed);
+      }
       cancelPendingEnrichment(userId);
       cancelPendingGoalSupportProfiles(userId);
       await scheduleActiveGoalProfile(userId);

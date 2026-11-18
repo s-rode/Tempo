@@ -105,6 +105,7 @@ export const userRouter = router({
         aiTimelineSummaries: true,
         classifierStrictness: 'strict',
         learnFromCorrections: true,
+        planningSource: 'reminders' as 'reminders' | 'planner',
         appRules: [] as Array<{ appKey: string; appName: string; state: 'productive' | 'unproductive' }>,
       };
 

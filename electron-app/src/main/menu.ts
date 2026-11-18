@@ -3,6 +3,7 @@ import { app, BrowserWindow, Menu, MenuItemConstructorOptions } from 'electron'
 export type TempoDesktopCommand =
   | 'dashboard'
   | 'analysis'
+  | 'plan'
   | 'settings'
   | 'toggle-sidebar'
   | 'start-focus'
@@ -62,6 +63,7 @@ export function installTempoMenu(getWindow: () => BrowserWindow | null) {
         command('Today', 'Command+1', 'dashboard'),
         command('Analysis', 'Command+2', 'analysis'),
         command('Settings', 'Command+3', 'settings'),
+        command('Plan', 'Command+4', 'plan'),
         { type: 'separator' },
         command('Toggle Sidebar', 'Command+Control+S', 'toggle-sidebar'),
         { type: 'separator' },

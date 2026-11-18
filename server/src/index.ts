@@ -28,6 +28,7 @@ import { focusRuntimeRouter } from './routers/focusRuntime';
 import { analyticsRouter } from './routers/analytics';
 import { goalsRouter } from './routers/goals';
 import { remindersRouter } from './routers/reminders';
+import { plannerRouter } from './routers/planner';
 import { applyReminderSync, getReminderStatus, reminderSyncSchema } from './services/reminders';
 
 // Create app router
@@ -40,6 +41,7 @@ export const appRouter = router({
   analytics: analyticsRouter,
   goals: goalsRouter,
   reminders: remindersRouter,
+  planner: plannerRouter,
 });
 
 export type AppRouter = typeof appRouter;

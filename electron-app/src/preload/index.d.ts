@@ -141,6 +141,7 @@ declare global {
           command:
             | 'dashboard'
             | 'analysis'
+            | 'plan'
             | 'settings'
             | 'toggle-sidebar'
             | 'start-focus'

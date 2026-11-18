@@ -236,6 +236,7 @@ const api = {
       command:
         | 'dashboard'
         | 'analysis'
+        | 'plan'
         | 'settings'
         | 'toggle-sidebar'
         | 'start-focus'
@@ -249,6 +250,7 @@ const api = {
       command:
         | 'dashboard'
         | 'analysis'
+        | 'plan'
         | 'settings'
         | 'toggle-sidebar'
         | 'start-focus'

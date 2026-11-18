@@ -6,6 +6,7 @@ import { scheduleGoalProfileRefresh } from '../../lib/goalProfileRefresh'
 import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
 import { RemindersSettings } from '../RemindersPanel'
+import { PlanningSourceSettings } from './PlanningSourceSettings'
 
 interface PlanningSettingsProps {
   openRequest?: number
@@ -91,6 +92,7 @@ export function PlanningSettings({ openRequest = 0 }: PlanningSettingsProps): Re
 
   return (
     <div className="tempo-planning-settings">
+      <PlanningSourceSettings />
       <RemindersSettings />
       <section className="tempo-planning-row" aria-labelledby="weekly-focus-heading">
         <div className="tempo-planning-row-icon" aria-hidden="true">

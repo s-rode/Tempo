@@ -17,6 +17,7 @@ import {
 } from './lib/activityCaptureState'
 import { SettingsPage } from './pages/SettingsPage'
 import { AnalysisPage } from './pages/AnalysisPage'
+import { PlanPage } from './pages/PlanPage'
 import { type FirefoxCompanionState } from './components/FirefoxCompanionStatus'
 import { TempoSidebar, type TempoPage } from './components/TempoSidebar'
 import { TempoToolbar } from './components/TempoToolbar'
@@ -109,6 +110,10 @@ export function MainAppContent() {
       // focus run no longer requires a permanent ten-second heartbeat.
       refetchOnWindowFocus: true
     }
+  )
+  const { data: plannerSource } = trpc.planner.getSource.useQuery(
+    { token: token || '' },
+    { enabled: !!token }
   )
   const focusRuntimeUtils = trpc.useContext()
   useEffect(() => window.api?.onCalendarRuntimeChanged(() => {
@@ -871,7 +876,12 @@ export function MainAppContent() {
   useEffect(() => {
     if (!window.api?.onTempoDesktopCommand) return () => {}
     return window.api.onTempoDesktopCommand((command) => {
-      if (command === 'dashboard' || command === 'analysis' || command === 'settings')
+      if (
+        command === 'dashboard' ||
+        command === 'plan' ||
+        command === 'analysis' ||
+        command === 'settings'
+      )
         setActivePage(command)
       if (command === 'toggle-sidebar') setSidebarCollapsed((collapsed) => !collapsed)
       if (command === 'start-focus') setFocusOpenRequest((request) => request + 1)
@@ -900,6 +910,7 @@ export function MainAppContent() {
               onNavigate={setActivePage}
               collapsed={sidebarCollapsed}
               firefoxState={firefoxCompanionState}
+              showPlan={plannerSource?.source === 'planner'}
             />
           </div>
           <PaneResizeHandle
@@ -940,6 +951,28 @@ export function MainAppContent() {
         {activePage === 'dashboard' && (
           <DashboardView
             todayPlanOpenRequest={todayPlanOpenRequest}
+            nowActivity={
+              <DistractionStatusBar
+                activeWindow={activeWindow}
+                onOpenMiniTimerClick={handleOpenMiniTimer}
+                isMiniTimerVisible={isMiniTimerVisible}
+                onOpenRecategorizeDialog={openRecategorizeDialog}
+                onSettingsClick={() => setActivePage('settings')}
+                isSettingsOpen={false}
+                focusRuntime={focusRuntime}
+                systemSuspension={systemSuspension}
+                localPause={notchPause}
+                onResumeTracking={handleResumeTrackingAfterSystemSleep}
+                onOpenFocusControls={() => setFocusOpenRequest((request) => request + 1)}
+                isResumingTracking={isSystemResumePending}
+              />
+            }
+          />
+        )}
+        {activePage === 'plan' && (
+          <PlanPage
+            runtime={focusRuntime}
+            onOpenSettings={() => setActivePage('settings')}
             nowActivity={
               <DistractionStatusBar
                 activeWindow={activeWindow}
