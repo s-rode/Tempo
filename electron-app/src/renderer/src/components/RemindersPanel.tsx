@@ -328,7 +328,11 @@ function ListContextEditor({
           value={draft}
           className="tempo-pref-input mt-2"
           onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => event.key === 'Escape' && setEditing(false)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setEditing(false)
+            if (event.key === 'Enter' && event.metaKey && !mutation.isLoading)
+              mutation.mutate({ token: token || '', listId: list.id, focusContext: draft })
+          }}
           placeholder="For example: Watch Machine Learning lectures, review the material, and create related flashcards."
         />
       )}

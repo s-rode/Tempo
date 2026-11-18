@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { Bell, CalendarDays, Gauge, Lock, SlidersHorizontal } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { AppRulesSettings } from '../components/settings/AppRulesSettings'
 import { AppleCalendarSettings } from '../components/settings/AppleCalendarSettings'
 import { BrowserTrackingSettings } from '../components/settings/BrowserTrackingSettings'
@@ -24,16 +25,34 @@ import { Button } from '../components/ui/button'
 
 type Pane = 'general' | 'planning' | 'alerts' | 'classification' | 'privacy'
 
-const PANES: ReadonlyArray<{ value: Pane; label: string }> = [
-  { value: 'general', label: 'General' },
-  { value: 'planning', label: 'Planning' },
-  { value: 'alerts', label: 'Alerts' },
-  { value: 'classification', label: 'Classification' },
-  { value: 'privacy', label: 'Privacy' }
+const paneLabel = (icon: ReactNode, text: string): ReactNode => (
+  <span className="tempo-prefs-tab">
+    {icon}
+    {text}
+  </span>
+)
+
+const PANES: ReadonlyArray<{ value: Pane; label: ReactNode }> = [
+  { value: 'general', label: paneLabel(<SlidersHorizontal aria-hidden="true" />, 'General') },
+  { value: 'planning', label: paneLabel(<CalendarDays aria-hidden="true" />, 'Planning') },
+  { value: 'alerts', label: paneLabel(<Bell aria-hidden="true" />, 'Alerts') },
+  { value: 'classification', label: paneLabel(<Gauge aria-hidden="true" />, 'Classification') },
+  { value: 'privacy', label: paneLabel(<Lock aria-hidden="true" />, 'Privacy') }
 ]
 
-// Kept across visits to Settings, like the selected pane of a macOS settings window.
-let lastPane: Pane = 'general'
+const PANE_STORAGE_KEY = 'tempo.settings.pane'
+const isPane = (value: unknown): value is Pane => PANES.some((pane) => pane.value === value)
+const storedPane = (): Pane => {
+  try {
+    const value = localStorage.getItem(PANE_STORAGE_KEY)
+    return isPane(value) ? value : 'general'
+  } catch {
+    return 'general'
+  }
+}
+
+// Like a macOS settings window, Settings reopens on the pane last shown,
+// also after relaunching Tempo.
 let handledPlanningRequest = 0
 
 interface SettingsPageProps {
@@ -49,13 +68,17 @@ export function SettingsPage({
 }: SettingsPageProps) {
   const pendingPlanningRequest =
     planningOpenRequest > handledPlanningRequest ? planningOpenRequest : 0
-  const [pane, setPane] = useState<Pane>(() => (pendingPlanningRequest ? 'planning' : lastPane))
+  const [pane, setPane] = useState<Pane>(() => (pendingPlanningRequest ? 'planning' : storedPane()))
 
   useEffect(() => {
     if (pendingPlanningRequest) setPane('planning')
   }, [pendingPlanningRequest])
   useEffect(() => {
-    lastPane = pane
+    try {
+      localStorage.setItem(PANE_STORAGE_KEY, pane)
+    } catch {
+      // Remembering the pane is a convenience only.
+    }
   }, [pane])
 
   return (

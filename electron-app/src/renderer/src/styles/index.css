@@ -1680,6 +1680,34 @@ textarea.tempo-pref-input {
   font-size: 12px;
 }
 
+/* Pane tabs carry a symbol and a label, like the toolbar of a macOS
+   settings window. */
+.tempo-prefs-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tempo-prefs-tab svg {
+  width: 14px;
+  height: 14px;
+}
+/* Switches and default buttons in Settings follow the macOS accent colour. */
+.tempo-prefs button[role='switch'][data-state='checked'] {
+  background: var(--tempo-system-accent);
+}
+.tempo-prefs button.bg-primary {
+  background: var(--tempo-system-accent);
+  color: white;
+}
+@media (prefers-contrast: more) {
+  .tempo-pref-group {
+    box-shadow: 0 0 0 1px hsl(var(--border));
+  }
+  .tempo-pref-row + .tempo-pref-row::before {
+    background: hsl(var(--border));
+  }
+}
+
 @media (prefers-reduced-transparency: reduce) {
   .tempo-glass-surface {
     background: hsl(var(--popover));
