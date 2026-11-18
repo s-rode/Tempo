@@ -7,9 +7,7 @@ interface AuthContextType {
   token: string | null
   isLoading: boolean
   isAuthenticated: boolean
-  login: (accessToken: string, refreshToken?: string, userData?: User) => void
   loginLocal: () => Promise<void>
-  logout: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -36,7 +34,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }): JSX.Element
       },
       onError: (err) => {
         console.error('Failed to fetch user with token during query:')
-        logout()
+        // Drop the stale session; the effect below signs in to the local account again.
+        clearSession()
       }
     }
   )
@@ -108,23 +107,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }): JSX.Element
     if (!token) void loginLocal()
   }, [token])
 
-  const logout = () => {
-    const currentToken = localStorage.getItem('accessToken')
+  const clearSession = () => {
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
     setToken(null)
     setUser(null)
     setIsLoading(false)
-    if (currentToken) {
-      window.dispatchEvent(
-        new StorageEvent('storage', {
-          key: 'accessToken',
-          oldValue: currentToken,
-          newValue: null,
-          storageArea: localStorage
-        })
-      )
-    }
   }
 
   return (
@@ -134,9 +122,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }): JSX.Element
         token,
         isLoading,
         isAuthenticated: !!user && !!token,
-        login,
-        loginLocal,
-        logout
+        loginLocal
       }}
     >
       {children}

@@ -1,7 +1,9 @@
-import { Activity, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { trpc } from '../../utils/trpc'
+import { Button } from '../ui/button'
+import { SettingsRow, SettingsSection } from './SettingsLayout'
 
 const percent = (value: number | null | undefined) =>
   value == null ? '—' : `${Math.round(value * 100)}%`
@@ -15,15 +17,28 @@ export function ClassificationHealthSettings() {
   )
 
   return (
-    <section className="tempo-settings-row items-start">
-      <div className="min-w-0 flex-1">
-        <h2 className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          Classification health
-        </h2>
-        <p>Private, aggregate diagnostics from the last seven days.</p>
+    <SettingsSection title="Diagnostics">
+      <SettingsRow
+        title="Classification health"
+        description="Private, aggregate diagnostics from the last seven days."
+        control={
+          <Button
+            type="button"
+            variant="glass"
+            size="compact"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? 'Hide' : 'Show'}
+            <ChevronRight
+              className={`transition-transform motion-reduce:transition-none ${expanded ? 'rotate-90' : ''}`}
+              aria-hidden="true"
+            />
+          </Button>
+        }
+      >
         {expanded && (
-          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm" role="status">
+          <div className="tempo-pref-stats" role="status">
             {health.isLoading ? (
               <span className="col-span-2 text-muted-foreground">Loading local diagnostics…</span>
             ) : health.data ? (
@@ -79,19 +94,7 @@ export function ClassificationHealthSettings() {
             )}
           </div>
         )}
-      </div>
-      <button
-        type="button"
-        className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((value) => !value)}
-      >
-        {expanded ? 'Hide' : 'Details'}
-        <ChevronRight
-          className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${expanded ? 'rotate-90' : ''}`}
-          aria-hidden="true"
-        />
-      </button>
-    </section>
+      </SettingsRow>
+    </SettingsSection>
   )
 }

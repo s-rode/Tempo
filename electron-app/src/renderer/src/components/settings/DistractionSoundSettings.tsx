@@ -3,11 +3,26 @@ import { Volume2 } from 'lucide-react'
 import { DISTRACTION_SOUNDS, resolveDistractionSound, type DistractionSoundId } from 'shared'
 import { useAuth } from '../../contexts/AuthContext'
 import { trpc } from '../../utils/trpc'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
-import { Label } from '../ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { toast } from '../../hooks/use-toast'
 import { Switch } from '../ui/switch'
 import { Button } from '../ui/button'
+import { SettingsPlaceholder, SettingsRow, SettingsSection } from './SettingsLayout'
+
+const REMINDER_INTERVALS = [
+  { value: 60, label: 'Every minute' },
+  { value: 120, label: 'Every 2 minutes' },
+  { value: 300, label: 'Every 5 minutes' },
+  { value: 600, label: 'Every 10 minutes' }
+]
+
+const SOUND_INTERVALS = [
+  { value: 5, label: 'Every 5 seconds' },
+  { value: 10, label: 'Every 10 seconds' },
+  { value: 30, label: 'Every 30 seconds' },
+  { value: 60, label: 'Every minute' },
+  { value: 120, label: 'Every 2 minutes' },
+  { value: 300, label: 'Every 5 minutes' }
+]
 
 const DistractionSoundSettings = () => {
   const { token } = useAuth()
@@ -30,9 +45,12 @@ const DistractionSoundSettings = () => {
 
   const updateSettingsMutation = trpc.user.updateElectronAppSettings.useMutation({
     onSuccess: () => void utils.user.getElectronAppSettings.invalidate(),
-    onError: (error) => {
-      console.error('Failed to update settings:')
-      alert('Failed to save settings. Your changes might not be saved.')
+    onError: () => {
+      toast({
+        title: 'Could not save distraction alerts',
+        description: 'Tempo kept your previous settings.',
+        variant: 'destructive'
+      })
       // Revert on error to stay in sync with the backend
       if (electronSettings) {
         setSound(resolveDistractionSound(electronSettings.distractionSound).id)
@@ -40,7 +58,9 @@ const DistractionSoundSettings = () => {
         setDistractionSoundInterval(electronSettings.distractionSoundInterval)
         setShowDistractionNotifications(electronSettings.showDistractionNotifications)
         setShowDistractionNotchAlerts(electronSettings.showDistractionNotchAlerts !== false)
-        setDistractionNotificationInterval(Math.max(60, electronSettings.distractionNotificationInterval || 60))
+        setDistractionNotificationInterval(
+          Math.max(60, electronSettings.distractionNotificationInterval || 60)
+        )
       }
     }
   })
@@ -53,7 +73,9 @@ const DistractionSoundSettings = () => {
       setDistractionSoundInterval(electronSettings.distractionSoundInterval)
       setShowDistractionNotifications(electronSettings.showDistractionNotifications)
       setShowDistractionNotchAlerts(electronSettings.showDistractionNotchAlerts !== false)
-      setDistractionNotificationInterval(Math.max(60, electronSettings.distractionNotificationInterval || 60))
+      setDistractionNotificationInterval(
+        Math.max(60, electronSettings.distractionNotificationInterval || 60)
+      )
     }
   }, [electronSettings])
 
@@ -63,10 +85,13 @@ const DistractionSoundSettings = () => {
     preview.current = null
     setPreviewLoading(false)
   }
-  useEffect(() => () => {
-    previewGeneration.current++
-    preview.current?.pause()
-  }, [])
+  useEffect(
+    () => () => {
+      previewGeneration.current++
+      preview.current?.pause()
+    },
+    []
+  )
 
   const handleSoundChange = (value: string) => {
     if (!token) return
@@ -167,137 +192,146 @@ const DistractionSoundSettings = () => {
 
   if (isLoading) {
     return (
-      <Card className="bg-card border-border">
-        <CardContent className="pt-6">
-          <div className="animate-pulse">
-            <div className="h-4 bg-muted rounded w-1/4 mb-4"></div>
-            <div className="h-10 bg-muted rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <SettingsSection title="Distraction alerts">
+        <SettingsPlaceholder>Loading…</SettingsPlaceholder>
+      </SettingsSection>
     )
   }
 
+  const busy = updateSettingsMutation.isLoading || !token
   return (
-    <Card className="bg-card border-border">
-      <CardHeader>
-        <CardTitle className="text-card-foreground">Distraction Alert Settings</CardTitle>
-        <CardDescription>
-          Configure sounds and notifications for when you get distracted.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center justify-between space-x-4">
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="show-notifications-switch"
-              checked={showDistractionNotifications}
-              onCheckedChange={handleShowNotificationsChange}
-            />
-            <Label htmlFor="show-notifications-switch" className="whitespace-nowrap">
-              Distraction reminders
-            </Label>
-          </div>
-          <Select
-            value={distractionNotificationInterval.toString()}
-            onValueChange={handleNotificationIntervalChange}
-            disabled={!showDistractionNotifications}
+    <SettingsSection
+      title="Distraction alerts"
+      description="How Tempo nudges you when activity drifts away from your goal."
+    >
+      <SettingsRow
+        title="Reminders"
+        htmlFor="show-notifications-switch"
+        description="Personalized wording is written locally in the background and never delays classification."
+        control={
+          <Switch
+            id="show-notifications-switch"
+            size="sm"
+            checked={showDistractionNotifications}
+            disabled={busy}
+            onCheckedChange={handleShowNotificationsChange}
+          />
+        }
+      />
+      <SettingsRow
+        title="Repeat reminders"
+        htmlFor="notification-interval-select"
+        inactive={!showDistractionNotifications}
+        control={
+          <select
+            id="notification-interval-select"
+            className="tempo-pref-select"
+            value={distractionNotificationInterval}
+            disabled={!showDistractionNotifications || busy}
+            onChange={(event) => handleNotificationIntervalChange(event.target.value)}
           >
-            <SelectTrigger id="notification-interval-select" className="w-[180px]">
-              <SelectValue placeholder="Select interval" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="60">Every 1 minute</SelectItem>
-              <SelectItem value="120">Every 2 minutes</SelectItem>
-              <SelectItem value="300">Every 5 minutes</SelectItem>
-              <SelectItem value="600">Every 10 minutes</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Tempo waits at least one minute before repeating a reminder. Personalized wording is generated
-          locally in the background and never delays activity classification.
-        </p>
-
-        <div className="flex items-center justify-between space-x-4 border-t border-border/50 pt-4">
-          <div className="space-y-0.5">
-            <Label htmlFor="show-notch-reminders-switch" className="whitespace-nowrap">
-              Show reminders in the notch
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              The same reminder expands the notch briefly, with actions to open Tempo or correct the category.
-            </p>
-          </div>
+            {REMINDER_INTERVALS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        }
+      />
+      <SettingsRow
+        title="Show in the notch"
+        htmlFor="show-notch-reminders-switch"
+        description="Expands the notch briefly, with actions to open Tempo or correct the category."
+        inactive={!showDistractionNotifications}
+        control={
           <Switch
             id="show-notch-reminders-switch"
+            size="sm"
             checked={showDistractionNotchAlerts}
-            disabled={!showDistractionNotifications || updateSettingsMutation.isLoading}
+            disabled={!showDistractionNotifications || busy}
             onCheckedChange={handleShowNotchAlertsChange}
           />
-        </div>
-
-        <div className="border-t border-border/50"></div>
-
-        <div className="flex items-center justify-between space-x-4">
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="play-sound-switch"
-              checked={playDistractionSound}
-              onCheckedChange={handlePlaySoundChange}
-            />
-            <Label htmlFor="play-sound-switch" className="whitespace-nowrap">
-              Play Sound Alert
-            </Label>
-          </div>
-          <Select
-            value={distractionSoundInterval.toString()}
-            onValueChange={handleIntervalChange}
-            disabled={!playDistractionSound}
+        }
+      />
+      <SettingsRow
+        title="Sound alert"
+        htmlFor="play-sound-switch"
+        control={
+          <Switch
+            id="play-sound-switch"
+            size="sm"
+            checked={playDistractionSound}
+            disabled={busy}
+            onCheckedChange={handlePlaySoundChange}
+          />
+        }
+      />
+      <SettingsRow
+        title="Repeat sound"
+        htmlFor="sound-interval-select"
+        inactive={!playDistractionSound}
+        control={
+          <select
+            id="sound-interval-select"
+            className="tempo-pref-select"
+            value={distractionSoundInterval}
+            disabled={!playDistractionSound || busy}
+            onChange={(event) => handleIntervalChange(event.target.value)}
           >
-            <SelectTrigger id="sound-interval-select" className="w-[180px]">
-              <SelectValue placeholder="Select interval" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="5">Every 5 seconds</SelectItem>
-              <SelectItem value="10">Every 10 seconds</SelectItem>
-              <SelectItem value="30">Every 30 seconds</SelectItem>
-              <SelectItem value="60">Every 1 minute</SelectItem>
-              <SelectItem value="120">Every 2 minutes</SelectItem>
-              <SelectItem value="300">Every 5 minutes</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Label htmlFor="distraction-sound-choice">Alert sound</Label>
-            <div className="flex items-center gap-2">
-              <select
-                id="distraction-sound-choice"
-                className="tempo-field w-[180px]"
-                value={sound}
-                onChange={(event) => handleSoundChange(event.target.value)}
-                disabled={updateSettingsMutation.isLoading || !token}
-                aria-describedby="distraction-sound-description"
-              >
-                {DISTRACTION_SOUNDS.map((choice) => (
-                  <option key={choice.id} value={choice.id}>{choice.name}</option>
-                ))}
-              </select>
-              <Button type="button" variant="outline" size="sm" onClick={() => void previewSound()}
-                disabled={previewLoading} aria-label={`Preview ${resolveDistractionSound(sound).name} sound`}>
-                <Volume2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                Preview
-              </Button>
-            </div>
-          </div>
-          <p id="distraction-sound-description" className="text-xs text-muted-foreground">
-            {resolveDistractionSound(sound).description}. Uses your Mac’s built-in sounds.
-            {' '}Preview works even when sound alerts are off.
-          </p>
-          {previewError && <p role="status" className="text-xs text-destructive">{previewError}</p>}
-        </div>
-      </CardContent>
-    </Card>
+            {SOUND_INTERVALS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        }
+      />
+      <SettingsRow
+        title="Sound"
+        htmlFor="distraction-sound-choice"
+        description={
+          <span id="distraction-sound-description">
+            {resolveDistractionSound(sound).description}. A built-in Mac sound. Preview works even
+            when sound alerts are off.
+            {previewError && (
+              <span role="status" className="mt-1 block text-destructive">
+                {previewError}
+              </span>
+            )}
+          </span>
+        }
+        control={
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="compact"
+              className="tempo-pref-icon-button"
+              onClick={() => void previewSound()}
+              disabled={previewLoading}
+              aria-label={`Preview ${resolveDistractionSound(sound).name} sound`}
+              title="Preview"
+            >
+              <Volume2 aria-hidden="true" />
+            </Button>
+            <select
+              id="distraction-sound-choice"
+              className="tempo-pref-select"
+              value={sound}
+              onChange={(event) => handleSoundChange(event.target.value)}
+              disabled={busy}
+              aria-describedby="distraction-sound-description"
+            >
+              {DISTRACTION_SOUNDS.map((choice) => (
+                <option key={choice.id} value={choice.id}>
+                  {choice.name}
+                </option>
+              ))}
+            </select>
+          </>
+        }
+      />
+    </SettingsSection>
   )
 }
 
