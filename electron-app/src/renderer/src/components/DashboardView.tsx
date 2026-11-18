@@ -26,6 +26,15 @@ const TIMELINE_VIEW_MODE_KEY = 'tempoTimelineViewMode'
 
 export type TimelineViewMode = 'day' | 'week' | 'overview'
 
+/** Menu commands for the Today page, sent from the native menu bar. */
+export type DayCommand =
+  | 'day-view-timeline'
+  | 'day-view-hours'
+  | 'day-view-week'
+  | 'previous-day'
+  | 'next-day'
+  | 'go-to-today'
+
 const persistedPaneWidth = (key: string, fallback: number): number => {
   const value = Number(localStorage.getItem(key))
   return Number.isFinite(value) && value > 0 ? value : fallback
@@ -60,11 +69,13 @@ export interface ProcessedEventBlock {
 export function DashboardView({
   className,
   nowActivity,
-  todayPlanOpenRequest = 0
+  todayPlanOpenRequest = 0,
+  dayCommand
 }: {
   className?: string
   nowActivity?: ReactNode
   todayPlanOpenRequest?: number
+  dayCommand?: { command: DayCommand; request: number } | null
 }) {
   const { token } = useAuth()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
@@ -211,6 +222,54 @@ export function DashboardView({
     setSelectedSessionId(null)
     setSelectedActivityKey(null)
   }
+
+  // Steps by the period on screen and never past today.
+  const stepDate = useCallback(
+    (direction: -1 | 1) => {
+      const next = new Date(selectedDate)
+      next.setDate(next.getDate() + direction * (viewMode === 'week' ? 7 : 1))
+      const today = new Date()
+      today.setHours(23, 59, 59, 999)
+      if (next <= today) handleDateChange(next)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedDate, viewMode]
+  )
+
+  useEffect(() => {
+    if (!dayCommand) return
+    const { command } = dayCommand
+    if (command === 'day-view-timeline') handleViewModeChange('day')
+    else if (command === 'day-view-hours') handleViewModeChange('overview')
+    else if (command === 'day-view-week') handleViewModeChange('week')
+    else if (command === 'go-to-today') handleDateChange(new Date())
+    else stepDate(command === 'previous-day' ? -1 : 1)
+    // Each request runs once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayCommand?.request])
+
+  // Command+Left and Command+Right page through days, as in Calendar, except
+  // while typing; Escape clears the selection.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null
+      const typing =
+        !!target &&
+        (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+      if (typing || event.defaultPrevented) return
+      if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey) {
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          event.preventDefault()
+          stepDate(event.key === 'ArrowLeft' ? -1 : 1)
+        }
+      } else if (event.key === 'Escape' && selectedSessionId) {
+        setSelectedSessionId(null)
+        setSelectedActivityKey(null)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [stepDate, selectedSessionId])
 
   const handleHourSelect = useCallback((hour: number | null) => {
     setSelectedHour(hour)

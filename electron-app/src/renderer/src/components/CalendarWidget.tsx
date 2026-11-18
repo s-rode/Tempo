@@ -235,23 +235,13 @@ const CalendarWidget = ({
               </span>
             </div>
           ) : viewMode === 'day' ? (
-            <>
-              <DayHero
-                overview={overview}
-                showStrip
-                selectedSessionId={selectedSessionId}
-                selectedActivityKey={selectedActivityKey}
-                onSelectSession={onSelectSession}
-                nowMs={nowMs}
-              />
-              <CompactDayTimeline
-                sessions={daySessions}
-                chapters={dayChapters}
-                selectedSessionId={selectedSessionId}
-                selectedActivityKey={selectedActivityKey}
-                onSelectSession={onSelectSession}
-              />
-            </>
+            <CompactDayTimeline
+              sessions={daySessions}
+              chapters={dayChapters}
+              selectedSessionId={selectedSessionId}
+              selectedActivityKey={selectedActivityKey}
+              onSelectSession={onSelectSession}
+            />
           ) : (
             <>
               <DayHero overview={overview} />

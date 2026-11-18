@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { toast } from '../hooks/use-toast'
 import type { ActivitySessionBlock } from '../lib/activitySessions'
 import { formatDuration } from '../lib/activityByCategoryWidgetHelpers'
-import type { DayOverview, DayOverviewState } from '../lib/dayOverview'
+import { sessionState, type DayOverview, type DayOverviewState } from '../lib/dayOverview'
 import { cn } from '../lib/utils'
 import { trpc } from '../utils/trpc'
 import {
@@ -113,7 +113,8 @@ export default function DayOverviewTimeline({
       newCategoryId: categoryId,
       correctionActionId: crypto.randomUUID(),
       rememberExactMatch: true,
-      applyToSession: true
+      // Uncertain time from the same app in the session is classified with it.
+      applyToSession: sessionState(session) === 'uncertain'
     })
   }
   // Arrow keys step through blocks in time order, matching list navigation in
@@ -218,13 +219,9 @@ export default function DayOverviewTimeline({
                               width: `${segment.width * 100}%`
                             }}
                             onClick={() => onSelectSession(session)}
-                            onContextMenu={
-                              segment.state === 'uncertain'
-                                ? (event) => openClassifyMenu(event, session)
-                                : undefined
-                            }
+                            onContextMenu={(event) => openClassifyMenu(event, session)}
                             aria-pressed={selected}
-                            aria-label={`${session.label}, ${session.ownerName}. ${timeLabel(+session.startTime)} to ${timeLabel(+session.endTime)}, ${formatDuration(session.activeDurationMs)} ${STATE_LABEL[segment.state].toLowerCase()}. Select activity.${segment.state === 'uncertain' ? ' Open the context menu to classify it.' : ''}`}
+                            aria-label={`${session.label}, ${session.ownerName}. ${timeLabel(+session.startTime)} to ${timeLabel(+session.endTime)}, ${formatDuration(session.activeDurationMs)} ${STATE_LABEL[segment.state].toLowerCase()}. Select activity. Open the context menu to change its category.`}
                           >
                             {segment.width >= LABEL_MIN_WIDTH && (
                               <span className="tempo-hours-label">{session.label}</span>
@@ -293,12 +290,21 @@ export default function DayOverviewTimeline({
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
             <DropdownMenuLabel className="max-w-64 truncate text-xs font-medium">
-              Classify “{menu?.session.label}”
+              {menu?.session.label}
             </DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => menu && onSelectSession(menu.session)}>
+              {menu?.session.id === selectedSessionId ? 'Clear Selection' : 'Show Details'}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+              {menu && sessionState(menu.session) === 'uncertain'
+                ? 'Classify as'
+                : 'Change category to'}
+            </DropdownMenuLabel>
             {classifyChoices.map((category) => (
               <DropdownMenuItem
                 key={category._id}
+                disabled={category._id === menu?.session.categoryId}
                 onSelect={() => menu && classifySession(menu.session, category._id)}
               >
                 <span
@@ -316,8 +322,9 @@ export default function DayOverviewTimeline({
             ))}
             <DropdownMenuSeparator />
             <p className="max-w-64 px-2 py-1 text-[11px] text-muted-foreground">
-              Also applies to other uncertain time from {menu?.session.ownerName} in the same focus
-              session.
+              {menu && sessionState(menu.session) === 'uncertain'
+                ? `Also applies to other uncertain time from ${menu.session.ownerName} in the same focus session.`
+                : 'Only this activity changes.'}
             </p>
           </DropdownMenuContent>
         </DropdownMenu>
