@@ -127,7 +127,7 @@ export interface PeriodInsights {
     medianFirstDriftMs: number | null;
     byLength: Array<{ label: string; count: number; focusRate: number | null }>;
     estimate: { samples: number; medianRatio: number } | null;
-    tasks: Array<{ goal: string; sessions: number; workMs: number; focusedMs: number; focusRate: number | null }>;
+    tasks: Array<{ goal: string; sessions: number; workMs: number; focusedMs: number; distractedMs: number; focusRate: number | null }>;
   };
   suggestions: InsightSuggestion[];
 }
@@ -163,11 +163,14 @@ const PAGE_KIND_LABELS: Record<string, string> = {
 
 const isBrowserEvent = (event: ActiveWindowEvent) => event.type === 'browser' || !!event.browser;
 
+// Some apps (WhatsApp) ship their name with invisible direction marks.
+const cleanName = (value: string) => value.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '').trim();
+
 export const sourceFor = (event: ActiveWindowEvent) => {
-  if (!isBrowserEvent(event)) return { key: `app:${event.ownerName}`, label: event.ownerName };
+  if (!isBrowserEvent(event)) return { key: `app:${event.ownerName}`, label: cleanName(event.ownerName) };
   const kind = event.pageKind && PAGE_KIND_LABELS[event.pageKind] ? event.pageKind : 'web';
   const kindLabel = kind === 'web' ? 'Websites' : PAGE_KIND_LABELS[kind];
-  return { key: `web:${event.ownerName}:${kind}`, label: `${kindLabel} in ${event.ownerName}` };
+  return { key: `web:${event.ownerName}:${kind}`, label: `${kindLabel} in ${cleanName(event.ownerName)}` };
 };
 
 const dayStart = (value: number) => {
@@ -642,7 +645,7 @@ export const calculatePeriodInsights = (args: {
     tasks: [...taskMap.values()]
       .sort((a, b) => b.focusedMs - a.focusedMs)
       .slice(0, 5)
-      .map((task) => ({ goal: task.goal, sessions: task.sessions, workMs: task.workMs, focusedMs: task.focusedMs, focusRate: rate(task.focusedMs, task.distractedMs) })),
+      .map((task) => ({ goal: task.goal, sessions: task.sessions, workMs: task.workMs, focusedMs: task.focusedMs, distractedMs: task.distractedMs, focusRate: rate(task.focusedMs, task.distractedMs) })),
   };
 
   const insights: Omit<PeriodInsights, 'suggestions'> = {

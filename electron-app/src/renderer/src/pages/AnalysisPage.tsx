@@ -193,7 +193,7 @@ export function AnalysisPage() {
   const stamina = data?.stamina
   const switching = data?.switching
   const maxSource = Math.max(0, ...(distractions?.sources || []).map((source) => source.distractedMs))
-  const maxTask = Math.max(0, ...(sessions?.tasks || []).map((task) => task.focusedMs))
+  const maxTask = Math.max(0, ...(sessions?.tasks || []).map((task) => Math.max(task.focusedMs, task.workMs)))
 
   return (
     <main className="min-h-0 flex-1 overflow-y-auto px-5 pb-8">
@@ -461,7 +461,7 @@ export function AnalysisPage() {
                 )}
               </Section>
 
-              <Section icon={<Layers size={16} />} title="Where your focus went" subtitle="Focused time inside sessions, by task." className="lg:col-span-2">
+              <Section icon={<Layers size={16} />} title="Where your focus went" subtitle="Focused time out of the time on the clock, by task." className="lg:col-span-2">
                 {sessions && sessions.tasks.length ? (
                   <ul className="space-y-3">
                     {sessions.tasks.map((task) => (
@@ -469,14 +469,16 @@ export function AnalysisPage() {
                         <div className="flex items-baseline justify-between gap-3">
                           <span className="line-clamp-2 text-[13px] font-medium leading-snug" title={task.goal}>{task.goal}</span>
                           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                            <span className="font-medium text-foreground">{minutesText(task.focusedMs)}</span> · {percent(task.focusRate)}
+                            <span className="font-medium text-foreground">{minutesText(task.focusedMs)}</span> of {minutesText(task.workMs)}
                           </span>
                         </div>
                         <div className="mt-1.5">
                           <Meter value={task.focusedMs} max={maxTask} color={FOCUS} />
                         </div>
                         <div className="mt-1 text-[10px] text-muted-foreground">
-                          {task.sessions} session{task.sessions === 1 ? '' : 's'} · {minutesText(task.workMs)} on the clock
+                          {task.sessions} session{task.sessions === 1 ? '' : 's'}
+                          {task.distractedMs >= 60_000 && <> · {minutesText(task.distractedMs)} distracted</>}
+                          {task.workMs - task.focusedMs - task.distractedMs >= 5 * 60_000 && <> · {minutesText(task.workMs - task.focusedMs - task.distractedMs)} unclassified or away</>}
                         </div>
                       </li>
                     ))}
