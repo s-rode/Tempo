@@ -1,43 +1,45 @@
 /* Tempo's built-in planner: goals, the plan of the week and today's queue.
-   Surfaces come from the same glass family as the sidebar and the Analysis
-   cards (tokens in index.css); goal colours follow the macOS system palette
-   and switch with the appearance. */
+   The page is deliberately quiet: flat surfaces separated by hairlines, text
+   in the two system greys, and colour only where it carries meaning (a goal's
+   dot, the primary action, the task in focus). */
 
 :root {
-  --planner-blue: #007aff;
-  --planner-indigo: #5856d6;
-  --planner-purple: #af52de;
-  --planner-pink: #ff2d55;
-  --planner-red: #ff3b30;
-  --planner-orange: #ff9500;
-  --planner-yellow: #d9a400;
-  --planner-green: #28a745;
-  --planner-mint: #00b3a6;
-  --planner-teal: #30a0c0;
-  --planner-graphite: #8e8e93;
-  --planner-card-top: rgb(255 255 255 / 0.96);
-  --planner-card-bottom: rgb(255 255 255 / 0.8);
-  --planner-column: rgb(255 255 255 / 0.5);
-  --planner-ink-mix: #000;
-  --planner-live: #28a745;
+  /* Goal colours are deliberately quiet: enough to tell goals apart at a
+     glance, never the loudest thing on the page. */
+  --planner-blue: #5b7ba6;
+  --planner-indigo: #6f6fa3;
+  --planner-purple: #8c719f;
+  --planner-pink: #a96a80;
+  --planner-red: #ad6258;
+  --planner-orange: #b98250;
+  --planner-yellow: #a39148;
+  --planner-green: #6a8f64;
+  --planner-mint: #5c968a;
+  --planner-teal: #5a8a9c;
+  --planner-graphite: #8f8d88;
+  --planner-surface: hsl(var(--card));
+  --planner-line: rgb(0 0 0 / 0.09);
+  --planner-line-strong: rgb(0 0 0 / 0.18);
+  --planner-fill: rgb(0 0 0 / 0.035);
+  --planner-live: #5f9163;
 }
 .dark {
-  --planner-blue: #0a84ff;
-  --planner-indigo: #7d7aff;
-  --planner-purple: #bf5af2;
-  --planner-pink: #ff375f;
-  --planner-red: #ff453a;
-  --planner-orange: #ff9f0a;
-  --planner-yellow: #ffd60a;
-  --planner-green: #30d158;
-  --planner-mint: #63e6e2;
-  --planner-teal: #40c8e0;
-  --planner-graphite: #98989d;
-  --planner-card-top: rgb(58 58 62 / 0.9);
-  --planner-card-bottom: rgb(46 46 50 / 0.84);
-  --planner-column: rgb(255 255 255 / 0.035);
-  --planner-ink-mix: #fff;
-  --planner-live: #30d158;
+  --planner-blue: #86a3cb;
+  --planner-indigo: #9a9ac8;
+  --planner-purple: #b39bc6;
+  --planner-pink: #cf94a8;
+  --planner-red: #d48d83;
+  --planner-orange: #d9a878;
+  --planner-yellow: #c9b870;
+  --planner-green: #93b98d;
+  --planner-mint: #86bdb1;
+  --planner-teal: #85b3c4;
+  --planner-graphite: #9d9b96;
+  --planner-surface: rgb(255 255 255 / 0.055);
+  --planner-line: rgb(255 255 255 / 0.09);
+  --planner-line-strong: rgb(255 255 255 / 0.2);
+  --planner-fill: rgb(255 255 255 / 0.035);
+  --planner-live: #8fbb8a;
 }
 
 .planner-page {
@@ -68,7 +70,7 @@
   min-width: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--glass-track);
+  background: var(--planner-fill);
   color: hsl(var(--muted-foreground));
   font-size: 10px;
   font-variant-numeric: tabular-nums;
@@ -103,11 +105,8 @@
   gap: 7px;
   padding: 0 11px 0 9px;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--glass-pill-top), var(--glass-pill-bottom));
-  box-shadow:
-    inset 0 0.5px 0 var(--glass-rim),
-    0 0 0 0.5px var(--glass-edge),
-    0 1px 3px -1px var(--glass-shadow);
+  background: var(--planner-surface);
+  box-shadow: inset 0 0 0 1px var(--planner-line);
   font-size: 12px;
   font-weight: 500;
 }
@@ -118,20 +117,12 @@
 }
 .planner-working-pill i,
 .planner-task-live i {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--planner-live);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--planner-live) 22%, transparent);
-  animation: planner-pulse 2.4s ease-in-out infinite;
 }
-@keyframes planner-pulse {
-  50% {
-    box-shadow: 0 0 0 5px color-mix(in srgb, var(--planner-live) 0%, transparent);
-  }
-}
-
 .planner-filter {
   display: flex;
   flex-shrink: 0;
@@ -152,7 +143,6 @@
   gap: 6px;
   padding: 0 10px;
   border-radius: 999px;
-  background: var(--glass-track);
   color: hsl(var(--muted-foreground));
   font-size: 11.5px;
   font-weight: 500;
@@ -167,12 +157,12 @@
   text-overflow: ellipsis;
 }
 .planner-filter-chip:hover {
-  background: color-mix(in srgb, var(--goal) 12%, var(--glass-track));
+  background: var(--planner-fill);
   color: hsl(var(--foreground));
 }
 .planner-filter-chip[aria-pressed='true'] {
-  background: color-mix(in srgb, var(--goal) 16%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--goal) 45%, transparent);
+  background: var(--planner-surface);
+  box-shadow: inset 0 0 0 1px var(--planner-line-strong);
   color: hsl(var(--foreground));
 }
 .planner-filter-chip em {
@@ -183,8 +173,7 @@
 }
 .planner-filter-chip.is-add {
   gap: 3px;
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--glass-divider);
+  opacity: 0.8;
 }
 
 /* ---- Goal marks ---------------------------------------------------------- */
@@ -202,9 +191,9 @@
   opacity: 0.5;
 }
 .planner-goal-mark.has-icon {
-  border-radius: 30%;
-  background: color-mix(in srgb, currentColor 16%, transparent);
-  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 28%;
+  background: var(--planner-fill);
+  box-shadow: inset 0 0 0 1px var(--planner-line);
   line-height: 1;
 }
 .planner-goal-mark.has-icon > span {
@@ -217,12 +206,12 @@
   align-items: center;
   gap: 5px;
   font-size: 10.5px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.3;
 }
 .planner-goal-chip > span:last-child {
   overflow: hidden;
-  color: color-mix(in srgb, currentColor 72%, var(--planner-ink-mix));
+  color: hsl(var(--muted-foreground));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -241,52 +230,35 @@
   min-height: 0;
   flex: 1;
   grid-template-columns: repeat(7, minmax(152px, 1fr));
-  gap: 8px;
+  gap: 0;
   overflow-x: auto;
-  padding: 2px 20px 18px;
-  scroll-padding: 0 20px;
+  margin: 0 20px;
+  padding: 0 0 12px;
+  border-top: 1px solid var(--planner-line);
 }
 .planner-board.is-loading {
   margin: 2px 20px 18px;
   padding: 0;
-  border-radius: 14px;
-  background: var(--glass-track);
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  border: 0;
+  border-radius: 10px;
+  background: var(--planner-fill);
 }
 .planner-day {
   display: flex;
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  border-radius: 14px;
-  background: var(--planner-column);
-  box-shadow:
-    inset 0 0.5px 0 var(--glass-rim),
-    0 0 0 0.5px var(--glass-edge);
-  transition:
-    background-color 0.12s,
-    box-shadow 0.12s;
+  border-left: 1px solid var(--planner-line);
+  transition: background-color 0.12s;
 }
 .planner-day.is-today {
-  background:
-    radial-gradient(
-      120% 60% at 50% 0%,
-      color-mix(in srgb, hsl(var(--accent-system)) 9%, transparent),
-      transparent 70%
-    ),
-    linear-gradient(180deg, var(--planner-card-top), var(--planner-card-bottom));
-  box-shadow:
-    inset 0 1px 0 var(--glass-rim),
-    0 0 0 0.5px var(--glass-edge),
-    0 8px 22px -14px var(--glass-surface-shadow);
+  background: var(--planner-fill);
 }
 .planner-day.is-past {
   background: transparent;
-  box-shadow: inset 0 0 0 0.5px var(--glass-divider);
 }
 .planner-day.is-drop-target {
-  background: color-mix(in srgb, hsl(var(--accent-system)) 7%, var(--planner-column));
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, hsl(var(--accent-system)) 55%, transparent);
+  background: color-mix(in srgb, hsl(var(--accent-system)) 6%, transparent);
 }
 .planner-day-header {
   display: flex;
@@ -314,12 +286,12 @@
   font-variant-numeric: tabular-nums;
 }
 .planner-day.is-today .planner-day-name {
-  color: hsl(var(--accent-system));
+  color: hsl(var(--foreground));
 }
 .planner-day.is-today .planner-day-number {
   padding: 0 6px;
-  background: hsl(var(--accent-system));
-  color: #fff;
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
 }
 .planner-day.is-past .planner-day-number {
   color: hsl(var(--muted-foreground));
@@ -356,7 +328,6 @@
   margin: 1px 4px 2px;
   border-radius: 2px;
   background: hsl(var(--accent-system));
-  box-shadow: 0 0 0 2px color-mix(in srgb, hsl(var(--accent-system)) 20%, transparent);
 }
 .planner-day-empty {
   padding: 8px;
@@ -379,7 +350,7 @@
   letter-spacing: 0.02em;
 }
 .planner-disclosure:hover {
-  background: var(--glass-track);
+  background: var(--planner-fill);
   color: hsl(var(--foreground));
 }
 
@@ -390,27 +361,20 @@
   align-items: flex-start;
   gap: 8px;
   padding: 8px 9px;
-  border-radius: 10px;
-  background: linear-gradient(180deg, var(--planner-card-top), var(--planner-card-bottom));
-  box-shadow:
-    inset 0 0.5px 0 var(--glass-rim),
-    0 0 0 0.5px var(--glass-edge),
-    0 1px 2px -1px var(--glass-shadow);
+  border-radius: 8px;
+  background: var(--planner-surface);
+  box-shadow: inset 0 0 0 1px var(--planner-line);
   outline: none;
   transition:
     box-shadow 0.12s,
-    opacity 0.12s,
-    transform 0.12s;
+    opacity 0.12s;
 }
 .planner-task[draggable='true'] {
   cursor: grab;
 }
 .planner-task:hover,
 .planner-task.is-menu-open {
-  box-shadow:
-    inset 0 0.5px 0 var(--glass-rim),
-    0 0 0 0.5px var(--glass-edge),
-    0 5px 14px -6px var(--glass-surface-shadow);
+  box-shadow: inset 0 0 0 1px var(--planner-line-strong);
 }
 .planner-task:focus-visible {
   box-shadow:
@@ -428,10 +392,7 @@
   opacity: 1;
 }
 .planner-task.is-in-focus {
-  box-shadow:
-    inset 0 0.5px 0 var(--glass-rim),
-    0 0 0 1.5px color-mix(in srgb, var(--planner-live) 65%, transparent),
-    0 5px 14px -6px var(--glass-surface-shadow);
+  box-shadow: inset 0 0 0 1.5px var(--planner-live);
 }
 .planner-task.is-done {
   padding-top: 5px;
@@ -440,7 +401,8 @@
   box-shadow: none;
 }
 .planner-task.is-done:hover {
-  background: var(--glass-track);
+  background: var(--planner-fill);
+  box-shadow: none;
 }
 .planner-task.is-done .planner-task-title {
   color: hsl(var(--muted-foreground));
@@ -456,21 +418,21 @@
   justify-content: center;
   margin-top: 1px;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--goal) 75%, transparent);
+  box-shadow: inset 0 0 0 1.25px var(--planner-line-strong);
   color: transparent;
   transition:
     background-color 0.12s,
-    color 0.12s;
+    color 0.12s,
+    box-shadow 0.12s;
 }
 .planner-check:hover {
-  background: color-mix(in srgb, var(--goal) 18%, transparent);
-  color: var(--goal);
+  box-shadow: inset 0 0 0 1.25px hsl(var(--muted-foreground));
+  color: hsl(var(--muted-foreground));
 }
 .planner-task.is-done .planner-check {
-  background: var(--goal);
+  background: hsl(var(--muted-foreground) / 0.55);
   box-shadow: none;
-  color: #fff;
-  opacity: 0.75;
+  color: hsl(var(--background));
 }
 .planner-task-body {
   min-width: 0;
@@ -528,12 +490,8 @@
 }
 .planner-task-live {
   gap: 6px;
-  color: color-mix(in srgb, var(--planner-live) 78%, var(--planner-ink-mix));
-  font-weight: 600;
-}
-.planner-task-live i {
-  width: 6px;
-  height: 6px;
+  color: hsl(var(--foreground));
+  font-weight: 500;
 }
 .planner-task-actions {
   position: absolute;
@@ -542,12 +500,9 @@
   display: flex;
   gap: 1px;
   padding: 1px;
-  border-radius: 7px;
-  background: linear-gradient(180deg, var(--planner-card-top), var(--planner-card-top));
-  box-shadow:
-    0 0 0 0.5px var(--glass-edge),
-    0 2px 6px -2px var(--glass-shadow),
-    -10px 0 10px -2px var(--planner-card-top);
+  border-radius: 6px;
+  background: hsl(var(--card));
+  box-shadow: 0 0 0 1px var(--planner-line);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.1s;
@@ -570,15 +525,15 @@
 }
 .planner-icon-button:hover,
 .planner-icon-button[data-state='open'] {
-  background: var(--glass-track);
+  background: var(--planner-fill);
   color: hsl(var(--foreground));
 }
 .planner-icon-button.is-accent {
-  color: hsl(var(--accent-system));
+  color: hsl(var(--foreground));
 }
 .planner-icon-button.is-accent:hover {
-  background: hsl(var(--accent-system));
-  color: #fff;
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
 }
 
 /* Row variant, used by the queue. */
@@ -586,7 +541,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 11px;
+  border-radius: 9px;
 }
 .planner-task.is-row .planner-check {
   width: 18px;
@@ -635,7 +590,7 @@
 }
 .planner-add:hover,
 .planner-add:focus-within {
-  background: var(--glass-track);
+  background: var(--planner-fill);
 }
 .planner-add:focus-within {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, hsl(var(--ring)) 45%, transparent);
@@ -704,7 +659,7 @@
   padding: 0 6px;
   border: 0;
   border-radius: 7px;
-  background: var(--glass-track);
+  background: var(--planner-fill);
   color: hsl(var(--foreground));
   font-size: 12px;
 }
@@ -712,11 +667,8 @@
   height: 30px;
   gap: 7px;
   padding: 0 12px;
-  border-radius: 8px;
+  border-radius: 7px;
   font-size: 13px;
-  box-shadow:
-    inset 0 0.5px 0 rgb(255 255 255 / 0.35),
-    0 1px 3px -1px rgb(0 0 0 / 0.3);
 }
 .planner-primary kbd {
   margin-left: 2px;
@@ -727,8 +679,9 @@
 .planner-queue-note {
   margin-bottom: 10px;
   padding: 8px 12px;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--planner-orange) 12%, transparent);
+  border-radius: 8px;
+  background: var(--planner-fill);
+  color: hsl(var(--muted-foreground));
   font-size: 12px;
 }
 .planner-queue-list .planner-slot:first-child .planner-task:not(.is-done) {
@@ -767,7 +720,7 @@
 .planner-queue-done {
   margin-top: 18px;
   padding-top: 10px;
-  border-top: 1px solid var(--glass-divider);
+  border-top: 1px solid var(--planner-line);
 }
 
 /* One task at a time. */
@@ -785,35 +738,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  overflow: hidden;
-  padding: 34px 32px 28px;
-  border-radius: 20px;
-  background:
-    radial-gradient(
-      90% 120% at 0% 0%,
-      color-mix(in srgb, var(--planner-live) 13%, transparent),
-      transparent 58%
-    ),
-    radial-gradient(
-      80% 110% at 100% 0%,
-      color-mix(in srgb, hsl(var(--accent-system)) 11%, transparent),
-      transparent 60%
-    ),
-    linear-gradient(180deg, var(--planner-card-top), var(--planner-card-bottom));
-  box-shadow:
-    inset 0 1px 0 var(--glass-rim),
-    0 0 0 0.5px var(--glass-edge),
-    0 18px 44px -22px var(--glass-surface-shadow);
+  padding: 40px 32px 30px;
+  border-radius: 14px;
+  background: var(--planner-surface);
+  box-shadow: inset 0 0 0 1px var(--planner-line);
   text-align: center;
 }
 .planner-now.is-over {
-  background:
-    radial-gradient(
-      90% 120% at 0% 0%,
-      color-mix(in srgb, var(--planner-orange) 16%, transparent),
-      transparent 58%
-    ),
-    linear-gradient(180deg, var(--planner-card-top), var(--planner-card-bottom));
+  box-shadow: inset 0 0 0 1px var(--planner-line-strong);
 }
 .planner-now h2 {
   max-width: 520px;
@@ -843,26 +775,26 @@
   font-size: 13px;
 }
 .planner-now.is-over .planner-now-target {
-  color: color-mix(in srgb, var(--planner-orange) 80%, var(--planner-ink-mix));
+  color: hsl(var(--foreground));
   font-weight: 600;
 }
 .planner-now-bar {
-  width: min(320px, 100%);
-  height: 4px;
+  width: min(280px, 100%);
+  height: 3px;
   margin-top: 16px;
   overflow: hidden;
   border-radius: 999px;
-  background: var(--glass-track);
+  background: var(--planner-line);
 }
 .planner-now-bar span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--planner-live);
+  background: hsl(var(--foreground) / 0.7);
   transition: width 1s linear;
 }
 .planner-now.is-over .planner-now-bar span {
-  background: var(--planner-orange);
+  background: hsl(var(--foreground));
 }
 .planner-now-actions {
   display: flex;
@@ -900,7 +832,7 @@
   text-align: left;
 }
 .planner-next:hover {
-  background: var(--glass-track);
+  background: var(--planner-fill);
 }
 .planner-next-label {
   font-size: 10.5px;
@@ -961,18 +893,9 @@
   min-height: 132px;
   flex-direction: column;
   padding: 14px 14px 12px;
-  border-radius: 14px;
-  background:
-    radial-gradient(
-      110% 90% at 0% 0%,
-      color-mix(in srgb, var(--goal) 13%, transparent),
-      transparent 62%
-    ),
-    linear-gradient(180deg, var(--planner-card-top), var(--planner-card-bottom));
-  box-shadow:
-    inset 0 1px 0 var(--glass-rim),
-    0 0 0 0.5px var(--glass-edge),
-    0 6px 20px -12px var(--glass-surface-shadow);
+  border-radius: 10px;
+  background: var(--planner-surface);
+  box-shadow: inset 0 0 0 1px var(--planner-line);
   outline: none;
 }
 .planner-goal-card:focus-visible {
@@ -981,8 +904,7 @@
     0 0 0 4px hsl(var(--ring) / 0.7);
 }
 .planner-goal-card[data-achieved] {
-  background: var(--planner-column);
-  box-shadow: inset 0 0 0 0.5px var(--glass-divider);
+  background: transparent;
 }
 .planner-goal-card header {
   display: flex;
@@ -1032,7 +954,7 @@
   align-items: center;
   gap: 12px;
   padding-top: 10px;
-  border-top: 1px solid var(--glass-divider);
+  border-top: 1px solid var(--planner-line);
   color: hsl(var(--muted-foreground));
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
@@ -1055,15 +977,15 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border-radius: 14px;
-  box-shadow: inset 0 0 0 1px var(--glass-divider);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px var(--planner-line);
   color: hsl(var(--muted-foreground));
   font-size: 13px;
   font-weight: 500;
   transition: background-color 0.12s;
 }
 .planner-goal-new:hover {
-  background: var(--glass-track);
+  background: var(--planner-fill);
   color: hsl(var(--foreground));
 }
 
@@ -1108,13 +1030,12 @@
 }
 .planner-swatch {
   display: inline-flex;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.18);
 }
 .planner-swatch svg {
   color: #fff;
@@ -1138,18 +1059,15 @@
 }
 .planner-empty-icon {
   display: flex;
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   align-items: center;
   justify-content: center;
   margin-bottom: 6px;
-  border-radius: 15px;
-  background: linear-gradient(180deg, var(--glass-pill-top), var(--glass-pill-bottom));
-  box-shadow:
-    inset 0 0.5px 0 var(--glass-rim),
-    0 0 0 0.5px var(--glass-edge),
-    0 6px 16px -8px var(--glass-surface-shadow);
-  color: hsl(var(--accent-system));
+  border-radius: 12px;
+  background: var(--planner-fill);
+  box-shadow: inset 0 0 0 1px var(--planner-line);
+  color: hsl(var(--muted-foreground));
 }
 .planner-empty h2 {
   font-size: 17px;
@@ -1166,7 +1084,7 @@
   width: 100%;
   margin-bottom: 4px;
   border-radius: 10px;
-  background: var(--glass-track);
+  background: var(--planner-fill);
   text-align: left;
 }
 
@@ -1176,10 +1094,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .planner-working-pill i,
-  .planner-task-live i {
-    animation: none;
-  }
   .planner-now-bar span {
     transition: none;
   }
