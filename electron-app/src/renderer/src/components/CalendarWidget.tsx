@@ -217,6 +217,13 @@ const CalendarWidget = ({
         />
       ) : (
         <div className="tempo-day-scroll">
+          {viewMode === 'day' && (
+            <DayCalendarComparison
+              date={selectedDate}
+              sessions={daySessions}
+              onSelectSession={onSelectSession}
+            />
+          )}
           {!overview ? (
             <div className="tempo-day-empty-state">
               <CalendarOff size={22} aria-hidden="true" />
@@ -236,11 +243,6 @@ const CalendarWidget = ({
                 selectedActivityKey={selectedActivityKey}
                 onSelectSession={onSelectSession}
                 nowMs={nowMs}
-              />
-              <DayCalendarComparison
-                date={selectedDate}
-                sessions={daySessions}
-                onSelectSession={onSelectSession}
               />
               <CompactDayTimeline
                 sessions={daySessions}
