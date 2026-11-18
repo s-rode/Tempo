@@ -13,8 +13,10 @@ export function TimerDisplaySettings() {
   const update = trpc.user.updateElectronAppSettings.useMutation({ onSuccess: () => utils.user.getElectronAppSettings.invalidate() })
   const [mode, setMode] = useState<'streak' | 'workday'>('streak')
   const [animateDigits, setAnimateDigits] = useState(false)
+  const [showSeconds, setShowSeconds] = useState(true)
   useEffect(() => { if (settings?.notchTimerMode === 'streak' || settings?.notchTimerMode === 'workday') setMode(settings.notchTimerMode) }, [settings])
   useEffect(() => { setAnimateDigits(settings?.animateNotchTimerDigits === true) }, [settings?.animateNotchTimerDigits])
+  useEffect(() => { setShowSeconds(settings?.notchTimerShowSeconds !== false) }, [settings?.notchTimerShowSeconds])
   if (!token) return null
   const changeMode = (next: 'streak' | 'workday') => {
     setMode(next)
@@ -34,12 +36,30 @@ export function TimerDisplaySettings() {
       }
     )
   }
+  const changeShowSeconds = (next: boolean) => {
+    const previous = showSeconds
+    setShowSeconds(next)
+    utils.user.getElectronAppSettings.setData({ token }, current => current ? { ...current, notchTimerShowSeconds: next } : current)
+    update.mutate(
+      { token, notchTimerShowSeconds: next },
+      {
+        onError: () => {
+          setShowSeconds(previous)
+          utils.user.getElectronAppSettings.setData({ token }, current => current ? { ...current, notchTimerShowSeconds: previous } : current)
+        }
+      }
+    )
+  }
   return <Card>
     <CardHeader><CardTitle>Notch timers</CardTitle><CardDescription>Choose what the two compact counters represent.</CardDescription></CardHeader>
     <CardContent className="space-y-3 text-sm">
       <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3"><input type="radio" checked={mode === 'streak'} onChange={() => changeMode('streak')} /><span><b>Current streak</b><br /><span className="text-muted-foreground">Resets after one minute of distraction.</span></span></label>
       <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3"><input type="radio" checked={mode === 'workday'} onChange={() => changeMode('workday')} /><span><b>Workday totals</b><br /><span className="text-muted-foreground">Accumulated focused and distracted time since 06:00.</span></span></label>
       {mode === 'workday' && <Button variant="outline" disabled={update.isLoading} onClick={() => { if (window.confirm('Reset the visible workday counters? Activity history will be kept.')) update.mutate({ token, resetWorkdayTimer: true }) }}>Reset workday counters</Button>}
+      <div className="flex items-center justify-between gap-4 border-t pt-3">
+        <div className="space-y-0.5"><Label htmlFor="show-notch-timer-seconds" className="text-sm font-medium">Show seconds</Label><p className="text-xs text-muted-foreground">Turn off to show whole minutes only (e.g. 12m), which is less distracting.</p></div>
+        <Switch id="show-notch-timer-seconds" checked={showSeconds} disabled={update.isLoading} onCheckedChange={changeShowSeconds} />
+      </div>
       <div className="flex items-center justify-between gap-4 border-t pt-3">
         <div className="space-y-0.5"><Label htmlFor="animate-notch-timer-digits" className="text-sm font-medium">Animate timer digits</Label><p className="text-xs text-muted-foreground">Off by default to save energy. Timers still update every second.</p></div>
         <Switch id="animate-notch-timer-digits" checked={animateDigits} disabled={update.isLoading} onCheckedChange={changeDigitAnimation} />

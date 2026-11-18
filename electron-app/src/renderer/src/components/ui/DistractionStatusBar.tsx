@@ -390,6 +390,7 @@ const DistractionStatusBar = ({
       distractedStreakMs: notchTimers.distractedStreakMs,
       statusStartedAtMs: notchTimers.statusStartedAtMs,
       animateTimerDigits: electronSettings?.animateNotchTimerDigits === true,
+      showTimerSeconds: electronSettings?.notchTimerShowSeconds !== false,
       categoryDetails: categoryDetailsForFloatingWindow,
       availableCategories: userCategories as Category[],
       itemType,
@@ -464,7 +465,8 @@ const DistractionStatusBar = ({
     runtimeSystemSuspensionIsAuthoritative,
     localPause,
     electronSettings?.notchTimerMode,
-    electronSettings?.animateNotchTimerDigits
+    electronSettings?.animateNotchTimerDigits,
+    electronSettings?.notchTimerShowSeconds
   ])
 
   const statusText = useMemo(
