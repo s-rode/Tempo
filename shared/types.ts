@@ -236,6 +236,6 @@ export interface FocusRuntimeSnapshot {
   transitionNotice: FocusTransitionNotice | null;
 }
 /** Bump whenever a packaged local server must not be reused across app updates. */
-export const TEMPO_LOCAL_SERVER_API_VERSION = '2026-10-tempo-local-calendar-v2';
+export const TEMPO_LOCAL_SERVER_API_VERSION = '2026-11-tempo-local-insights-v1';
 
 export { usableDistractionNudge, type DistractionNudge } from './distractionNudge';
