@@ -226,3 +226,73 @@ export function isIdentifierStyleTitle(title: string, applicationName: string): 
     .filter((word) => /[\p{L}\p{N}]/u.test(word));
   return rest.length <= 2;
 }
+
+/**
+ * Source-code languages whose names are unambiguous in a task. Go, C and R are
+ * left out because those words are ordinary English or initials. JavaScript and
+ * TypeScript are one family: a project in one routinely contains the other.
+ */
+const CODE_LANGUAGES: Array<{ name: RegExp; extensions: string[] }> = [
+  { name: /\bpython\b/iu, extensions: ['py', 'pyi'] },
+  { name: /\bjava\b(?!\s*script)/iu, extensions: ['java'] },
+  { name: /\bkotlin\b/iu, extensions: ['kt', 'kts'] },
+  {
+    name: /\b(?:java\s*script|type\s*script|node(?:\.?js)?|react|vue|svelte|angular)\b/iu,
+    extensions: ['js', 'jsx', 'mjs', 'cjs', 'ts', 'tsx', 'vue', 'svelte'],
+  },
+  { name: /\brust\b/iu, extensions: ['rs'] },
+  { name: /\bswift(?:ui)?\b/iu, extensions: ['swift'] },
+  { name: /\bc\+\+|\bcpp\b/iu, extensions: ['cpp', 'cc', 'cxx', 'hpp', 'hh'] },
+  { name: /\bc#|\bcsharp\b|\.net\b/iu, extensions: ['cs'] },
+  { name: /\bruby\b|\brails\b/iu, extensions: ['rb'] },
+  { name: /\bphp\b|\blaravel\b/iu, extensions: ['php'] },
+  { name: /\bhaskell\b/iu, extensions: ['hs'] },
+  { name: /\bscala\b/iu, extensions: ['scala'] },
+  { name: /\bgolang\b/iu, extensions: ['go'] },
+];
+
+/**
+ * True when every task names a programming language and the source file in the
+ * title is written in a different one: "main.py" while preparing a Java exam.
+ * The file extension is read from the title, not inferred by the model, so the
+ * conflict is visible evidence even though the file name itself says nothing
+ * about the subject.
+ */
+export function isSourceFileInOtherLanguage(title: string, taskTexts: string[]): boolean {
+  const extension = /[\p{L}\p{N}_-]\.([a-z+]{1,6})(?![\p{L}\p{N}])/iu
+    .exec(title)?.[1]
+    ?.toLowerCase();
+  const fileLanguage = CODE_LANGUAGES.find((language) =>
+    language.extensions.includes(extension || '')
+  );
+  if (!fileLanguage || !taskTexts.length) return false;
+  return taskTexts.every((text) => {
+    const named = CODE_LANGUAGES.filter((language) => language.name.test(text));
+    return named.length > 0 && !named.includes(fileLanguage);
+  });
+}
+
+/**
+ * True when the window edits the editor's or shell's own configuration rather
+ * than a project file: "keybindings.json — User", "settings.json — User",
+ * ".zshrc", a dotfiles repository. Such a file belongs to no task subject, so
+ * the reason for shielding ordinary file names does not apply, unless the task
+ * itself is about configuring tools.
+ */
+export function isToolSettingsTitle(title: string, taskTexts: string[]): boolean {
+  if (
+    taskTexts.some((text) =>
+      /\b(?:settings?|config\w*|keybind\w*|shortcuts?|dotfiles?|editor|shell|zsh|bash|vim|neovim|terminal|setup|set up)\b/iu.test(
+        text
+      )
+    )
+  )
+    return false;
+  return (
+    /\b(?:settings|keybindings|snippets|tasks)\.json\s*[—–-]\s*User\b/iu.test(title) ||
+    /(?:^|[\s/~])\.(?:zshrc|zprofile|bashrc|bash_profile|profile|vimrc|gitconfig|tmux\.conf)(?![\p{L}\p{N}])/iu.test(
+      title
+    ) ||
+    /[—–-]\s*dotfiles(?![\p{L}\p{N}])/iu.test(title)
+  );
+}
