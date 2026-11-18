@@ -19,6 +19,8 @@ export interface FloatingStatusUpdate {
   distractedStreakMs?: number
   statusStartedAtMs?: number | null
   animateTimerDigits?: boolean
+  /** When false the compact timers and daily totals show whole minutes only. */
+  showTimerSeconds?: boolean
   categoryDetails?: Category
   availableCategories?: Category[]
   /** Foreground app/site identity. Kept separate from the AI-derived label. */

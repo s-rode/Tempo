@@ -91,6 +91,7 @@ const userSchema = new mongoose.Schema({
       default: 'streak',
     },
     animateNotchTimerDigits: { type: Boolean, default: false },
+    notchTimerShowSeconds: { type: Boolean, default: true },
     sessionTransitionAlerts: { type: Boolean, default: true },
     playSessionTransitionChime: { type: Boolean, default: true },
     workdayTimerResetAtMs: { type: Number, default: null },

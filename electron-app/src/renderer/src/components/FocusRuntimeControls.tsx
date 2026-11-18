@@ -8,9 +8,9 @@ import { useRemindersAvailable } from '../hooks/useReminders'
 import { scheduleGoalProfileRefresh } from '../lib/goalProfileRefresh'
 import { displayMinutes, pomodoroSummary } from '../lib/taskEstimate'
 import { Button } from './ui/button'
+import { DurationSlider } from './ui/DurationSlider'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
-const customDurations = [15, 30, 45, 60, 90, 120] as const
 const pauseDurations = [1, 5, 20, 30, 60, 120] as const
 
 type PlanTaskOption = {
@@ -425,31 +425,11 @@ export function FocusRuntimeControls({
             {!isWaitingForGoal && !changingGoal && (
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-muted-foreground">Work time</span>
-                {selectedTask ? (
-                  <input
-                    type="number"
-                    min={1}
-                    max={720}
-                    step={1}
-                    className="tempo-field w-full"
-                    value={duration}
-                    onChange={(event) => setDuration(Number(event.target.value))}
-                    aria-label="Task work time in minutes"
-                  />
-                ) : (
-                  <select
-                    className="tempo-field w-full"
-                    value={duration}
-                    onChange={(event) => setDuration(Number(event.target.value))}
-                    aria-label="Custom focus duration"
-                  >
-                    {customDurations.map((minutes) => (
-                      <option key={minutes} value={minutes}>
-                        {minutes} minutes
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <DurationSlider
+                  value={duration}
+                  onChange={setDuration}
+                  label="Focus work time in minutes"
+                />
               </label>
             )}
             {!isWaitingForGoal &&

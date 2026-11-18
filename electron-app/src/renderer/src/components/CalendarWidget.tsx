@@ -1,16 +1,13 @@
-import { Calendar1, CalendarDaysIcon, ChartNoAxesGantt, ChevronLeft, ChevronRight, Layers } from 'lucide-react'
+import { Calendar1, CalendarDaysIcon, ChartNoAxesGantt, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { Category } from 'shared'
 import { useDarkMode } from '../hooks/useDarkMode'
-import { useWindowWidth } from '../hooks/useWindowWidth'
 import type { ActivitySessionBlock, TimelineChapter } from '../lib/activitySessions'
 import type { ProcessedEventBlock, TimelineViewMode } from './DashboardView'
 import { DayCalendarComparison } from './DayCalendarComparison'
 import CompactDayTimeline from './CompactDayTimeline'
 import DayOverviewTimeline from './DayOverviewTimeline'
 import { Button } from './ui/button'
-import { Label } from './ui/label'
-import { Switch } from './ui/switch'
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group'
 import WeekView from './WeekView'
 
@@ -55,8 +52,6 @@ const CalendarWidget = ({
 }: CalendarWidgetProps) => {
   const isDarkMode = useDarkMode()
   const [wasSetToToday, setWasSetToToday] = useState(false)
-  const [weekViewMode, setWeekViewMode] = useState<'stacked' | 'grouped'>('grouped')
-  const width = useWindowWidth()
   // Navigation steps by the period shown; the overview covers one day.
   const period = viewMode === 'week' ? 'week' : 'day'
 
@@ -183,24 +178,6 @@ const CalendarWidget = ({
               </Button>
             )}
           </div>
-          {viewMode === 'week' && (
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="week-view-mode"
-                checked={weekViewMode === 'stacked'}
-                onCheckedChange={(checked) => setWeekViewMode(checked ? 'stacked' : 'grouped')}
-              />
-              {width >= 1000 ? (
-                <Label htmlFor="week-view-mode" className="text-muted-foreground font-normal">
-                  Stacked
-                </Label>
-              ) : (
-                <Label htmlFor="week-view-mode" className="text-muted-foreground">
-                  <Layers className="text-muted-foreground" size={16} />
-                </Label>
-              )}
-            </div>
-          )}
           <ToggleGroup
             type="single"
             size="sm"
@@ -251,7 +228,6 @@ const CalendarWidget = ({
           processedEvents={processedEvents}
           selectedDate={selectedDate}
           isDarkMode={isDarkMode}
-          weekViewMode={weekViewMode}
           selectedDay={selectedDay}
           onDaySelect={onDaySelect}
         />
