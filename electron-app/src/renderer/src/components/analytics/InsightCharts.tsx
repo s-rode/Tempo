@@ -195,8 +195,14 @@ export function FocusHeatmap({
                     <div className="mb-1 font-semibold text-foreground">
                       {weekday} {formatHour(hour)}–{formatHour(hour + 1)}
                     </div>
-                    <TipRow color={FOCUS} label={weekdayDays[weekdayIndex] > 1 ? 'Focused (avg)' : 'Focused'} value={formatDuration(focus)} />
-                    <TipRow color={DISTRACT} label={weekdayDays[weekdayIndex] > 1 ? 'Distracted (avg)' : 'Distracted'} value={formatDuration(distract)} />
+                    {focus + distract > 0 ? (
+                      <>
+                        <TipRow color={FOCUS} label={weekdayDays[weekdayIndex] > 1 ? 'Focused (avg)' : 'Focused'} value={formatDuration(focus)} />
+                        <TipRow color={DISTRACT} label={weekdayDays[weekdayIndex] > 1 ? 'Distracted (avg)' : 'Distracted'} value={formatDuration(distract)} />
+                      </>
+                    ) : (
+                      <div className="text-muted-foreground">Nothing tracked</div>
+                    )}
                   </HoverTip>
                 </div>
               )

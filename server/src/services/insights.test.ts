@@ -146,6 +146,40 @@ describe('period insights', () => {
     expect(insights.sessions.tasks[0]).toMatchObject({ goal: 'Write thesis', sessions: 3 });
   });
 
+  test('a paused stretch and an overlapping archived phase are not counted as session time', () => {
+    const start = monday + 9 * hour;
+    // 30 min work, then a 60 min YouTube break while the session is paused, then 30 min work.
+    const events = [work(start), fun(start + 30 * minute), work(start + 90 * minute), sleep(start + 2 * hour)];
+    const runs: InsightRun[] = [
+      {
+        run: {
+          id: 'paused',
+          kind: 'custom',
+          startedAtMs: start,
+          phases: [
+            // Archived without a completion time; only 30 minutes were on the clock.
+            { kind: 'work', goal: 'Pandas', startedAtMs: start, completedAtMs: null, plannedDurationMs: 30 * minute, activeElapsedMs: 30 * minute },
+            { kind: 'work', goal: 'Pandas', startedAtMs: start + 90 * minute, completedAtMs: start + 2 * hour, plannedDurationMs: 30 * minute, activeElapsedMs: 30 * minute },
+          ],
+        },
+        endedAtMs: start + 2 * hour,
+        outcome: 'completed',
+      },
+    ];
+    const insights = calculatePeriodInsights({ events, categories, runs, startDateMs: monday, endDateMs: monday + 7 * day, previousStartDateMs: previousMonday, nowMs: monday + 7 * day });
+    // The 5 minutes of slack after the first phase catch part of the break, never the whole hour.
+    expect(insights.sessions.tasks[0].focusedMs).toBe(60 * minute);
+    expect(insights.sessions.tasks[0].focusRate).toBeGreaterThan(0.9);
+    expect(insights.sessions.medianFirstDriftMs).toBe(30 * minute);
+  });
+
+  test('generic fallback labels are not shown as distraction examples', () => {
+    const start = monday + 9 * hour;
+    const events = [fun(start, { activityLabel: 'Distracted by Firefox' }), sleep(start + 30 * minute)];
+    const insights = calculatePeriodInsights({ events, categories, runs: [], startDateMs: monday, endDateMs: monday + 7 * day, previousStartDateMs: previousMonday, nowMs: monday + 7 * day });
+    expect(insights.distractions.sources[0].examples).toEqual([]);
+  });
+
   test('stays quiet without data', () => {
     const insights = calculatePeriodInsights({ events: [], categories, runs: [], startDateMs: monday, endDateMs: monday + 7 * day, previousStartDateMs: previousMonday, nowMs: monday + 7 * day });
     expect(insights.summary.trackedMs).toBe(0);

@@ -115,6 +115,7 @@ export interface PeriodInsights {
   };
   switching: {
     perTrackedHour: number | null;
+    previousPerTrackedHour: number | null;
     calmerDays: { days: number; focusRate: number } | null;
     busierDays: { days: number; focusRate: number } | null;
   };
@@ -139,6 +140,10 @@ export const BLOCK_INTERRUPTION_TOLERANCE_MS = 2 * MINUTE;
 export const DEEP_BLOCK_MS = 25 * MINUTE;
 const MIN_STRETCH_MS = 5 * MINUTE;
 const LONG_DETOUR_MS = 10 * MINUTE;
+/** Pauses inside a phase are not on the clock; allow a little slack for them. */
+const SESSION_SLACK_MS = 5 * MINUTE;
+/** Generic fallback labels add nothing as an example of a distraction. */
+const GENERIC_LABEL = /^(distracted by|focused on|working on)\b/i;
 const SYSTEM_EVENT_NAMES = new Set(['System Sleep', 'System Wake', 'System Lock', 'System Unlock']);
 
 const PAGE_KIND_LABELS: Record<string, string> = {
@@ -490,7 +495,7 @@ export const calculatePeriodInsights = (args: {
     if (interval.state !== 'distracted') continue;
     const ms = interval.endMs - interval.startMs;
     sourceTotals.set(interval.sourceKey, (sourceTotals.get(interval.sourceKey) || 0) + ms);
-    if (interval.activityLabel && interval.sourceKey.startsWith('web:')) {
+    if (interval.activityLabel && interval.sourceKey.startsWith('web:') && !GENERIC_LABEL.test(interval.activityLabel.trim())) {
       const perSource = examples.get(interval.sourceKey) || new Map<string, number>();
       perSource.set(interval.activityLabel, (perSource.get(interval.activityLabel) || 0) + ms);
       examples.set(interval.sourceKey, perSource);
@@ -542,6 +547,7 @@ export const calculatePeriodInsights = (args: {
   const calmCount = Math.floor(switchDays.length / 2);
   const switching: PeriodInsights['switching'] = {
     perTrackedHour: summary.trackedMs >= 30 * MINUTE ? summary.appSwitches / (summary.trackedMs / HOUR) : null,
+    previousPerTrackedHour: previous.trackedMs >= 30 * MINUTE ? previous.appSwitches / (previous.trackedMs / HOUR) : null,
     calmerDays: switchDays.length >= 4 ? half(switchDays.slice(0, calmCount)) : null,
     busierDays: switchDays.length >= 4 ? half(switchDays.slice(switchDays.length - calmCount)) : null,
   };
@@ -550,20 +556,41 @@ export const calculatePeriodInsights = (args: {
   const sessionRows = args.runs
     .filter((entry) => entry.run.startedAtMs >= startDateMs && entry.run.startedAtMs < endDateMs)
     .map((entry) => {
-      const work = entry.run.phases.filter((phase) => phase.kind === 'work' && phase.startedAtMs);
+      const phases = entry.run.phases;
+      const work = phases.filter((phase) => phase.kind === 'work' && phase.startedAtMs);
       let focusedMs = 0;
       let distractedMs = 0;
       const firstDrifts: number[] = [];
+      let coveredUntilMs = -Infinity;
       for (const phase of work) {
-        const phaseStart = phase.startedAtMs as number;
-        const phaseEnd = phase.completedAtMs ?? entry.endedAtMs ?? effectiveEndMs;
+        // A phase's wall-clock span can include pauses, and archived phases
+        // do not always carry a completion time. Bound the window by the
+        // next phase, the run's end and the time actually on the clock (plus
+        // a little slack), and never count the same moment twice.
+        const index = phases.indexOf(phase);
+        const nextStart = phases.slice(index + 1).find((candidate) => candidate.startedAtMs)?.startedAtMs ?? Infinity;
+        const phaseStart = Math.max(phase.startedAtMs as number, coveredUntilMs);
+        const clockEnd = (phase.startedAtMs as number) + Math.max(phase.activeElapsedMs || 0, MINUTE) + SESSION_SLACK_MS;
+        const phaseEnd = Math.min(phase.completedAtMs ?? Infinity, nextStart, entry.endedAtMs ?? effectiveEndMs, clockEnd, effectiveEndMs);
+        if (phaseEnd <= phaseStart) continue;
+        coveredUntilMs = phaseEnd;
         const inside = clipped(intervals, phaseStart, phaseEnd);
+        let focusBeforeDrift = 0;
+        let drifted = false;
         for (const interval of inside) {
-          if (interval.state === 'focused') focusedMs += interval.endMs - interval.startMs;
-          if (interval.state === 'distracted') distractedMs += interval.endMs - interval.startMs;
+          const ms = interval.endMs - interval.startMs;
+          if (interval.state === 'focused') {
+            focusedMs += ms;
+            if (!drifted) focusBeforeDrift += ms;
+          }
+          if (interval.state === 'distracted') {
+            distractedMs += ms;
+            if (!drifted && ms >= MINUTE) {
+              drifted = true;
+              firstDrifts.push(focusBeforeDrift);
+            }
+          }
         }
-        const drift = inside.find((interval) => interval.state === 'distracted' && interval.endMs - interval.startMs >= MINUTE);
-        if (drift) firstDrifts.push(drift.startMs - phaseStart);
       }
       const goal = (entry.run.taskTarget?.goalSnapshot || work.find((phase) => phase.goal)?.goal || '').trim();
       return {

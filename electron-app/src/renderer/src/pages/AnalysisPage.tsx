@@ -323,7 +323,7 @@ export function AnalysisPage() {
                   {stamina?.medianBlockMs ? (
                     <>
                       Your focus typically holds for <span className="font-medium text-foreground">{minutesText(stamina.medianBlockMs)}</span> before you drift.
-                      {sessions?.medianFirstDriftMs ? <> In timed sessions the first drift comes after about {minutesText(sessions.medianFirstDriftMs)}.</> : null}
+                      {sessions?.medianFirstDriftMs ? <> In timed sessions you usually get about {minutesText(sessions.medianFirstDriftMs)} of focus in before the first drift.</> : null}
                     </>
                   ) : (
                     'A few more focus blocks are needed to estimate your stamina.'
@@ -467,7 +467,7 @@ export function AnalysisPage() {
                     {sessions.tasks.map((task) => (
                       <li key={task.goal}>
                         <div className="flex items-baseline justify-between gap-3">
-                          <span className="truncate text-[13px] font-medium">{task.goal}</span>
+                          <span className="line-clamp-2 text-[13px] font-medium leading-snug" title={task.goal}>{task.goal}</span>
                           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                             <span className="font-medium text-foreground">{minutesText(task.focusedMs)}</span> · {percent(task.focusRate)}
                           </span>
@@ -493,9 +493,13 @@ export function AnalysisPage() {
                   <div>
                     <div className="text-[22px] font-semibold tabular-nums">{switching.perTrackedHour.toFixed(0)}</div>
                     <div className="text-[11px] text-muted-foreground">app switches per active hour</div>
-                    <div className="mt-0.5">
-                      <Delta current={summary?.appSwitches ?? null} previous={prior?.appSwitches || null} kind="count" invert />
-                    </div>
+                    {switching.previousPerTrackedHour !== null && (
+                      <div className="mt-0.5 text-[11px] text-muted-foreground">
+                        {Math.round(switching.perTrackedHour) === Math.round(switching.previousPerTrackedHour)
+                          ? `same as ${comparisonLabel}`
+                          : `${Math.round(switching.previousPerTrackedHour)} per hour ${comparisonLabel}`}
+                      </div>
+                    )}
                   </div>
                   {switching.calmerDays && switching.busierDays ? (
                     <div className="min-w-[260px] flex-1 space-y-2 text-xs">
