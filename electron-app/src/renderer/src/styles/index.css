@@ -110,20 +110,34 @@
   }
   .tempo-sidebar {
     --glass-divider: rgb(0 0 0 / 0.08);
-    --glass-hover: rgb(0 0 0 / 0.05);
-    --glass-selected: rgb(0 0 0 / 0.07);
+    --glass-hover: rgb(255 255 255 / 0.28);
+    --glass-pill-top: rgb(255 255 255 / 0.62);
+    --glass-pill-bottom: rgb(255 255 255 / 0.36);
+    --glass-rim: rgb(255 255 255 / 0.85);
+    --glass-edge: rgb(0 0 0 / 0.06);
+    --glass-shadow: rgb(0 0 0 / 0.12);
+    --glass-sheen: rgb(255 255 255 / 0.18);
+    position: relative;
     width: 100%;
     flex: 1 1 auto;
     min-width: 0;
     background: hsl(var(--secondary));
   }
+  /* Over the native material: no fill, just a faint sheen at the top and
+     a thin light catch along the edge, like the rim of a glass pane. */
   .tempo-vibrancy .tempo-sidebar {
-    background: transparent;
+    background: linear-gradient(180deg, var(--glass-sheen), transparent 180px);
+    box-shadow: inset -1px 0 0 var(--glass-sheen);
   }
   .dark .tempo-sidebar {
     --glass-divider: rgb(255 255 255 / 0.08);
-    --glass-hover: rgb(255 255 255 / 0.06);
-    --glass-selected: rgb(255 255 255 / 0.1);
+    --glass-hover: rgb(255 255 255 / 0.07);
+    --glass-pill-top: rgb(255 255 255 / 0.16);
+    --glass-pill-bottom: rgb(255 255 255 / 0.08);
+    --glass-rim: rgb(255 255 255 / 0.22);
+    --glass-edge: rgb(0 0 0 / 0.35);
+    --glass-shadow: rgb(0 0 0 / 0.4);
+    --glass-sheen: rgb(255 255 255 / 0.06);
   }
   .tempo-sidebar-footer {
     border-top: 1px solid var(--glass-divider);
@@ -184,8 +198,13 @@
   .tempo-sidebar-item:hover {
     background: var(--glass-hover);
   }
+  /* The selected page is a small glass pill: translucent, lit from above. */
   .tempo-sidebar-item[data-active='true'] {
-    background: var(--glass-selected);
+    background: linear-gradient(180deg, var(--glass-pill-top), var(--glass-pill-bottom));
+    box-shadow:
+      inset 0 0.5px 0 var(--glass-rim),
+      0 0 0 0.5px var(--glass-edge),
+      0 1px 3px -1px var(--glass-shadow);
     color: hsl(var(--accent-foreground));
     font-weight: 600;
   }
@@ -1314,6 +1333,7 @@
   .tempo-sidebar,
   .tempo-vibrancy .tempo-sidebar {
     background: hsl(var(--secondary));
+    box-shadow: none;
   }
 }
 
