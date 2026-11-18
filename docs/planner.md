@@ -24,7 +24,13 @@ Today's tasks in working order. **Start Working** (⌘↵) begins an ordinary Te
 - **Later** sends the task to the back of the queue and continues with the next.
 - **Stop** ends the session and keeps the task in the queue.
 
-A task with an estimate runs for that long before Tempo asks whether to finish or add time. Tasks without one use the session length chosen in the queue.
+**Timer** next to Start Working chooses how a task session is timed:
+
+- **Estimate** counts down the task's estimate, then asks whether to finish or add time. Tasks without an estimate use the session length chosen next to it.
+- **Count Up** has no planned length. The clock counts up until you mark the task done (capped at 12 hours).
+- **Pomodoro** works in 30-minute blocks with 5-minute breaks until you mark the task done. No estimate is needed.
+
+The choice applies to every task in the queue, including the next one started automatically.
 
 ## Today timeline
 

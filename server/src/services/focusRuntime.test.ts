@@ -26,6 +26,26 @@ const runtimeWith = (run: any): any => ({
 describe('estimated task work time', () => {
   const source = { taskId: 'task-123', dateKey: '2026-10-04' };
 
+  test('an open-ended task counts up without a countdown', () => {
+    const run = createCustomRun('Write the summary', 720, 1_000, source, null);
+    run.taskTarget!.openEnded = true;
+    const runtime = runtimeWith(run);
+    const snapshot = runtimeSnapshot(runtime, 1_000 + 95 * 60_000);
+    expect(snapshot.phaseRemainingMs).toBeNull();
+    expect(snapshot.taskProgress?.openEnded).toBe(true);
+    expect(snapshot.taskProgress?.workElapsedMs).toBe(95 * 60_000);
+    expect(snapshot.run?.state).toBe('active');
+  });
+
+  test('an open-ended Pomodoro task keeps its block countdown', () => {
+    const run = createPomodoroRun('Write the summary', 1_000, source, 720, null);
+    run.taskTarget!.openEnded = true;
+    const runtime = runtimeWith(run);
+    const snapshot = runtimeSnapshot(runtime, 1_000 + 10 * 60_000);
+    expect(snapshot.phaseRemainingMs).toBe(20 * 60_000);
+    expect(snapshot.taskProgress?.openEnded).toBe(true);
+  });
+
   test('custom target becomes a single persistent checkpoint and counts overtime', () => {
     const runtime = runtimeWith(createCustomRun('Review algorithms', 45, 1_000, source, 45));
     const targetAt = 1_000 + 45 * 60_000;
