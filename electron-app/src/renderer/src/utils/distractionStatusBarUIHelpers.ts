@@ -1,5 +1,6 @@
 import { ActiveWindowDetails, ActiveWindowEvent, Category } from 'shared'
 import type { ForegroundActivityWindow } from '../lib/activityCaptureState'
+import { isSystemEventName, SYSTEM_EVENT_LABELS } from '../lib/constants'
 
 export interface DisplayWindowInfo {
   ownerName: string
@@ -27,46 +28,18 @@ export const getDisplayWindowInfo = (
   const dw = activeWindow || latestEvent
   if (!dw) return { ownerName: 'No active application', title: '', url: undefined, isApp: true }
 
-  // TODO: merge with or map from constants array?
-  switch (dw.ownerName) {
-    case 'System Sleep':
-      return {
-        ownerName: '💤 System Inactive',
-        title: 'Computer was sleeping',
-        url: undefined,
-        isApp: true
-      }
-    case 'System Wake':
-      return {
-        ownerName: '⏰ System Active',
-        title: 'Computer woke from sleep',
-        url: undefined,
-        isApp: true
-      }
-    case 'System Lock':
-      return {
-        ownerName: '🔒 Screen Locked',
-        title: 'Screen was locked',
-        url: undefined,
-        isApp: true
-      }
-    case 'System Unlock':
-      return {
-        ownerName: '🔓 Screen Unlocked',
-        title: 'Screen was unlocked',
-        url: undefined,
-        isApp: true
-      }
-    default:
-      // Firefox has no URL by design, but its title + OCR fingerprint identifies
-      // a website activity rather than one generic Firefox application.
-      const isApp = !dw.url && dw.browser !== 'firefox'
-      return {
-        ownerName: dw.ownerName || 'Unknown App',
-        title: dw.title && dw.title !== dw.ownerName ? dw.title : '',
-        url: dw.url || undefined,
-        isApp
-      }
+  if (isSystemEventName(dw.ownerName)) {
+    return { ...SYSTEM_EVENT_LABELS[dw.ownerName], url: undefined, isApp: true }
+  }
+
+  // Firefox has no URL by design, but its title + OCR fingerprint identifies
+  // a website activity rather than one generic Firefox application.
+  const isApp = !dw.url && dw.browser !== 'firefox'
+  return {
+    ownerName: dw.ownerName || 'Unknown App',
+    title: dw.title && dw.title !== dw.ownerName ? dw.title : '',
+    url: dw.url || undefined,
+    isApp
   }
 }
 

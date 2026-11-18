@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { ActiveWindowDetails, ActiveWindowEvent } from 'shared'
-import { getStatusText } from './distractionStatusBarUIHelpers'
+import { getDisplayWindowInfo, getStatusText } from './distractionStatusBarUIHelpers'
 
 const activity: ActiveWindowDetails = {
   ownerName: 'Firefox',
@@ -40,5 +40,29 @@ describe('current activity status', () => {
         null
       )
     ).toBe('Needs more context')
+  })
+})
+
+describe('display window info', () => {
+  test('uses the shared label for system events', () => {
+    expect(
+      getDisplayWindowInfo(null, { ownerName: 'System Lock', title: 'System Lock', type: 'system' })
+    ).toEqual({
+      ownerName: '🔒 Screen Locked',
+      title: 'Screen was locked',
+      url: undefined,
+      isApp: true
+    })
+  })
+
+  test('does not treat inherited object keys as system events', () => {
+    expect(
+      getDisplayWindowInfo(null, { ...activity, ownerName: 'toString', browser: null })
+    ).toEqual({
+      ownerName: 'toString',
+      title: activity.title,
+      url: undefined,
+      isApp: true
+    })
   })
 })
