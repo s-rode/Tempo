@@ -74,7 +74,7 @@ function CategoryColorPicker({
           title={selectedColor}
         ></Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 bg-popover border-border">
+      <PopoverContent className="w-auto p-0">
         <div className="grid grid-cols-6 gap-2 p-3 rounded-md">
           {notionStyleCategoryColors.map((bgColor) => (
             <button

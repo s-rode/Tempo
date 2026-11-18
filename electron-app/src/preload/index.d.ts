@@ -117,6 +117,7 @@ declare global {
         lastErrorCode?: string
       }>
       getSystemAccentColor: () => Promise<string | null>
+      setNativeTheme: (theme: 'light' | 'dark' | 'system') => void
       captureFirefoxNavigation: (state: {
         windowId: number
         title: string

@@ -193,6 +193,7 @@ const api = {
     ipcRenderer.invoke('get-app-icon-data-url', appName),
   getMonitoringHealth: () => ipcRenderer.invoke('get-monitoring-health'),
   getSystemAccentColor: (): Promise<string | null> => ipcRenderer.invoke('get-system-accent-color'),
+  setNativeTheme: (theme: 'light' | 'dark' | 'system') => ipcRenderer.send('set-native-theme', theme),
   captureFirefoxNavigation: (state: {
     windowId: number
     title: string

@@ -38,7 +38,13 @@ export function createMainWindow(
     title: 'Tempo',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     autoHideMenuBar: false,
-    backgroundColor: '#F5F5F7',
+    // On macOS the window itself carries a translucent system material; the
+    // renderer paints opaque content everywhere except the sidebar pane.
+    // `under-window` is the most see-through material, and `active` keeps it
+    // live (not greyed out) while the window is in the background.
+    ...(process.platform === 'darwin'
+      ? { vibrancy: 'under-window' as const, visualEffectState: 'active' as const, backgroundColor: '#00000000' }
+      : { backgroundColor: '#F5F5F7' }),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

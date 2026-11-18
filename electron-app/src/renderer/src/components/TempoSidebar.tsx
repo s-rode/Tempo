@@ -23,7 +23,7 @@ export function TempoSidebar({ activePage, onNavigate, collapsed, firefoxState }
       <nav className="space-y-0.5" aria-label="Primary navigation">
         {entries.map(({ page, label, Icon }) => <button key={page} type="button" className="tempo-sidebar-item" data-active={activePage === page} onClick={() => onNavigate(page)} aria-current={activePage === page ? 'page' : undefined}><Icon size={16} strokeWidth={1.8} /><span>{label}</span></button>)}
       </nav>
-      <div className="mt-auto space-y-2 border-t pt-3">
+      <div className="tempo-sidebar-footer mt-auto space-y-2 pt-3">
         <div className="flex items-center gap-2 px-2 text-xs text-muted-foreground"><MonitorCog size={14} /><span>Monitoring active</span></div>
         <FirefoxCompanionStatus state={firefoxState} />
         <div className="flex items-center gap-2 px-2 text-[11px] text-muted-foreground"><CircleDot size={12} /><span>Local-only activity data</span></div>
