@@ -312,9 +312,30 @@
     padding: 0 8px;
     font-size: 12px;
   }
+  /* The current-activity card at the top of the Today inspector. */
   .tempo-inspector-section {
-    border-bottom: 1px solid hsl(var(--border));
-    padding: 16px;
+    --now-tint: transparent;
+    border-radius: 14px;
+    padding: 12px 14px;
+    background:
+      linear-gradient(var(--now-tint), var(--now-tint)),
+      linear-gradient(180deg, var(--insight-card-top), var(--insight-card-bottom));
+    box-shadow:
+      inset 0 1px 0 var(--glass-rim),
+      0 0 0 0.5px var(--glass-edge),
+      0 6px 20px -12px var(--glass-surface-shadow);
+  }
+  .tempo-inspector-section[data-state='focused'] {
+    --now-tint: rgb(0 122 255 / 0.08);
+  }
+  .tempo-inspector-section[data-state='distracted'] {
+    --now-tint: rgb(255 59 48 / 0.1);
+  }
+  .dark .tempo-inspector-section[data-state='focused'] {
+    --now-tint: rgb(10 132 255 / 0.16);
+  }
+  .dark .tempo-inspector-section[data-state='distracted'] {
+    --now-tint: rgb(255 69 58 / 0.16);
   }
   .tempo-week-focus-chart {
     margin-top: 16px;
@@ -483,15 +504,13 @@
     background: hsl(var(--muted));
   }
   .tempo-day-workspace {
-    background: hsl(var(--card));
+    background: hsl(var(--background));
   }
   .tempo-day-toolbar {
     display: flex;
-    min-height: 44px;
+    min-height: 48px;
     align-items: center;
-    padding: 0 16px;
-    border-bottom: 1px solid hsl(var(--border));
-    background: hsl(var(--card));
+    padding: 8px 16px;
   }
   .tempo-date-button {
     height: 26px;
@@ -500,10 +519,12 @@
     border-radius: 5px;
   }
   .tempo-date-title {
-    min-width: 176px;
+    min-width: 132px;
     color: hsl(var(--foreground));
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
+    letter-spacing: -0.01em;
+    text-align: center;
   }
   .tempo-date-now {
     height: 26px;
@@ -515,13 +536,6 @@
   .tempo-date-now:disabled {
     color: hsl(var(--muted-foreground));
     opacity: 0.7;
-  }
-  .tempo-day-empty-state {
-    display: grid;
-    min-height: 220px;
-    place-items: center;
-    color: hsl(var(--muted-foreground));
-    font-size: 13px;
   }
   .tempo-day-timeline {
     container-type: inline-size;
@@ -843,156 +857,6 @@
     gap: 6px;
     color: hsl(var(--muted-foreground));
     font-size: 11px;
-  }
-  /* Day-inspector source list: deliberately list-like rather than a stack of cards. */
-  .tempo-activity-source-list {
-    margin: 0 -6px;
-  }
-  .tempo-activity-source-row {
-    display: grid;
-    grid-template-columns: 20px minmax(0, 1fr) 62px;
-    align-items: center;
-    width: 100%;
-    min-height: 42px;
-    gap: 8px;
-    border-radius: 6px;
-    padding: 5px 6px;
-    color: hsl(var(--foreground));
-    text-align: left;
-    transition: background-color 120ms ease;
-  }
-  .tempo-activity-source-row:hover {
-    background: hsl(var(--muted));
-  }
-  .tempo-activity-source-row.is-selected,
-  .tempo-activity-source-row[aria-pressed='true'] {
-    background: hsl(var(--accent));
-    color: hsl(var(--accent-foreground));
-  }
-  .tempo-activity-source-name,
-  .tempo-activity-source-subtitle {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .tempo-activity-source-name {
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1.25;
-  }
-  .tempo-activity-source-subtitle {
-    margin-top: 1px;
-    color: hsl(var(--muted-foreground));
-    font-size: 10px;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.25;
-  }
-  .tempo-activity-source-duration {
-    display: grid;
-    justify-items: end;
-    gap: 4px;
-    color: hsl(var(--foreground));
-    font-size: 11px;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-  }
-  .tempo-activity-state-rail {
-    display: flex;
-    width: 58px;
-    height: 3px;
-    overflow: hidden;
-    border-radius: 999px;
-    background: hsl(var(--muted));
-  }
-  .tempo-activity-state-rail.is-empty {
-    opacity: 0.55;
-  }
-  .tempo-activity-state-rail > span {
-    min-width: 2px;
-  }
-  .tempo-activity-state-rail .is-focused,
-  .tempo-activity-state-dot.is-focused {
-    background: hsl(152 58% 44%);
-  }
-  .tempo-activity-state-rail .is-distracted,
-  .tempo-activity-state-dot.is-distracted {
-    background: hsl(351 78% 59%);
-  }
-  .tempo-activity-state-rail .is-uncertain,
-  .tempo-activity-state-dot.is-uncertain {
-    background: hsl(38 92% 50%);
-  }
-  .tempo-activity-inspector {
-    border-top: 1px solid hsl(var(--border));
-    padding-top: 12px;
-  }
-  .tempo-activity-inspector-heading {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .tempo-activity-breakdown {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
-    margin-top: 8px;
-  }
-  .tempo-activity-breakdown-row {
-    display: grid;
-    grid-template-columns: 6px auto auto;
-    align-items: center;
-    gap: 5px;
-    color: hsl(var(--muted-foreground));
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-  }
-  .tempo-activity-breakdown-row time,
-  .tempo-activity-detail-row time {
-    color: hsl(var(--foreground));
-  }
-  .tempo-activity-state-dot {
-    display: block;
-    width: 6px;
-    height: 6px;
-    border-radius: 999px;
-  }
-  .tempo-activity-inspector-section {
-    margin-top: 12px;
-    border-top: 1px solid hsl(var(--border));
-    padding-top: 10px;
-  }
-  .tempo-activity-inspector-label {
-    margin-bottom: 5px;
-    color: hsl(var(--muted-foreground));
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.055em;
-    text-transform: uppercase;
-  }
-  .tempo-activity-detail-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-    min-height: 22px;
-    color: hsl(var(--foreground));
-    font-size: 12px;
-  }
-  .tempo-activity-detail-row time {
-    flex: none;
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-  }
-  .tempo-activity-inspector-action {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 12px;
-    border-top: 1px solid hsl(var(--border));
-    padding-top: 10px;
   }
   .tempo-activity-inspector-empty {
     display: flex;
@@ -1836,38 +1700,4 @@ textarea.tempo-pref-input {
 @media (prefers-contrast: more) {
   .tempo-calendar-event-bar { border-width: 2px; }
   .tempo-calendar-recording { border: 1px solid hsl(var(--foreground)); }
-}
-
-/* Whole-day overview: one local hour per row, sized so a full day fits the
-   timeline pane. Unfilled track is time without tracked activity (idle). */
-.tempo-day-overview { display: flex; min-height: 100%; flex-direction: column; padding: 10px 16px 12px 12px; }
-.tempo-day-overview-header { margin-bottom: 8px; padding-left: 50px; }
-.tempo-day-overview-summary { display: flex; height: 6px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: hsl(var(--muted)); }
-.tempo-day-overview-summary > span { min-width: 2px; }
-.tempo-day-overview-dot { display: inline-block; width: 6px; height: 6px; flex: none; border-radius: 999px; }
-.tempo-day-overview-ruler { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 6px; height: 14px; }
-.tempo-day-overview-ruler > div { position: relative; }
-.tempo-day-overview-ruler > div > span { position: absolute; font-size: 9px; font-variant-numeric: tabular-nums; color: hsl(var(--muted-foreground)); }
-.tempo-day-overview-ruler > div > span:not(:first-child) { transform: translateX(-50%); }
-.tempo-day-overview-grid { display: grid; flex: 1; min-height: 0; align-content: start; row-gap: 3px; }
-.tempo-day-overview-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: stretch; gap: 6px; min-height: 0; }
-.tempo-day-overview-hour { align-self: center; text-align: right; font-size: 10px; font-variant-numeric: tabular-nums; color: hsl(var(--muted-foreground)); }
-.tempo-day-overview-track { position: relative; min-width: 0; overflow: hidden; border-radius: 4px; background: hsl(var(--muted) / .55); background-image: linear-gradient(90deg, transparent calc(25% - .5px), hsl(var(--border) / .7) calc(25% - .5px), hsl(var(--border) / .7) calc(25% + .5px), transparent calc(25% + .5px), transparent calc(50% - .5px), hsl(var(--border) / .7) calc(50% - .5px), hsl(var(--border) / .7) calc(50% + .5px), transparent calc(50% + .5px), transparent calc(75% - .5px), hsl(var(--border) / .7) calc(75% - .5px), hsl(var(--border) / .7) calc(75% + .5px), transparent calc(75% + .5px)); }
-.tempo-day-overview-segment { position: absolute; top: 2px; bottom: 2px; min-width: 2px; overflow: hidden; border-radius: 2px; padding: 0 4px; text-align: left; color: #fff; transition: filter 120ms ease; }
-.tempo-day-overview-segment:hover { filter: brightness(1.08) saturate(1.05); }
-.tempo-day-overview-segment.is-related { box-shadow: inset 0 0 0 1.5px hsl(var(--card) / .85); }
-.tempo-day-overview-segment.is-selected { outline: 2px solid var(--tempo-system-accent); outline-offset: 1px; z-index: 1; }
-.tempo-day-overview-segment:focus-visible { outline: 2px solid var(--tempo-system-accent); outline-offset: 2px; z-index: 2; }
-.tempo-day-overview-label { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 10px; font-weight: 500; line-height: 1; position: relative; top: 50%; transform: translateY(-50%); text-shadow: 0 0 2px rgb(0 0 0 / .18); }
-.tempo-day-overview-segment.is-focused, .tempo-day-overview-summary .is-focused, .tempo-day-overview-dot.is-focused { background: hsl(152 58% 40%); }
-.tempo-day-overview-segment.is-distracted, .tempo-day-overview-summary .is-distracted, .tempo-day-overview-dot.is-distracted { background: hsl(351 72% 54%); }
-.tempo-day-overview-segment.is-uncertain, .tempo-day-overview-summary .is-uncertain, .tempo-day-overview-dot.is-uncertain { background: hsl(38 92% 46%); }
-.tempo-day-overview-summary .is-idle { background: transparent; }
-.tempo-day-overview-dot.is-idle { background: hsl(var(--muted-foreground) / .35); }
-@media (prefers-reduced-motion: reduce) {
-  .tempo-day-overview-segment { transition: none; }
-}
-@media (prefers-contrast: more) {
-  .tempo-day-overview-track { border: 1px solid hsl(var(--foreground) / .5); }
-  .tempo-day-overview-segment { border: 1px solid hsl(var(--foreground)); }
 }

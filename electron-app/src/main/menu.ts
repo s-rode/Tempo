@@ -10,6 +10,12 @@ export type TempoDesktopCommand =
   | 'pause-or-resume'
   | 'set-today-plan'
   | 'set-weekly-focus'
+  | 'day-view-timeline'
+  | 'day-view-hours'
+  | 'day-view-week'
+  | 'previous-day'
+  | 'next-day'
+  | 'go-to-today'
 
 function showMainWindow(getWindow: () => BrowserWindow | null) {
   const window = getWindow()
@@ -65,9 +71,23 @@ export function installTempoMenu(getWindow: () => BrowserWindow | null) {
         command('Settings', 'Command+3', 'settings'),
         command('Plan', 'Command+4', 'plan'),
         { type: 'separator' },
+        command('Timeline', 'Command+Control+1', 'day-view-timeline'),
+        command('Hours', 'Command+Control+2', 'day-view-hours'),
+        command('Week', 'Command+Control+3', 'day-view-week'),
+        { type: 'separator' },
         command('Toggle Sidebar', 'Command+Control+S', 'toggle-sidebar'),
         { type: 'separator' },
         { role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Go',
+      submenu: [
+        // Shown in the menu but handled by the page, so Command+arrow still
+        // moves the caret while a text field has focus.
+        { ...command('Previous Day', 'Command+Left', 'previous-day'), registerAccelerator: false },
+        { ...command('Next Day', 'Command+Right', 'next-day'), registerAccelerator: false },
+        command('Today', 'Command+T', 'go-to-today')
       ]
     },
     {

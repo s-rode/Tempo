@@ -2,7 +2,7 @@ import { requestEventsRefresh } from './lib/eventsRefresh'
 import { recategorizeRequest } from './lib/recategorizeRequest'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Category } from 'shared'
-import { DashboardView } from './components/DashboardView'
+import { DashboardView, type DayCommand } from './components/DashboardView'
 import { OnboardingModal } from './components/OnboardingModal'
 import RecategorizeDialog from './components/RecategorizeDialog'
 import DistractionStatusBar from './components/ui/DistractionStatusBar'
@@ -74,6 +74,9 @@ export function MainAppContent() {
   const [focusOpenRequest, setFocusOpenRequest] = useState(0)
   const [focusQuickActionRequest, setFocusQuickActionRequest] = useState(0)
   const [todayPlanOpenRequest, setTodayPlanOpenRequest] = useState(0)
+  const [dayCommand, setDayCommand] = useState<{ command: DayCommand; request: number } | null>(
+    null
+  )
   const [planningOpenRequest, setPlanningOpenRequest] = useState(0)
   const [isSystemResumePending, setIsSystemResumePending] = useState(false)
   const [systemSuspension, setSystemSuspension] = useState({
@@ -890,6 +893,17 @@ export function MainAppContent() {
         setActivePage('dashboard')
         setTodayPlanOpenRequest((request) => request + 1)
       }
+      if (
+        command === 'day-view-timeline' ||
+        command === 'day-view-hours' ||
+        command === 'day-view-week' ||
+        command === 'previous-day' ||
+        command === 'next-day' ||
+        command === 'go-to-today'
+      ) {
+        setActivePage('dashboard')
+        setDayCommand((current) => ({ command, request: (current?.request ?? 0) + 1 }))
+      }
       if (command === 'set-weekly-focus') {
         setActivePage('settings')
         setPlanningOpenRequest((request) => request + 1)
@@ -951,6 +965,7 @@ export function MainAppContent() {
         {activePage === 'dashboard' && (
           <DashboardView
             todayPlanOpenRequest={todayPlanOpenRequest}
+            dayCommand={dayCommand}
             nowActivity={
               <DistractionStatusBar
                 activeWindow={activeWindow}

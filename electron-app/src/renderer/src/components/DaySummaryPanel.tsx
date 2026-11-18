@@ -1,5 +1,5 @@
 import { ClassificationReview } from './ClassificationReview'
-import { Clock3, Focus, TriangleAlert } from 'lucide-react'
+import { Clock3, Focus, MousePointerClick, TriangleAlert } from 'lucide-react'
 import { type ReactElement, useMemo, useState } from 'react'
 import { Category } from 'shared'
 import { useAuth } from '../contexts/AuthContext'
@@ -53,53 +53,40 @@ const sourceActivities = (
     .slice(0, 3)
 }
 
-function ActivityStateRail({
-  focusedMs,
-  distractedMs,
-  uncertainMs
-}: Pick<DayActivitySummary, 'focusedMs' | 'distractedMs' | 'uncertainMs'>): ReactElement {
-  const totalMs = focusedMs + distractedMs + uncertainMs
-  if (!totalMs) return <div className="tempo-activity-state-rail is-empty" aria-hidden="true" />
+const STATE_ROWS = [
+  { label: 'Focused', key: 'focusedMs', state: 'is-focused' },
+  { label: 'Distracted', key: 'distractedMs', state: 'is-distracted' },
+  { label: 'Uncertain', key: 'uncertainMs', state: 'is-uncertain' }
+] as const
 
-  const segments = [
-    { label: 'Focused', value: focusedMs, state: 'is-focused' },
-    { label: 'Distracted', value: distractedMs, state: 'is-distracted' },
-    { label: 'Uncertain', value: uncertainMs, state: 'is-uncertain' }
-  ].filter((segment) => segment.value > 0)
+type StateMix = Pick<DayActivitySummary, 'focusedMs' | 'distractedMs' | 'uncertainMs'>
 
+function ActivityStateRail(mix: StateMix): ReactElement {
+  const segments = STATE_ROWS.filter((row) => mix[row.key] > 0)
   return (
     <div
-      className="tempo-activity-state-rail"
-      aria-label={segments
-        .map((segment) => `${segment.label} ${formatDuration(segment.value)}`)
-        .join(', ')}
+      className="tempo-state-rail"
+      role="img"
+      aria-label={
+        segments.map((row) => `${row.label} ${formatDuration(mix[row.key])}`).join(', ') ||
+        'No classified time'
+      }
     >
-      {segments.map((segment) => (
-        <span
-          key={segment.state}
-          className={segment.state}
-          style={{ width: `${(segment.value / totalMs) * 100}%` }}
-        />
+      {segments.map((row) => (
+        <span key={row.state} className={row.state} style={{ flexGrow: mix[row.key] }} />
       ))}
     </div>
   )
 }
 
 function StateBreakdown({ source }: { source: DayActivitySummary }): ReactElement {
-  const states = [
-    { label: 'Focused', value: source.focusedMs, className: 'is-focused' },
-    { label: 'Distracted', value: source.distractedMs, className: 'is-distracted' },
-    { label: 'Uncertain', value: source.uncertainMs, className: 'is-uncertain' }
-  ].filter((state) => state.value > 0)
-
   return (
-    <div className="tempo-activity-breakdown" aria-label="Classification breakdown">
-      {states.map((state) => (
-        <div key={state.label} className="tempo-activity-breakdown-row">
-          <span className={cn('tempo-activity-state-dot', state.className)} />
-          <span>{state.label}</span>
-          <time>{formatDuration(state.value)}</time>
-        </div>
+    <div className="tempo-detail-breakdown" aria-label="Classification breakdown">
+      {STATE_ROWS.filter((row) => source[row.key] > 0).map((row) => (
+        <span key={row.label}>
+          <span className={cn('tempo-day-dot', row.state)} aria-hidden="true" />
+          {row.label} <time>{formatDuration(source[row.key])}</time>
+        </span>
       ))}
     </div>
   )
@@ -173,70 +160,60 @@ export default function DaySummaryPanel({
       ? 'This activity did not provide evidence of advancing the current goal.'
       : undefined)
 
-  return (
-    <div className="space-y-0">
-      <section className="border-b px-1 pb-4">
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-2xl font-semibold tabular-nums">
-                {formatDuration(totals.focusedMs)}
-              </p>
-              <p className="text-xs text-muted-foreground">focused</p>
-            </div>
-            <div>
-              <p className="text-2xl font-semibold tabular-nums">
-                {formatDuration(totals.distractedMs)}
-              </p>
-              <p className="text-xs text-muted-foreground">distracted</p>
-            </div>
-          </div>
-          {totals.uncertainMs > 0 && (
-            <p className="text-xs text-muted-foreground tabular-nums">
-              {formatDuration(totals.uncertainMs)} uncertain
-            </p>
-          )}
-          <div className="space-y-2 border-t pt-3">
-            {categoryTotals.map(({ category, durationMs }) => (
-              <div key={category?._id || 'uncategorized'}>
-                <div className="mb-1 flex justify-between gap-2 text-xs">
-                  <span className="truncate">{category?.name || 'Uncertain'}</span>
-                  <span className="tabular-nums">{formatDuration(durationMs)}</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      backgroundColor: category?.color || '#808080',
-                      width: `${(durationMs / maxCategoryDuration) * 100}%`
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+  const inspectedState =
+    sessionForInspector?.isProductive === true
+      ? { className: 'is-focused', label: 'Focused', Icon: Focus }
+      : sessionForInspector?.isProductive === false
+        ? { className: 'is-distracted', label: 'Distracted', Icon: TriangleAlert }
+        : { className: 'is-uncertain', label: 'Uncertain', Icon: Clock3 }
 
-      <ClassificationReview
-        startDateMs={dayRange.startDateMs}
-        endDateMs={dayRange.endDateMs}
-        onChange={refetchEvents}
-      />
-      <section className="border-b py-4" aria-labelledby="activity-sources-heading">
-        <div className="mb-2 flex items-baseline justify-between gap-3">
-          <p
-            id="activity-sources-heading"
-            className="text-[11px] font-medium uppercase tracking-[.12em] text-muted-foreground"
-          >
-            Activities
-          </p>
+  return (
+    <>
+      {categoryTotals.length > 0 && (
+        <section
+          className="tempo-glass-card tempo-inspector-card"
+          aria-labelledby="day-categories-heading"
+        >
+          <div className="tempo-inspector-card-heading">
+            <h3 id="day-categories-heading">Categories</h3>
+            <span>
+              {formatDuration(totals.focusedMs + totals.distractedMs + totals.uncertainMs)}
+            </span>
+          </div>
+          {categoryTotals.map(({ category, durationMs }) => (
+            <div key={category?._id || 'uncategorized'} className="tempo-category-row">
+              <div>
+                <i style={{ backgroundColor: category?.color || '#d97706' }} aria-hidden="true" />
+                <span className="truncate">{category?.name || 'Uncertain'}</span>
+                <time>{formatDuration(durationMs)}</time>
+              </div>
+              <div className="tempo-category-bar">
+                <span
+                  style={{
+                    backgroundColor: category?.color || '#d97706',
+                    width: `${(durationMs / maxCategoryDuration) * 100}%`
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      <section
+        className="tempo-glass-card tempo-inspector-card"
+        aria-labelledby="activity-sources-heading"
+      >
+        <div className="tempo-inspector-card-heading">
+          <h3 id="activity-sources-heading">Activities</h3>
           {summaries.length > 0 && (
-            <span className="text-[11px] text-muted-foreground">By app</span>
+            <span>
+              {summaries.length} {summaries.length === 1 ? 'app' : 'apps'}
+            </span>
           )}
         </div>
         {visibleSources.length > 0 ? (
-          <div className="tempo-activity-source-list" role="list">
+          <div className="tempo-app-list" role="list">
             {visibleSources.map((source) => {
               const isSelected = source === selectedSource
               return (
@@ -246,16 +223,14 @@ export default function DaySummaryPanel({
                   role="listitem"
                   aria-pressed={isSelected}
                   onClick={() => onSelectSession(sourceRepresentative(source))}
-                  className={cn('tempo-activity-source-row', isSelected && 'is-selected')}
+                  className={cn('tempo-app-row', isSelected && 'is-selected')}
                 >
-                  <NativeAppIcon appName={source.ownerName} size={20} />
+                  <NativeAppIcon appName={source.ownerName} size={22} />
                   <span className="min-w-0 flex-1">
-                    <span className="tempo-activity-source-name">{source.label}</span>
-                    <span className="tempo-activity-source-subtitle">
-                      {timeRange(source)} · tracked today
-                    </span>
+                    <span className="tempo-app-name">{source.label}</span>
+                    <span className="tempo-app-subtitle">{timeRange(source)}</span>
                   </span>
-                  <span className="tempo-activity-source-duration">
+                  <span className="tempo-app-duration">
                     <time>{formatDuration(source.totalDurationMs)}</time>
                     <ActivityStateRail {...source} />
                   </span>
@@ -264,35 +239,37 @@ export default function DaySummaryPanel({
             })}
           </div>
         ) : (
-          <p className="py-1 text-xs text-muted-foreground">No tracked activity yet.</p>
+          <p className="text-xs text-muted-foreground">No tracked activity yet.</p>
         )}
         {summaries.length > 6 && (
-          <Button
-            variant="ghost"
-            size="xs"
-            className="mt-2 w-full justify-start text-xs text-muted-foreground"
+          <button
+            type="button"
+            className="tempo-inspector-more"
             onClick={() => setShowAllActivities((value) => !value)}
           >
-            {showAllActivities ? 'Show fewer apps' : `Show ${summaries.length - 6} more apps`}
-          </Button>
+            {showAllActivities ? 'Show fewer' : `Show ${summaries.length - 6} more`}
+          </button>
         )}
       </section>
 
-      <section className="py-4" aria-label="Selected activity details">
+      <section
+        className="tempo-glass-card tempo-inspector-card"
+        aria-label="Selected activity details"
+      >
         {selectedSource && sessionForInspector ? (
-          <div className="tempo-activity-inspector">
-            <div className="tempo-activity-inspector-heading">
-              <NativeAppIcon appName={selectedSource.ownerName} size={24} />
+          <>
+            <div className="tempo-detail-heading">
+              <NativeAppIcon appName={selectedSource.ownerName} size={28} />
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold">{selectedSource.label}</p>
-                <p className="truncate text-xs text-muted-foreground">
+                <p className="truncate text-[13px] font-semibold">{selectedSource.label}</p>
+                <p className="truncate text-[11px] tabular-nums text-muted-foreground">
                   {timeRange(selectedSource)} ·{' '}
                   {selectedSource.sessions.length === 1
                     ? '1 activity'
                     : `${selectedSource.sessions.length} activities`}
                 </p>
               </div>
-              <time className="text-sm font-semibold tabular-nums">
+              <time className="text-[13px] font-semibold tabular-nums">
                 {formatDuration(selectedSource.totalDurationMs)}
               </time>
             </div>
@@ -302,84 +279,86 @@ export default function DaySummaryPanel({
               <StateBreakdown source={selectedSource} />
             </div>
 
-            <div className="tempo-activity-inspector-section">
-              <p className="tempo-activity-inspector-label">Most of this time</p>
+            <div className="tempo-detail-section">
+              <p className="tempo-detail-label">Most of this time</p>
               {sourceActivities(selectedSource).map((activity) => (
-                <div key={activity.label} className="tempo-activity-detail-row">
+                <div key={activity.label} className="tempo-detail-row">
                   <span className="min-w-0 truncate">{activity.label}</span>
                   <time>{formatDuration(activity.durationMs)}</time>
                 </div>
               ))}
             </div>
 
-            <div className="tempo-activity-inspector-section">
-              <p className="tempo-activity-inspector-label">Selected activity</p>
-              <div className="flex items-start gap-2">
-                {sessionForInspector.isProductive === true ? (
-                  <Focus className="mt-0.5 shrink-0 text-[hsl(152_58%_44%)]" size={15} />
-                ) : sessionForInspector.isProductive === false ? (
-                  <TriangleAlert className="mt-0.5 shrink-0 text-[hsl(351_78%_59%)]" size={15} />
-                ) : (
-                  <Clock3 className="mt-0.5 shrink-0 text-[hsl(38_92%_50%)]" size={15} />
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm font-medium leading-5">{sessionForInspector.label}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-                    {timeRange(sessionForInspector)} ·{' '}
-                    {formatDuration(sessionForInspector.activeDurationMs)}
-                  </p>
-                  {contextCopy && (
-                    <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{contextCopy}</p>
-                  )}
-                  {sessionForInspector.classificationStatus?.startsWith('manual') && (
-                    <p className="mt-1.5 text-xs text-muted-foreground">Manually corrected</p>
-                  )}
-                </div>
+            <div className="tempo-detail-section">
+              <p className="tempo-detail-label">Selected activity</p>
+              <p className="text-[13px] font-medium leading-5">{sessionForInspector.label}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className={cn('tempo-detail-state', inspectedState.className)}>
+                  <inspectedState.Icon size={11} aria-hidden="true" />
+                  {inspectedState.label}
+                </span>
+                <span className="text-[11px] tabular-nums text-muted-foreground">
+                  {timeRange(sessionForInspector)} ·{' '}
+                  {formatDuration(sessionForInspector.activeDurationMs)}
+                </span>
+              </div>
+              {contextCopy && (
+                <p className="mt-2 text-xs leading-[1.45] text-muted-foreground">{contextCopy}</p>
+              )}
+              {sessionForInspector.classificationStatus?.startsWith('manual') && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">Manually corrected</p>
+              )}
+              <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="xs" disabled={recategorize.isLoading}>
+                      {recategorize.isLoading ? 'Updating…' : 'Change Category…'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuLabel>
+                      Current: {currentCategory?.name || 'Uncertain'}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {categories.map((category) => (
+                      <DropdownMenuItem
+                        key={category._id}
+                        disabled={
+                          category._id === sessionForInspector.categoryId || recategorize.isLoading
+                        }
+                        onSelect={() => moveSelectedSession(category._id)}
+                      >
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: category.color }}
+                        />
+                        {category.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <span className="text-[11px] text-muted-foreground">
+                  Only this activity changes.
+                </span>
               </div>
             </div>
-
-            <div className="tempo-activity-inspector-action">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="xs" disabled={recategorize.isLoading}>
-                    {recategorize.isLoading ? 'Updating…' : 'Change selected activity…'}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuLabel>
-                    Current: {currentCategory?.name || 'Uncertain'}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {categories.map((category) => (
-                    <DropdownMenuItem
-                      key={category._id}
-                      disabled={
-                        category._id === sessionForInspector.categoryId || recategorize.isLoading
-                      }
-                      onSelect={() => moveSelectedSession(category._id)}
-                    >
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: category.color }}
-                      />
-                      {category.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <span className="text-xs text-muted-foreground">Only this activity changes.</span>
-            </div>
-          </div>
+          </>
         ) : (
           <div className="tempo-activity-inspector-empty">
-            <Clock3 size={17} />
+            <MousePointerClick size={17} aria-hidden="true" />
             <div>
-              <p className="font-medium">Activity details</p>
-              <p>Select an app to see its time and classification mix.</p>
+              <p className="font-medium text-foreground">Activity details</p>
+              <p>Select an app or a block to see its time and classification mix.</p>
             </div>
           </div>
         )}
       </section>
-    </div>
+
+      <ClassificationReview
+        startDateMs={dayRange.startDateMs}
+        endDateMs={dayRange.endDateMs}
+        onChange={refetchEvents}
+      />
+    </>
   )
 }

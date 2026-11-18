@@ -46,12 +46,11 @@ export const getDisplayWindowInfo = (
 function knownCategory(value: unknown): Category | null {
   return value && typeof value === 'object' && '_id' in value ? (value as Category) : null
 }
-export const getCardBgColor = (value: unknown): string => {
+/** Drives the tint of the current-activity card. */
+export const getActivityState = (value: unknown): 'focused' | 'distracted' | 'unknown' => {
   const category = knownCategory(value)
-  if (!category) return 'bg-muted/35 dark:bg-muted/20'
-  return category.isProductive === true
-    ? 'bg-blue-50 dark:bg-blue-900'
-    : 'bg-red-50 dark:bg-red-900'
+  if (!category) return 'unknown'
+  return category.isProductive === true ? 'focused' : 'distracted'
 }
 export const getStatusTextColor = (value: unknown): string => {
   const category = knownCategory(value)

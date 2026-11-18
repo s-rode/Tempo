@@ -1,72 +1,93 @@
 import { useMemo } from 'react'
-import { processColor } from '../lib/colors'
-import type { ProcessedEventBlock } from './DashboardView'
-import { notionStyleCategoryColors } from './settings/CategoryManagement'
 import { buildWeekColumns, weekDurationLabel } from '../lib/weekColumns'
+import { cn } from '../lib/utils'
+import type { ProcessedEventBlock } from './DashboardView'
 
 interface WeekViewProps {
   processedEvents: ProcessedEventBlock[] | null
   selectedDate: Date
-  isDarkMode: boolean
   selectedDay: Date | null
   onDaySelect: (day: Date | null) => void
 }
 
-/** Tempo's original 18-hour scale and Sunday boundaries, implemented over its current event contract. */
+const HOUR_MS = 3_600_000
+
+/** One column per day, Sunday first: focused and distracted time side by side. */
 export default function WeekView(props: WeekViewProps) {
   const columns = useMemo(
     () => buildWeekColumns(props.processedEvents || [], props.selectedDate),
     [props.processedEvents, props.selectedDate]
   )
-  const height = (duration: number) => `${Math.min(100, (duration / 64_800_000) * 100)}%`
-  const color = (value: string) =>
-    processColor(value, { isDarkMode: props.isDarkMode, opacity: props.isDarkMode ? 0.7 : 0.6 })
+  // The busiest day sets the scale, rounded up to a whole two hours.
+  const scaleMs = Math.max(
+    4 * HOUR_MS,
+    Math.ceil(
+      Math.max(...columns.map((column) => Math.max(column.focusedMs, column.distractedMs))) /
+        (2 * HOUR_MS)
+    ) *
+      2 *
+      HOUR_MS
+  )
+  const height = (duration: number) => `${Math.max(2, (duration / scaleMs) * 100)}%`
+  const todayKey = new Date().toDateString()
   return (
-    <div className="flex-1 h-full grid grid-cols-7">
-      {columns.map((column) => {
-        const selected = props.selectedDay?.toDateString() === column.date.toDateString()
-        const today = column.date.toDateString() === new Date().toDateString()
-        const total = column.focusedMs + column.distractedMs
-        return (
-          <button
-            key={column.date.getTime()}
-            type="button"
-            aria-pressed={selected}
-            aria-label={`${column.date.toLocaleDateString()}: ${weekDurationLabel(total) || 'No activity'}`}
-            onClick={() => props.onDaySelect(selected ? null : column.date)}
-            className={`flex min-w-0 flex-col border-r border-border last:border-r-0 hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${selected ? 'bg-blue-200/20 dark:bg-blue-800/30' : ''}`}
-          >
-            <div
-              className={`w-full text-center text-xs p-1 border-b border-border ${today && !selected ? 'bg-blue-100 dark:bg-blue-900' : ''}`}
-            >
-              <div className="font-semibold">
-                {column.date.toLocaleDateString(undefined, { weekday: 'short' })}
-              </div>
-              <div className="text-muted-foreground">{column.date.getDate()}</div>
-            </div>
-            <div className="flex-1 min-h-0 w-full flex items-end overflow-hidden">
-              <div className="w-full h-full flex justify-evenly items-end">
-                {[column.focusedMs, column.distractedMs].map(
-                  (duration, index) =>
-                    duration > 0 && (
-                      <div
-                        key={index}
-                        className="w-1/3 rounded-lg transition-all duration-300"
-                        style={{
-                          height: height(duration),
-                          backgroundColor: color(notionStyleCategoryColors[index])
-                        }}
-                      />
-                    )
-                )}
-              </div>
-            </div>
-            <div className="w-full flex items-center justify-center text-muted-foreground text-xs p-1 border-t border-border h-12">
-              {weekDurationLabel(total)}
-            </div>
-          </button>
-        )
-      })}
+    <div className="tempo-week">
+      <div className="tempo-glass-card tempo-week-card">
+        <div className="tempo-week-legend">
+          <span>
+            <span className="tempo-day-dot is-focused" aria-hidden="true" />
+            Focused
+          </span>
+          <span>
+            <span className="tempo-day-dot is-distracted" aria-hidden="true" />
+            Distracted
+          </span>
+          <span className="ml-auto tabular-nums">Scale {scaleMs / HOUR_MS}h</span>
+        </div>
+        <div className="tempo-week-grid">
+          {columns.map((column) => {
+            const selected = props.selectedDay?.toDateString() === column.date.toDateString()
+            const today = column.date.toDateString() === todayKey
+            const total = column.focusedMs + column.distractedMs
+            return (
+              <button
+                key={column.date.getTime()}
+                type="button"
+                aria-pressed={selected}
+                aria-label={`${column.date.toLocaleDateString()}: ${
+                  total > 0
+                    ? `${weekDurationLabel(column.focusedMs) || '0m'} focused, ${weekDurationLabel(column.distractedMs) || '0m'} distracted`
+                    : 'No activity'
+                }`}
+                onClick={() => props.onDaySelect(selected ? null : column.date)}
+                className={cn('tempo-week-day', selected && 'is-selected', today && 'is-today')}
+              >
+                <span className="tempo-week-day-name">
+                  {column.date.toLocaleDateString(undefined, { weekday: 'short' })}
+                </span>
+                <span className="tempo-week-day-date">{column.date.getDate()}</span>
+                <span className="tempo-week-bars" aria-hidden="true">
+                  {column.focusedMs > 0 && (
+                    <span className="is-focused" style={{ height: height(column.focusedMs) }} />
+                  )}
+                  {column.distractedMs > 0 && (
+                    <span
+                      className="is-distracted"
+                      style={{ height: height(column.distractedMs) }}
+                    />
+                  )}
+                </span>
+                <span className="tempo-week-total">
+                  <strong>{weekDurationLabel(column.focusedMs) || '–'}</strong>
+                  {column.distractedMs >= 60_000 && (
+                    <span>{weekDurationLabel(column.distractedMs)} off</span>
+                  )}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }

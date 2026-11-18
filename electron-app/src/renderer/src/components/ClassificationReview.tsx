@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { trpc } from '../utils/trpc'
@@ -141,9 +142,13 @@ export function ClassificationReview({
     { enabled: Boolean(open && token), staleTime: 30_000 }
   )
   return (
-    <details className="border-b py-3" onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary className="cursor-pointer text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <details
+      className="tempo-glass-card tempo-inspector-card tempo-review"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         Review classifications
+        <ChevronRight size={14} aria-hidden="true" />
       </summary>
       {open && (
         <div className="mt-2">

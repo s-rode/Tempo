@@ -1,0 +1,854 @@
+/* Today page.  Both panes sit on the window background and hold glass cards
+   from the same family as the Analysis cards and the Settings groups: a
+   faint vertical sheen, a light rim along the top and a soft shadow.
+   Loaded after index.css so these rules win over the shared utilities. */
+:root {
+  --day-focused: #27995f;
+  --day-distracted: #e5484d;
+  --day-uncertain: #e39a12;
+  --day-idle: rgb(120 120 128 / 0.3);
+  --day-focused-soft: rgb(39 153 95 / 0.13);
+  --day-distracted-soft: rgb(229 72 77 / 0.11);
+  --day-uncertain-soft: rgb(227 154 18 / 0.14);
+  --day-focused-text: #1b7a4a;
+  --day-distracted-text: #c62f38;
+  --day-uncertain-text: #9a6400;
+  --day-hairline: rgb(0 0 0 / 0.07);
+  --day-row-hover: rgb(0 0 0 / 0.035);
+  --day-row-selected: rgb(0 122 255 / 0.1);
+}
+.dark {
+  --day-focused: #2fae72;
+  --day-distracted: #ea5a5f;
+  --day-uncertain: #eba62d;
+  --day-idle: rgb(160 160 170 / 0.3);
+  --day-focused-soft: rgb(47 174 114 / 0.18);
+  --day-distracted-soft: rgb(234 90 95 / 0.16);
+  --day-uncertain-soft: rgb(235 166 45 / 0.16);
+  --day-focused-text: #5fd39b;
+  --day-distracted-text: #ff8a8d;
+  --day-uncertain-text: #f3c166;
+  --day-hairline: rgb(255 255 255 / 0.08);
+  --day-row-hover: rgb(255 255 255 / 0.05);
+  --day-row-selected: rgb(10 132 255 / 0.2);
+}
+
+.tempo-glass-card {
+  position: relative;
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--insight-card-top), var(--insight-card-bottom));
+  box-shadow:
+    inset 0 1px 0 var(--glass-rim),
+    0 0 0 0.5px var(--glass-edge),
+    0 6px 20px -12px var(--glass-surface-shadow);
+}
+.tempo-day-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 999px;
+}
+.tempo-day-dot.is-focused {
+  background: var(--day-focused);
+}
+.tempo-day-dot.is-distracted {
+  background: var(--day-distracted);
+}
+.tempo-day-dot.is-uncertain {
+  background: var(--day-uncertain);
+}
+.tempo-day-dot.is-idle {
+  background: var(--day-idle);
+}
+
+/* ---------- Inspector (left pane) ---------- */
+.tempo-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: hsl(var(--background));
+}
+.tempo-inspector > * {
+  flex: none;
+}
+.tempo-inspector-card {
+  padding: 12px 14px;
+}
+.tempo-inspector-card-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.tempo-inspector-card-heading h3 {
+  color: hsl(var(--foreground));
+  font-size: 13px;
+  font-weight: 600;
+}
+.tempo-inspector-card-heading span {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+/* The plan keeps its own markup; inside the inspector it becomes a card. */
+.tempo-inspector .tempo-today-plan,
+.tempo-inspector .tempo-reminders {
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 12px 12px 14px;
+  background: linear-gradient(180deg, var(--insight-card-top), var(--insight-card-bottom));
+  box-shadow:
+    inset 0 1px 0 var(--glass-rim),
+    0 0 0 0.5px var(--glass-edge),
+    0 6px 20px -12px var(--glass-surface-shadow);
+}
+.tempo-focus-week {
+  padding: 14px;
+}
+.tempo-focus-week .tempo-week-focus-chart {
+  border-top-color: var(--day-hairline);
+}
+
+.tempo-category-row + .tempo-category-row {
+  margin-top: 9px;
+}
+.tempo-category-row > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+.tempo-category-row i {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 3px;
+}
+.tempo-category-row time {
+  margin-left: auto;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+}
+.tempo-category-bar {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--glass-track);
+}
+.tempo-category-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.tempo-review > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+.tempo-review > summary::-webkit-details-marker {
+  display: none;
+}
+.tempo-review > summary svg {
+  margin-left: auto;
+  color: hsl(var(--muted-foreground));
+  transition: transform 140ms ease;
+}
+.tempo-review[open] > summary svg {
+  transform: rotate(90deg);
+}
+
+/* Apps as a grouped list: rows separated by inset hairlines, the selected
+   row filled with the accent tint, as in a macOS source list. */
+.tempo-app-list {
+  margin: 0 -6px;
+}
+.tempo-app-row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  border-radius: 8px;
+  padding: 7px 6px;
+  text-align: left;
+}
+.tempo-app-row + .tempo-app-row::before {
+  position: absolute;
+  top: -0.5px;
+  right: 6px;
+  left: 38px;
+  height: 1px;
+  background: var(--day-hairline);
+  content: '';
+}
+.tempo-app-row:hover {
+  background: var(--day-row-hover);
+}
+.tempo-app-row.is-selected {
+  background: var(--day-row-selected);
+}
+.tempo-app-row:hover::before,
+.tempo-app-row.is-selected::before,
+.tempo-app-row:hover + .tempo-app-row::before,
+.tempo-app-row.is-selected + .tempo-app-row::before {
+  opacity: 0;
+}
+.tempo-app-row:focus-visible {
+  outline: 2px solid var(--tempo-system-accent);
+  outline-offset: 1px;
+}
+.tempo-app-name,
+.tempo-app-subtitle {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tempo-app-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.tempo-app-subtitle {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+.tempo-app-duration {
+  display: flex;
+  width: 52px;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.tempo-state-rail {
+  display: flex;
+  width: 100%;
+  height: 4px;
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--glass-track);
+}
+.tempo-state-rail > span {
+  min-width: 2px;
+  border-radius: 999px;
+}
+.tempo-state-rail .is-focused {
+  background: var(--day-focused);
+}
+.tempo-state-rail .is-distracted {
+  background: var(--day-distracted);
+}
+.tempo-state-rail .is-uncertain {
+  background: var(--day-uncertain);
+}
+.tempo-inspector-more {
+  margin-top: 4px;
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: hsl(var(--accent-foreground));
+  font-size: 12px;
+}
+.tempo-inspector-more:hover {
+  background: var(--day-row-hover);
+}
+
+.tempo-detail-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tempo-detail-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 7px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+}
+.tempo-detail-breakdown > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.tempo-detail-breakdown time {
+  color: hsl(var(--foreground));
+  font-variant-numeric: tabular-nums;
+}
+.tempo-detail-section {
+  margin-top: 12px;
+  border-top: 1px solid var(--day-hairline);
+  padding-top: 10px;
+}
+.tempo-detail-label {
+  margin-bottom: 5px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-weight: 500;
+}
+.tempo-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+  font-size: 12px;
+}
+.tempo-detail-row time {
+  flex: none;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+}
+.tempo-detail-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 1px 8px 1px 6px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.tempo-detail-state.is-focused {
+  background: var(--day-focused-soft);
+  color: var(--day-focused-text);
+}
+.tempo-detail-state.is-distracted {
+  background: var(--day-distracted-soft);
+  color: var(--day-distracted-text);
+}
+.tempo-detail-state.is-uncertain {
+  background: var(--day-uncertain-soft);
+  color: var(--day-uncertain-text);
+}
+/* ---------- Day pane ---------- */
+.tempo-day-view-switch > button {
+  height: 24px;
+  padding: 0 11px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.tempo-day-scroll {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding: 2px 16px 20px;
+  container-type: inline-size;
+}
+.tempo-day-scroll > * {
+  flex: none;
+}
+.tempo-day-empty-state {
+  display: flex;
+  min-height: 260px;
+  flex: 1 !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+.tempo-day-empty-state p {
+  margin-top: 6px;
+  color: hsl(var(--foreground));
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Summary card */
+.tempo-dayhero {
+  overflow: hidden;
+  padding: 16px 18px;
+  background:
+    radial-gradient(110% 150% at 0% 0%, var(--insight-glow), transparent 55%),
+    linear-gradient(180deg, var(--insight-card-top), var(--insight-card-bottom));
+}
+.tempo-dayhero-top {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.tempo-dayhero-primary {
+  min-width: 0;
+  flex: 1;
+}
+.tempo-dayhero-eyebrow {
+  color: var(--day-focused-text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.tempo-dayhero-value {
+  margin-top: 1px;
+  font-size: 30px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.tempo-dayhero-sub {
+  margin-top: 3px;
+  overflow: hidden;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tempo-dayhero-stats {
+  display: flex;
+  flex: none;
+}
+.tempo-dayhero-stats > div {
+  padding: 0 16px;
+}
+.tempo-dayhero-stats > div + div {
+  border-left: 1px solid var(--day-hairline);
+}
+.tempo-dayhero-stats dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+}
+.tempo-dayhero-stats dd {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.tempo-dayhero-ring {
+  position: relative;
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  place-items: center;
+}
+.tempo-dayhero-ring svg {
+  position: absolute;
+  inset: 0;
+}
+.tempo-dayhero-ring circle {
+  fill: none;
+  stroke-width: 4.5;
+}
+.tempo-dayhero-ring-track {
+  stroke: var(--glass-track);
+}
+.tempo-dayhero-ring-value {
+  stroke: var(--day-focused);
+  stroke-linecap: round;
+}
+.tempo-dayhero-ring > span {
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.tempo-dayhero-ring small {
+  font-size: 8px;
+  font-weight: 600;
+}
+
+/* The current time, drawn across an hour track. */
+.tempo-day-now {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  z-index: 2;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: var(--tempo-system-accent);
+  box-shadow: 0 0 0 1.5px var(--insight-card-top);
+  pointer-events: none;
+}
+
+/* Hour grid: one local hour per row.  Each row is a recessed track holding
+   the hour's activity as pills; an empty track is time without activity. */
+.tempo-hours {
+  display: flex;
+  min-height: 0;
+  flex: 0 1 auto !important;
+  flex-direction: column;
+  padding: 14px 16px 14px 12px;
+}
+.tempo-hours-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding-left: 52px;
+}
+.tempo-hours-heading h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+.tempo-hours-legend {
+  display: flex;
+  gap: 12px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+}
+.tempo-hours-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.tempo-hours-ruler,
+.tempo-hours-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 48px;
+  gap: 10px;
+}
+.tempo-hours-ruler {
+  height: 16px;
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.tempo-hours-ruler > div {
+  position: relative;
+}
+.tempo-hours-ruler > div > span {
+  position: absolute;
+}
+.tempo-hours-ruler > div > span:not(:first-child) {
+  transform: translateX(-50%);
+}
+.tempo-hours-ruler > span:last-child {
+  text-align: right;
+}
+.tempo-hours-grid {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  align-content: start;
+  row-gap: 4px;
+}
+.tempo-hours-row {
+  min-height: 0;
+  align-items: stretch;
+}
+.tempo-hours-hour,
+.tempo-hours-total {
+  align-self: center;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.tempo-hours-total {
+  color: hsl(var(--foreground));
+  font-weight: 500;
+}
+.tempo-hours-row.is-empty .tempo-hours-hour,
+.tempo-hours-row.is-empty .tempo-hours-total {
+  opacity: 0.55;
+}
+.tempo-hours-track {
+  position: relative;
+  min-width: 0;
+  border-radius: 8px;
+  background-color: var(--glass-track);
+  /* Quarter-hour guides. */
+  background-image: linear-gradient(
+    90deg,
+    transparent calc(25% - 0.5px),
+    var(--day-hairline) calc(25% - 0.5px) calc(25% + 0.5px),
+    transparent calc(25% + 0.5px) calc(50% - 0.5px),
+    var(--day-hairline) calc(50% - 0.5px) calc(50% + 0.5px),
+    transparent calc(50% + 0.5px) calc(75% - 0.5px),
+    var(--day-hairline) calc(75% - 0.5px) calc(75% + 0.5px),
+    transparent calc(75% + 0.5px)
+  );
+  box-shadow: inset 0 0.5px 1px rgb(0 0 0 / 0.05);
+}
+.tempo-hours-row.is-empty .tempo-hours-track {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--glass-track);
+}
+.tempo-hours-segment {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  display: flex;
+  min-width: 3px;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 5px;
+  /* A hairline of track between neighbours keeps touching pills apart. */
+  border-right: 1.5px solid transparent;
+  background-clip: padding-box !important;
+  padding: 0 6px;
+  color: #fff;
+  text-align: left;
+  box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.28);
+  transition: filter 120ms ease;
+}
+.tempo-hours-segment.continues-before {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.tempo-hours-segment.continues-after {
+  border-right-width: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.tempo-hours-segment:hover {
+  filter: brightness(1.08) saturate(1.05);
+}
+.tempo-hours-segment.is-selected {
+  z-index: 1;
+  outline: 2px solid var(--tempo-system-accent);
+  outline-offset: 1px;
+}
+.tempo-hours-segment:focus-visible {
+  z-index: 2;
+  outline: 2px solid var(--tempo-system-accent);
+  outline-offset: 2px;
+}
+.tempo-hours-label {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tempo-hours-hint {
+  margin-top: 10px;
+  padding-left: 52px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+}
+.tempo-hours-tip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  border-top: 1px solid var(--day-hairline);
+  padding-top: 8px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+}
+.tempo-hours-tip-row > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Calendar comparison, as a card in the day pane. */
+.tempo-day-scroll .tempo-calendar-comparison {
+  margin: 0;
+  border: 0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, var(--insight-card-top), var(--insight-card-bottom));
+  box-shadow:
+    inset 0 1px 0 var(--glass-rim),
+    0 0 0 0.5px var(--glass-edge),
+    0 6px 20px -12px var(--glass-surface-shadow);
+}
+.tempo-day-scroll .tempo-calendar-connect {
+  margin: 0 4px;
+}
+.tempo-day-scroll .tempo-calendar-lane-body {
+  border-radius: 7px;
+  background: var(--glass-track);
+}
+.tempo-day-scroll .tempo-calendar-recording {
+  border-radius: 2px;
+}
+.tempo-day-scroll .tempo-calendar-recording.is-focused {
+  background: var(--day-focused);
+}
+.tempo-day-scroll .tempo-calendar-recording.is-distracted {
+  background: var(--day-distracted);
+}
+.tempo-day-scroll .tempo-calendar-recording.is-uncertain {
+  background: var(--day-uncertain);
+}
+
+/* Narrow day pane: the stats wrap under the headline and rows shed detail. */
+@container (max-width: 560px) {
+  .tempo-dayhero-top {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .tempo-dayhero-primary {
+    flex-basis: calc(100% - 64px);
+  }
+  .tempo-dayhero-stats {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .tempo-dayhero-stats > div:first-child {
+    padding-left: 0;
+  }
+  .tempo-hours-ruler,
+  .tempo-hours-row {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+  .tempo-hours-ruler > span:last-child,
+  .tempo-hours-total {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tempo-hours-segment,
+  .tempo-review > summary svg {
+    transition: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .tempo-glass-card {
+    box-shadow: 0 0 0 1px hsl(var(--border));
+  }
+  .tempo-hours-track {
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.5);
+  }
+  .tempo-hours-segment {
+    box-shadow: inset 0 0 0 1px hsl(var(--foreground));
+  }
+}
+
+/* Week: seven day columns in one card. */
+.tempo-week {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  padding: 2px 16px 20px;
+}
+.tempo-week-card {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 14px 12px 12px;
+}
+.tempo-week-legend {
+  display: flex;
+  gap: 12px;
+  padding: 0 6px 10px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+}
+.tempo-week-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.tempo-week-grid {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.tempo-week-day {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 10px;
+  padding: 8px 4px;
+}
+.tempo-week-day:hover {
+  background: var(--day-row-hover);
+}
+.tempo-week-day.is-selected {
+  background: var(--day-row-selected);
+}
+.tempo-week-day:focus-visible {
+  outline: 2px solid var(--tempo-system-accent);
+  outline-offset: 1px;
+}
+.tempo-week-day-name {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-weight: 500;
+}
+.tempo-week-day-date {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  margin-top: 2px;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.tempo-week-day.is-today .tempo-week-day-date {
+  background: var(--tempo-system-accent);
+  color: #fff;
+  font-weight: 600;
+}
+.tempo-week-bars {
+  display: flex;
+  width: 100%;
+  min-height: 60px;
+  flex: 1;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  margin: 10px 0 8px;
+  border-radius: 8px;
+  padding: 4px;
+  background: var(--glass-track);
+}
+.tempo-week-bars > span {
+  width: min(38%, 26px);
+  border-radius: 5px;
+  box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.28);
+}
+.tempo-week-bars .is-focused {
+  background: var(--day-focused);
+}
+.tempo-week-bars .is-distracted {
+  background: var(--day-distracted);
+}
+.tempo-week-total {
+  display: flex;
+  min-height: 30px;
+  flex-direction: column;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+.tempo-week-total strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.tempo-week-total span {
+  color: hsl(var(--muted-foreground));
+  font-size: 10.5px;
+}
+
+/* A selection dims everything that is not the same activity. */
+.has-selection .tempo-hours-segment:not(.is-selected):not(.is-related) {
+  opacity: 0.35;
+}

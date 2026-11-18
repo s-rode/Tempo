@@ -26,6 +26,15 @@ const TIMELINE_VIEW_MODE_KEY = 'tempoTimelineViewMode'
 
 export type TimelineViewMode = 'day' | 'week' | 'overview'
 
+/** Menu commands for the Today page, sent from the native menu bar. */
+export type DayCommand =
+  | 'day-view-timeline'
+  | 'day-view-hours'
+  | 'day-view-week'
+  | 'previous-day'
+  | 'next-day'
+  | 'go-to-today'
+
 const persistedPaneWidth = (key: string, fallback: number): number => {
   const value = Number(localStorage.getItem(key))
   return Number.isFinite(value) && value > 0 ? value : fallback
@@ -60,11 +69,13 @@ export interface ProcessedEventBlock {
 export function DashboardView({
   className,
   nowActivity,
-  todayPlanOpenRequest = 0
+  todayPlanOpenRequest = 0,
+  dayCommand
 }: {
   className?: string
   nowActivity?: ReactNode
   todayPlanOpenRequest?: number
+  dayCommand?: { command: DayCommand; request: number } | null
 }) {
   const { token } = useAuth()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
@@ -212,6 +223,54 @@ export function DashboardView({
     setSelectedActivityKey(null)
   }
 
+  // Steps by the period on screen and never past today.
+  const stepDate = useCallback(
+    (direction: -1 | 1) => {
+      const next = new Date(selectedDate)
+      next.setDate(next.getDate() + direction * (viewMode === 'week' ? 7 : 1))
+      const today = new Date()
+      today.setHours(23, 59, 59, 999)
+      if (next <= today) handleDateChange(next)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedDate, viewMode]
+  )
+
+  useEffect(() => {
+    if (!dayCommand) return
+    const { command } = dayCommand
+    if (command === 'day-view-timeline') handleViewModeChange('day')
+    else if (command === 'day-view-hours') handleViewModeChange('overview')
+    else if (command === 'day-view-week') handleViewModeChange('week')
+    else if (command === 'go-to-today') handleDateChange(new Date())
+    else stepDate(command === 'previous-day' ? -1 : 1)
+    // Each request runs once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayCommand?.request])
+
+  // Command+Left and Command+Right page through days, as in Calendar, except
+  // while typing; Escape clears the selection.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null
+      const typing =
+        !!target &&
+        (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+      if (typing || event.defaultPrevented) return
+      if (event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey) {
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          event.preventDefault()
+          stepDate(event.key === 'ArrowLeft' ? -1 : 1)
+        }
+      } else if (event.key === 'Escape' && selectedSessionId) {
+        setSelectedSessionId(null)
+        setSelectedActivityKey(null)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [stepDate, selectedSessionId])
+
   const handleHourSelect = useCallback((hour: number | null) => {
     setSelectedHour(hour)
     setSelectedDay(null)
@@ -222,51 +281,53 @@ export function DashboardView({
     setSelectedHour(null)
   }, [])
 
-  const handleSelectSession = useCallback((session: ActivitySessionBlock) => {
-    setSelectedSessionId(session.id)
-    setSelectedActivityKey(session.displayKey)
-  }, [])
+  // Selecting the selected activity again clears the selection.
+  const handleSelectSession = useCallback(
+    (session: ActivitySessionBlock) => {
+      const deselect = selectedSessionId === session.id
+      setSelectedSessionId(deselect ? null : session.id)
+      setSelectedActivityKey(deselect ? null : session.displayKey)
+    },
+    [selectedSessionId]
+  )
 
   return (
     <div ref={workspaceRef} className={`flex flex-1 min-h-0 overflow-hidden ${className || ''}`}>
       <aside
-        className="min-h-0 shrink-0 overflow-y-auto bg-card scrollbar-thin"
+        className="tempo-inspector min-h-0 shrink-0 overflow-y-auto scrollbar-thin"
         style={{ width: inspectorWidth, flexBasis: inspectorWidth }}
+        aria-label="Today inspector"
       >
         {nowActivity}
-        <div className="tempo-inspector-section">
-          {isDayView && (
-            <TodayPlan selectedDate={selectedDate} openRequest={todayPlanOpenRequest} />
-          )}
-          <DashboardFocusCard />
-          {isDayView ? (
-            <DaySummaryPanel
-              dayRange={timelineDayRange}
-              sessions={daySessions}
-              categories={categories || []}
-              selectedSessionId={selectedSessionId}
-              selectedActivityKey={selectedActivityKey}
-              onSelectSession={handleSelectSession}
+        {isDayView && <TodayPlan selectedDate={selectedDate} openRequest={todayPlanOpenRequest} />}
+        <DashboardFocusCard />
+        {isDayView ? (
+          <DaySummaryPanel
+            dayRange={timelineDayRange}
+            sessions={daySessions}
+            categories={categories || []}
+            selectedSessionId={selectedSessionId}
+            selectedActivityKey={selectedActivityKey}
+            onSelectSession={handleSelectSession}
+            refetchEvents={refetchEvents}
+          />
+        ) : (
+          <>
+            <ActivitiesByCategoryWidget
+              processedEvents={activityWidgetProcessedEvents}
+              isLoadingEvents={isLoadingEvents}
               refetchEvents={refetchEvents}
+              selectedHour={selectedHour}
+              onHourSelect={handleHourSelect}
+              selectedDay={selectedDay}
+              onDaySelect={handleDaySelect}
             />
-          ) : (
-            <div className="flex flex-col gap-4">
-              <ActivitiesByCategoryWidget
-                processedEvents={activityWidgetProcessedEvents}
-                isLoadingEvents={isLoadingEvents}
-                refetchEvents={refetchEvents}
-                selectedHour={selectedHour}
-                onHourSelect={handleHourSelect}
-                selectedDay={selectedDay}
-                onDaySelect={handleDaySelect}
-              />
-              <TopActivityWidget
-                processedEvents={activityWidgetProcessedEvents}
-                isLoadingEvents={isLoadingEvents}
-              />
-            </div>
-          )}
-        </div>
+            <TopActivityWidget
+              processedEvents={activityWidgetProcessedEvents}
+              isLoadingEvents={isLoadingEvents}
+            />
+          </>
+        )}
       </aside>
       <PaneResizeHandle
         ariaLabel="Resize Today inspector and timeline"
@@ -276,7 +337,7 @@ export function DashboardView({
         defaultValue={DAY_INSPECTOR_DEFAULT_WIDTH}
         onValueChange={setInspectorWidth}
       />
-      <div className="min-h-0 min-w-0 flex-1 overflow-hidden bg-card">
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
         <CalendarWidget
           selectedDate={selectedDate}
           processedEvents={calendarProcessedEvents}

@@ -1,5 +1,4 @@
 import { useRelevanceCheck } from '../../hooks/useRelevanceCheck'
-import clsx from 'clsx'
 import { AnimatePresence, motion } from 'framer-motion'
 import { EditIcon, ExternalLink, Play } from 'lucide-react'
 import React, { JSX, useEffect, useMemo, useState } from 'react'
@@ -11,7 +10,7 @@ import { useFocusTransitionAlerts } from '../../hooks/useFocusTransitionAlerts'
 import { useDistractionSound } from '../../hooks/useDistractionSound'
 import { useRecategorizationHandler } from '../../hooks/useRecategorizationHandler'
 import {
-  getCardBgColor,
+  getActivityState,
   getDisplayWindowInfo,
   getStatusText,
   getStatusTextColor
@@ -504,7 +503,6 @@ const DistractionStatusBar = ({
     electronSettings?.playSessionTransitionChime
   )
 
-  const cardBgColor = useMemo(() => getCardBgColor(categoryDetails), [categoryDetails])
   const statusTextColor = useMemo(() => getStatusTextColor(categoryDetails), [categoryDetails])
 
   const isLoadingPrimary =
@@ -536,9 +534,7 @@ const DistractionStatusBar = ({
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-[.12em] text-muted-foreground">
-              Pomodoro paused
-            </p>
+            <p className="text-[11px] font-medium text-muted-foreground">Pomodoro paused</p>
             <p className="mt-0.5 text-sm text-foreground">
               Choose the next goal, or end the session to resume normal tracking.
             </p>
@@ -561,7 +557,7 @@ const DistractionStatusBar = ({
 
   if (runtimeSuspensionReasons.includes('calendar_event')) {
     return <section className="tempo-inspector-section" aria-label="Tracking paused for a calendar event" aria-live="polite">
-      <div className="flex items-center justify-between gap-3"><div><p className="text-[11px] font-medium uppercase tracking-[.12em] text-muted-foreground">Calendar pause</p><p className="mt-0.5 text-sm text-foreground">Tracking resumes at {new Date(focusRuntime?.suspension?.pausedUntilMs || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}. Your focus timer is paused too.</p></div><Button variant="outline" size="xs" onClick={() => void window.api.resumeCalendarTracking()}>Resume now</Button></div>
+      <div className="flex items-center justify-between gap-3"><div><p className="text-[11px] font-medium text-muted-foreground">Calendar pause</p><p className="mt-0.5 text-sm text-foreground">Tracking resumes at {new Date(focusRuntime?.suspension?.pausedUntilMs || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}. Your focus timer is paused too.</p></div><Button variant="outline" size="xs" onClick={() => void window.api.resumeCalendarTracking()}>Resume now</Button></div>
     </section>
   }
 
@@ -574,9 +570,7 @@ const DistractionStatusBar = ({
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-[.12em] text-muted-foreground">
-              Tracking paused
-            </p>
+            <p className="text-[11px] font-medium text-muted-foreground">Tracking paused</p>
             <p className="mt-0.5 text-sm text-foreground">
               Tempo is paused manually. Resume whenever you are ready.
             </p>
@@ -610,9 +604,7 @@ const DistractionStatusBar = ({
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-[.12em] text-muted-foreground">
-              Tracking paused
-            </p>
+            <p className="text-[11px] font-medium text-muted-foreground">Tracking paused</p>
             <p className="mt-0.5 text-sm text-foreground">
               {awaitingFreshActivity && !hasStaleSystemSuspension
                 ? 'Tempo is waiting to recheck the frontmost app.'
@@ -637,15 +629,17 @@ const DistractionStatusBar = ({
   }
 
   if (isLoadingPrimary) {
-    return <DistractionStatusLoadingSkeleton cardBgColor={cardBgColor} />
+    return <DistractionStatusLoadingSkeleton />
   }
 
   return (
-    <section className={clsx('tempo-inspector-section', cardBgColor)} aria-label="Current activity">
+    <section
+      className="tempo-inspector-section"
+      data-state={getActivityState(categoryDetails)}
+      aria-label="Current activity"
+    >
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-[11px] font-medium uppercase tracking-[.12em] text-muted-foreground">
-          Now
-        </p>
+        <p className="text-[11px] font-medium text-muted-foreground">Now</p>
         <button
           type="button"
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"

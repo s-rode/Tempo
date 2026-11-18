@@ -148,6 +148,12 @@ declare global {
             | 'pause-or-resume'
             | 'set-today-plan'
             | 'set-weekly-focus'
+            | 'day-view-timeline'
+            | 'day-view-hours'
+            | 'day-view-week'
+            | 'previous-day'
+            | 'next-day'
+            | 'go-to-today'
         ) => void
       ) => () => void
       onDisplayRecategorizePage: (callback: (category: Category) => void) => () => void
