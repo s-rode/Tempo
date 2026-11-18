@@ -26,6 +26,10 @@ Today's tasks in working order. **Start Working** (⌘↵) begins an ordinary Te
 
 A task with an estimate runs for that long before Tempo asks whether to finish or add time. Tasks without one use the session length chosen in the queue.
 
+## Today timeline
+
+A task you work on from the queue is an ordinary focus session, so its blocks appear in the Today timeline under the task's name, marked **Task**. Above the blocks, **Tasks** lists each task worked on that day with its goal, when it ran, the tracked time against its estimate, and how that time split into focused and distracted. Tasks ticked off without a session are listed as done without a time.
+
 ## Keyboard
 
 | Key | Action |
@@ -45,7 +49,7 @@ Every task and goal also has a context menu with the same actions.
 
 ## Data
 
-Planner tasks live in the existing daily `GoalPlan` records (one per local day), with an optional `goalId` and `carriedFromDateKey` per task. Goals are `PlannerGoal` records. The choice of source is `electronAppSettings.planningSource`. Analysis does not use goals yet.
+Planner tasks live in the existing daily `GoalPlan` records (one per local day), with an optional `goalId` and `carriedFromDateKey` per task. Goals are `PlannerGoal` records. The choice of source is `electronAppSettings.planningSource`. Analysis does not use goals yet. Time per task is derived from focus run history (`todayPlanTask.taskId` on each work phase) and the day's activity; nothing extra is stored.
 
 ## Development verification
 

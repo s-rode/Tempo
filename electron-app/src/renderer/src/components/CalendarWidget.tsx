@@ -1,5 +1,5 @@
 import { CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Category } from 'shared'
 import type { ActivitySessionBlock, TimelineChapter } from '../lib/activitySessions'
 import { buildDayOverview } from '../lib/dayOverview'
@@ -25,6 +25,7 @@ interface CalendarWidgetProps {
   onDaySelect: (day: Date | null) => void
   daySessions: ActivitySessionBlock[]
   dayChapters: TimelineChapter[]
+  dayTaskSummary?: ReactNode
   selectedSessionId: string | null
   selectedActivityKey: string | null
   onSelectSession: (session: ActivitySessionBlock) => void
@@ -45,6 +46,7 @@ const CalendarWidget = ({
   onDaySelect,
   daySessions,
   dayChapters,
+  dayTaskSummary,
   selectedSessionId,
   selectedActivityKey,
   onSelectSession,
@@ -83,7 +85,9 @@ const CalendarWidget = ({
     }
     scheduleMidnight()
     // Refresh immediately if a sleeping or hidden dashboard missed midnight.
-    const onVisible = () => { if (!document.hidden) refreshDate() }
+    const onVisible = () => {
+      if (!document.hidden) refreshDate()
+    }
     window.addEventListener('focus', refreshDate)
     document.addEventListener('visibilitychange', onVisible)
     return () => {
@@ -168,19 +172,41 @@ const CalendarWidget = ({
   }, [selectedDate, viewMode])
 
   return (
-    <section className="tempo-day-workspace h-full w-full flex flex-col" aria-label="Activity calendar">
+    <section
+      className="tempo-day-workspace h-full w-full flex flex-col"
+      aria-label="Activity calendar"
+    >
       <header className="tempo-day-toolbar">
         <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
           <div className="flex items-center space-x-1">
-            <Button variant="ghost" size="xs" className="tempo-date-button" onClick={handlePrev} aria-label={`Previous ${period}`}>
+            <Button
+              variant="ghost"
+              size="xs"
+              className="tempo-date-button"
+              onClick={handlePrev}
+              aria-label={`Previous ${period}`}
+            >
               <ChevronLeft size={17} />
             </Button>
             <span className="tempo-date-title">{formattedDate}</span>
-            <Button variant="ghost" size="xs" className="tempo-date-button" onClick={handleNext} disabled={!canGoNext()} aria-label={`Next ${period}`}>
+            <Button
+              variant="ghost"
+              size="xs"
+              className="tempo-date-button"
+              onClick={handleNext}
+              disabled={!canGoNext()}
+              aria-label={`Next ${period}`}
+            >
               <ChevronRight size={17} />
             </Button>
             {period === 'day' && (
-              <Button variant="ghost" size="xs" className="tempo-date-now" onClick={() => onDateChange(new Date())} disabled={isToday}>
+              <Button
+                variant="ghost"
+                size="xs"
+                className="tempo-date-now"
+                onClick={() => onDateChange(new Date())}
+                disabled={isToday}
+              >
                 Today
               </Button>
             )}
@@ -241,6 +267,7 @@ const CalendarWidget = ({
               selectedSessionId={selectedSessionId}
               selectedActivityKey={selectedActivityKey}
               onSelectSession={onSelectSession}
+              taskSummary={dayTaskSummary}
             />
           ) : (
             <>

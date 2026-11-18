@@ -6,6 +6,7 @@ import {
   ActivitySessionBlock,
   buildActivitySessions,
   buildTimelineChapters,
+  summarizeTaskTime,
   type FocusTimelineRun
 } from '../lib/activitySessions'
 import { generateProcessedEventBlocks } from '../utils/eventProcessing'
@@ -13,6 +14,7 @@ import { trpc } from '../utils/trpc'
 import ActivitiesByCategoryWidget from './ActivitiesByCategoryWidget'
 import CalendarWidget from './CalendarWidget'
 import DaySummaryPanel from './DaySummaryPanel'
+import { DayTaskTime } from './DayTaskTime'
 import TopActivityWidget from './TopActivityWidget'
 import { TodayPlan } from './TodayPlan'
 import { DashboardFocusCard } from './analytics/DashboardFocusCard'
@@ -205,6 +207,10 @@ export function DashboardView({
     () => buildTimelineChapters(daySessions, focusTimelineRuns as FocusTimelineRun[] | undefined),
     [daySessions, focusTimelineRuns]
   )
+  const dayTaskTimes = useMemo(
+    () => summarizeTaskTime(daySessions, focusTimelineRuns as FocusTimelineRun[] | undefined),
+    [daySessions, focusTimelineRuns]
+  )
 
   const handleDateChange = (newDate: Date) => {
     setSelectedDate(newDate)
@@ -351,6 +357,7 @@ export function DashboardView({
           onDaySelect={handleDaySelect}
           daySessions={daySessions}
           dayChapters={dayChapters}
+          dayTaskSummary={<DayTaskTime date={selectedDate} tasks={dayTaskTimes} />}
           selectedSessionId={selectedSessionId}
           selectedActivityKey={selectedActivityKey}
           onSelectSession={handleSelectSession}
