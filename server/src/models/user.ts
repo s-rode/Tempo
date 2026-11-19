@@ -65,6 +65,12 @@ const userSchema = new mongoose.Schema({
       default: 'solid',
       enum: ['solid', 'gruvbox'],
     },
+    // How cards and panels look in light mode; glass is the original look.
+    lightStyle: {
+      type: String,
+      default: 'solid',
+      enum: ['glass', 'solid', 'gruvbox'],
+    },
     playDistractionSound: {
       type: Boolean,
       default: true,
