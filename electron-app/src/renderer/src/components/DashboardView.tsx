@@ -5,7 +5,6 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   ActivitySessionBlock,
   buildActivitySessions,
-  buildTimelineChapters,
   summarizeTaskTime,
   type FocusTimelineRun
 } from '../lib/activitySessions'
@@ -203,10 +202,6 @@ export function DashboardView({
         : [],
     [calendarProcessedEvents, isDayView]
   )
-  const dayChapters = useMemo(
-    () => buildTimelineChapters(daySessions, focusTimelineRuns as FocusTimelineRun[] | undefined),
-    [daySessions, focusTimelineRuns]
-  )
   const dayTaskTimes = useMemo(
     () => summarizeTaskTime(daySessions, focusTimelineRuns as FocusTimelineRun[] | undefined),
     [daySessions, focusTimelineRuns]
@@ -356,7 +351,7 @@ export function DashboardView({
           selectedDay={selectedDay}
           onDaySelect={handleDaySelect}
           daySessions={daySessions}
-          dayChapters={dayChapters}
+          dayRuns={focusTimelineRuns as FocusTimelineRun[] | undefined}
           dayTaskSummary={<DayTaskTime date={selectedDate} tasks={dayTaskTimes} />}
           selectedSessionId={selectedSessionId}
           selectedActivityKey={selectedActivityKey}

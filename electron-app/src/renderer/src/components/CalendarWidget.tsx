@@ -1,11 +1,11 @@
 import { CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Category } from 'shared'
-import type { ActivitySessionBlock, TimelineChapter } from '../lib/activitySessions'
+import type { ActivitySessionBlock, FocusTimelineRun } from '../lib/activitySessions'
 import { buildDayOverview } from '../lib/dayOverview'
 import type { ProcessedEventBlock, TimelineViewMode } from './DashboardView'
 import { DayCalendarComparison } from './DayCalendarComparison'
-import CompactDayTimeline from './CompactDayTimeline'
+import DayCalendarTimeline from './DayCalendarTimeline'
 import DayHero from './DayHero'
 import DayOverviewTimeline from './DayOverviewTimeline'
 import { Button } from './ui/button'
@@ -24,7 +24,7 @@ interface CalendarWidgetProps {
   selectedDay: Date | null
   onDaySelect: (day: Date | null) => void
   daySessions: ActivitySessionBlock[]
-  dayChapters: TimelineChapter[]
+  dayRuns?: FocusTimelineRun[]
   dayTaskSummary?: ReactNode
   selectedSessionId: string | null
   selectedActivityKey: string | null
@@ -45,7 +45,7 @@ const CalendarWidget = ({
   selectedDay,
   onDaySelect,
   daySessions,
-  dayChapters,
+  dayRuns,
   dayTaskSummary,
   selectedSessionId,
   selectedActivityKey,
@@ -261,11 +261,11 @@ const CalendarWidget = ({
               </span>
             </div>
           ) : viewMode === 'day' ? (
-            <CompactDayTimeline
+            <DayCalendarTimeline
               sessions={daySessions}
-              chapters={dayChapters}
+              runs={dayRuns}
+              nowMs={nowMs}
               selectedSessionId={selectedSessionId}
-              selectedActivityKey={selectedActivityKey}
               onSelectSession={onSelectSession}
               taskSummary={dayTaskSummary}
             />
