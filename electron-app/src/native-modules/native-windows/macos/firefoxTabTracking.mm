@@ -1,5 +1,6 @@
 #import "firefoxTabTracking.h"
 
+#import "firefoxWindowSelection.h"
 #import "windowOcrCapture.h"
 
 static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
@@ -69,20 +70,18 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
         kCGNullWindowID
     );
     if (!windowList) return nil;
+    // Not simply the first layer-0 window: in full screen that is an untitled
+    // title-bar or transition window, and the page would go unrecognized.
+    NSDictionary *pageWindow = FirefoxSelectPageWindow((NSArray *)windowList, pid);
     NSDictionary *result = nil;
-    for (NSDictionary *window in (NSArray *)windowList) {
-        if ([window[(id)kCGWindowLayer] integerValue] != 0) continue;
-        if ([window[(id)kCGWindowOwnerPID] intValue] != pid) continue;
-        NSNumber *windowId = window[(id)kCGWindowNumber];
-        if (!windowId) continue;
+    if (pageWindow) {
         result = @{
-            @"id": windowId,
+            @"id": pageWindow[@"id"],
             @"ownerName": @"Firefox",
-            @"title": window[(id)kCGWindowName] ?: @"",
+            @"title": pageWindow[@"title"],
             @"type": @"browser",
             @"browser": @"firefox",
         };
-        break;
     }
     CFRelease(windowList);
     return result;
