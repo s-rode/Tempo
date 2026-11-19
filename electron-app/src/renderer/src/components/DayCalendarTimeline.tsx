@@ -1,4 +1,11 @@
-import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState
+} from 'react'
 import type { ActivitySessionBlock, FocusTimelineRun } from '../lib/activitySessions'
 import { formatDuration } from '../lib/activityByCategoryWidgetHelpers'
 import {
@@ -7,10 +14,15 @@ import {
   type DayCalendarBlock,
   type DayCalendarState
 } from '../lib/dayCalendar'
+import { useAppleCalendar } from '../hooks/useAppleCalendar'
+import { packCalendarEvents } from '../lib/calendarComparison'
+import { calendarPeriod } from '../lib/calendarPeriod'
+import { gruvboxCategoryColor } from '../lib/colors'
 import { cn } from '../lib/utils'
 import { Popover, PopoverAnchor, PopoverContent } from './ui/popover'
 
 interface DayCalendarTimelineProps {
+  date: Date
   sessions: ActivitySessionBlock[]
   runs?: FocusTimelineRun[]
   /** Current time when the shown day is today, for the "now" line. */
@@ -148,6 +160,7 @@ function BlockDetails({
 
 /** The day as a calendar column: focus sessions, the tracked time between them, and blank gaps. */
 export default function DayCalendarTimeline({
+  date,
   sessions,
   runs,
   nowMs,
@@ -161,13 +174,48 @@ export default function DayCalendarTimeline({
     () => buildDayCalendarBlocks(sessions, runs, nowMs ?? Date.now()),
     [sessions, runs, nowMs]
   )
+  const day = calendarPeriod(date, 'day')
+  const { status: calendar } = useAppleCalendar({ startMs: day.startDateMs, endMs: day.endDateMs })
+  // Events from the calendars chosen in Settings, beside the blocks.
+  const calendarEvents = useMemo(
+    () =>
+      calendar?.preferences.enabled && calendar.permission === 'granted'
+        ? calendar.events.filter(
+            (event) =>
+              event.startMs < day.endDateMs &&
+              event.endMs > day.startDateMs &&
+              (calendar.preferences.selectedCalendarIds === null ||
+                calendar.preferences.selectedCalendarIds.includes(event.calendarId))
+          )
+        : [],
+    [calendar, day.startDateMs, day.endDateMs]
+  )
+  const showCalendar = Boolean(calendar?.preferences.enabled && calendar.permission === 'granted')
+  const calendarColor = (calendarId: string) =>
+    gruvboxCategoryColor(calendar?.calendars.find((item) => item.id === calendarId)?.color)
+  const timedEvents = packCalendarEvents(calendarEvents)
+  const eventLanes = Math.max(1, ...timedEvents.map((item) => item.lane + 1))
+  const allDayEvents = calendarEvents.filter((event) => event.allDay)
 
   if (!blocks.length) {
     return <div className="tempo-day-empty-state">No tracked activity for this day.</div>
   }
 
-  const firstMs = blocks[0].startMs
-  const lastMs = Math.max(...blocks.map((block) => block.endMs), nowMs ?? 0)
+  const visibleEvents = timedEvents.filter(
+    ({ event }) => event.endMs > day.startDateMs && event.startMs < day.endDateMs
+  )
+  const firstMs = Math.max(
+    day.startDateMs,
+    Math.min(blocks[0].startMs, ...visibleEvents.map(({ event }) => event.startMs))
+  )
+  const lastMs = Math.min(
+    day.endDateMs,
+    Math.max(
+      ...blocks.map((block) => block.endMs),
+      ...visibleEvents.map(({ event }) => event.endMs),
+      nowMs ?? 0
+    )
+  )
   const startMs = Math.floor(firstMs / HALF_HOUR_MS) * HALF_HOUR_MS
   const endMs = Math.max(startMs + HOUR_MS, Math.ceil(lastMs / HOUR_MS) * HOUR_MS)
   const minutes = (endMs - startMs) / 60_000
@@ -233,8 +281,22 @@ export default function DayCalendarTimeline({
         </span>
       </div>
       {taskSummary}
+      {showCalendar && allDayEvents.length > 0 && (
+        <div className="tempo-cal-allday" aria-label="All-day events">
+          {allDayEvents.map((event) => (
+            <span
+              key={event.id}
+              className="tempo-cal-event-chip"
+              style={{ '--calendar-color': calendarColor(event.calendarId) } as CSSProperties}
+              title={event.title}
+            >
+              {event.title}
+            </span>
+          ))}
+        </div>
+      )}
       <div
-        className="tempo-cal-grid"
+        className={cn('tempo-cal-grid', showCalendar && 'has-calendar')}
         role="group"
         aria-label="Your day"
         style={{ height: y(endMs) + 8 }}
@@ -351,6 +413,37 @@ export default function DayCalendarTimeline({
             </Popover>
           )
         })}
+        {showCalendar && (
+          <div className="tempo-cal-lane" aria-label="Calendar events">
+            {visibleEvents.map(({ event, lane }) => {
+              const top = y(Math.max(event.startMs, startMs))
+              const height = Math.max(12, y(Math.min(event.endMs, endMs)) - top - 2)
+              return (
+                <div
+                  key={event.id}
+                  className="tempo-cal-event"
+                  style={
+                    {
+                      top,
+                      height,
+                      left: `${(lane / eventLanes) * 100}%`,
+                      width: `calc(${100 / eventLanes}% - 2px)`,
+                      '--calendar-color': calendarColor(event.calendarId)
+                    } as CSSProperties
+                  }
+                  title={`${event.title}, ${timeLabel(event.startMs)}–${timeLabel(event.endMs)}${event.location ? `, ${event.location}` : ''}`}
+                >
+                  <span>{event.title}</span>
+                  {height >= 30 && (
+                    <time>
+                      {timeLabel(event.startMs)}–{timeLabel(event.endMs)}
+                    </time>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
         {nowMs !== null && nowMs >= startMs && nowMs <= endMs && (
           <div className="tempo-cal-now" style={{ top: y(nowMs) }} aria-hidden="true" />
         )}

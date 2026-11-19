@@ -1203,3 +1203,57 @@
     opacity: 1;
   }
 }
+
+/* Calendar events in a narrow lane on the right of the Timeline. */
+.tempo-cal-grid.has-calendar .tempo-cal-block {
+  right: calc(20% + 10px);
+}
+.tempo-cal-lane {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  bottom: 0;
+  width: 20%;
+  min-width: 96px;
+}
+.tempo-cal-event,
+.tempo-cal-event-chip {
+  overflow: hidden;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--calendar-color) 16%, transparent);
+  color: hsl(var(--foreground));
+  font-size: 10.5px;
+  line-height: 1.25;
+}
+.tempo-cal-event {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  box-shadow: inset 2px 0 0 var(--calendar-color);
+  padding: 2px 5px 2px 7px;
+}
+.tempo-cal-event > span,
+.tempo-cal-event-chip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tempo-cal-event > span {
+  font-weight: 500;
+}
+.tempo-cal-event > time {
+  color: hsl(var(--muted-foreground));
+}
+.tempo-cal-allday {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-left: auto;
+  width: 20%;
+  min-width: 96px;
+}
+.tempo-cal-event-chip {
+  max-width: 100%;
+  padding: 2px 6px;
+}

@@ -243,7 +243,7 @@ const CalendarWidget = ({
         />
       ) : (
         <div className="tempo-day-scroll">
-          {viewMode === 'day' && (
+          {viewMode === 'overview' && (
             <DayCalendarComparison
               date={selectedDate}
               sessions={daySessions}
@@ -262,6 +262,7 @@ const CalendarWidget = ({
             </div>
           ) : viewMode === 'day' ? (
             <DayCalendarTimeline
+              date={selectedDate}
               sessions={daySessions}
               runs={dayRuns}
               nowMs={nowMs}
