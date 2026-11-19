@@ -7,12 +7,20 @@ export type DarkStyle = 'solid' | 'gruvbox'
 export const DARK_STYLES: ReadonlyArray<DarkStyle> = ['solid', 'gruvbox']
 export const isDarkStyle = (value: unknown): value is DarkStyle =>
   DARK_STYLES.includes(value as DarkStyle)
+/** How cards and panels look in light mode.  Glass is the original look. */
+export type LightStyle = 'glass' | 'solid' | 'gruvbox'
+
+export const LIGHT_STYLES: ReadonlyArray<LightStyle> = ['glass', 'solid', 'gruvbox']
+export const isLightStyle = (value: unknown): value is LightStyle =>
+  LIGHT_STYLES.includes(value as LightStyle)
 
 interface ThemeContextType {
   theme: Theme
   setTheme: (theme: Theme) => void
   darkStyle: DarkStyle
   setDarkStyle: (style: DarkStyle) => void
+  lightStyle: LightStyle
+  setLightStyle: (style: LightStyle) => void
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
@@ -37,6 +45,18 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     for (const style of DARK_STYLES) root.classList.toggle(`tempo-dark-${style}`, style === darkStyle)
     localStorage.setItem('darkStyle', darkStyle)
   }, [darkStyle])
+
+  const [lightStyle, setLightStyle] = useState<LightStyle>(() => {
+    const stored = localStorage.getItem('lightStyle')
+    return isLightStyle(stored) ? stored : 'solid'
+  })
+
+  // Like the dark style, this class only has an effect while `.dark` is absent.
+  useEffect(() => {
+    const root = window.document.documentElement
+    for (const style of LIGHT_STYLES) root.classList.toggle(`tempo-light-${style}`, style === lightStyle)
+    localStorage.setItem('lightStyle', lightStyle)
+  }, [lightStyle])
 
   useEffect(() => {
     const root = window.document.documentElement
@@ -79,7 +99,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }).catch(() => {})
   }, [])
 
-  return <ThemeContext.Provider value={{ theme, setTheme, darkStyle, setDarkStyle }}>{children}</ThemeContext.Provider>
+  return <ThemeContext.Provider value={{ theme, setTheme, darkStyle, setDarkStyle, lightStyle, setLightStyle }}>{children}</ThemeContext.Provider>
 }
 
 export const useTheme = () => {
