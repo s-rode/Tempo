@@ -606,6 +606,15 @@
   box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.28);
   transition: filter 120ms ease;
 }
+.tempo-hours-segment.is-focused {
+  background-color: var(--day-focused);
+}
+.tempo-hours-segment.is-distracted {
+  background-color: var(--day-distracted);
+}
+.tempo-hours-segment.is-uncertain {
+  background-color: var(--day-uncertain);
+}
 .tempo-hours-segment.continues-before {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;

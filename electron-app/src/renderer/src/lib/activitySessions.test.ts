@@ -5,6 +5,7 @@ import {
   buildActivitySessions,
   buildDayActivitySummaries,
   buildTimelineChapters,
+  coalesceTimelineChapters,
   sessionTotals,
   summarizeTimelineChapterApps,
   type FocusTimelineRun,
@@ -769,5 +770,77 @@ describe('task time summary', () => {
     expect(Math.round(summary[0].trackedMs / 60_000)).toBe(40)
     expect(Math.round(summary[1].focusedMs / 60_000)).toBe(15)
     expect(summary[1].distractedMs).toBe(0)
+  })
+})
+
+describe('coalesceTimelineChapters', () => {
+  const at = (minute: number, second = 0) => new Date(base + minute * 60_000 + second * 1000)
+  const firefoxBlock = (title: string, start: Date, durationMs: number, isProductive?: boolean) =>
+    block({
+      startTime: start,
+      durationMs,
+      title,
+      activityLabel: title,
+      name: title,
+      isProductive,
+      categoryId: isProductive ? 'work' : 'fun',
+      eventIds: [`${title}:${+start}`],
+      originalEvent: {
+        ...block().originalEvent,
+        eventId: `${title}:${+start}`,
+        timestamp: +start,
+        title
+      }
+    })
+
+  const chapter = (
+    id: string,
+    label: string,
+    startMinute: number,
+    durationMs: number,
+    state: 'focused' | 'distracted'
+  ) => {
+    const startTime = at(startMinute)
+    const session = buildActivitySessions([
+      firefoxBlock(label, startTime, durationMs, state === 'focused')
+    ])[0]
+    return {
+      id,
+      label,
+      startTime,
+      endTime: new Date(+startTime + durationMs),
+      sessions: [session],
+      focusedMs: state === 'focused' ? durationMs : 0,
+      distractedMs: state === 'distracted' ? durationMs : 0,
+      uncertainMs: 0
+    }
+  }
+
+  test('joins back-to-back blocks that read the same and folds seconds-long ones', () => {
+    const chapters = [
+      chapter('a', 'Distracted by Firefox', 0, 70_000, 'distracted'),
+      chapter('b', 'Distracted by Firefox', 2, 3_000, 'distracted'),
+      chapter('c', 'Distracted by Firefox', 2.1, 1_000, 'distracted'),
+      chapter('d', 'Distracted by Firefox', 2.2, 1_000, 'distracted'),
+      chapter('e', 'Lecture', 2.3, 10_000, 'focused'),
+      chapter('f', 'Flashcards', 2.5, 4 * 60_000, 'focused')
+    ]
+    const result = coalesceTimelineChapters(chapters)
+    expect(result.map((item) => item.label)).toEqual(['Distracted by Firefox', 'Flashcards'])
+    expect(result[0].distractedMs).toBe(75_000)
+    expect(result[1].focusedMs).toBe(250_000)
+    expect(+result[1].startTime).toBe(+at(2.3))
+    expect(result[1].sessions).toHaveLength(2)
+  })
+
+  test('keeps blocks apart across a gap and keeps long distractions on their own', () => {
+    const chapters = [
+      chapter('a', 'Report', 0, 10 * 60_000, 'focused'),
+      chapter('b', 'Video', 10, 3 * 60_000, 'distracted'),
+      chapter('c', 'Report', 13, 5 * 60_000, 'focused'),
+      chapter('d', 'Report', 30, 20_000, 'focused')
+    ]
+    const result = coalesceTimelineChapters(chapters)
+    expect(result.map((item) => item.id)).toEqual(['a', 'b', 'c', 'd'])
   })
 })

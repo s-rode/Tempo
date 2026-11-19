@@ -1,7 +1,9 @@
 import { ChevronDown, Clock3, Focus } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
   buildTimelineChapters,
+  coalesceTimelineChapters,
+  timelineChapterState,
   TIMELINE_GAP_MS,
   summarizeTimelineChapterApps,
   type ActivitySessionBlock,
@@ -27,13 +29,6 @@ const timeLabel = (value: Date) =>
   value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
 
 const percent = (value: number, total: number) => (total > 0 ? `${(value / total) * 100}%` : '0%')
-
-const dominantState = (chapter: TimelineChapter) => {
-  if (chapter.uncertainMs > chapter.focusedMs && chapter.uncertainMs > chapter.distractedMs)
-    return 'uncertain'
-  if (chapter.distractedMs > chapter.focusedMs) return 'distracted'
-  return 'focused'
-}
 
 const stateDetails = (chapter: TimelineChapter) =>
   [
@@ -226,7 +221,10 @@ export default function CompactDayTimeline({
   taskSummary
 }: CompactDayTimelineProps) {
   const [expandedChapterId, setExpandedChapterId] = useState<string | null>(null)
-  const displayedChapters = chapters || buildTimelineChapters(sessions)
+  const displayedChapters = useMemo(
+    () => coalesceTimelineChapters(chapters || buildTimelineChapters(sessions)),
+    [chapters, sessions]
+  )
   const totals = displayedChapters.reduce(
     (total, chapter) => ({
       focused: total.focused + chapter.focusedMs,
@@ -274,10 +272,11 @@ export default function CompactDayTimeline({
             <p>
               Recorded focus goals stay together across app switches and consecutive focus sessions.
               Outside a focus session, blocks follow an activity; quick visits under 2 minutes are
-              grouped or kept with the activity you return to. Brief transitions between sessions
-              stay with a neighboring block. Distracting or uncertain stretches of 2 minutes or more
-              stand alone during focus. A gap of 5 minutes starts a new block. Durations show
-              tracked time, excluding gaps.
+              grouped or kept with the activity you return to. Neighboring blocks that read the same
+              are joined, and anything under a minute joins the block next to it. Brief transitions
+              between sessions stay with a neighboring block. Distracting or uncertain stretches of
+              2 minutes or more stand alone during focus. A gap of 5 minutes starts a new block.
+              Durations show tracked time, excluding gaps.
             </p>
           </details>
         </div>
@@ -300,7 +299,7 @@ export default function CompactDayTimeline({
                 .map((app) => `${app.appName} ${formatDuration(app.durationMs)}`)
                 .join(' · ') + (apps.length > 3 ? ` · +${apps.length - 3} more` : '')
             const title = focusGoal?.goal || chapter.label
-            const state = dominantState(chapter)
+            const state = timelineChapterState(chapter)
             const expanded = expandedChapterId === chapter.id
 
             return (
@@ -371,18 +370,20 @@ export default function CompactDayTimeline({
                               </div>
                               <span className="tempo-timeline-block-title">{title}</span>
                               <p className="tempo-timeline-app-summary">{detail}</p>
-                              <p className="tempo-timeline-mix">
-                                {stateDetails(chapter)
-                                  .map(
-                                    (item) =>
-                                      `${formatDuration(item.durationMs)} ${item.label.toLowerCase()}`
-                                  )
-                                  .join(' · ')}
-                              </p>
+                              {/* With one state the duration already says it all. */}
+                              {stateDetails(chapter).length > 1 && (
+                                <p className="tempo-timeline-mix">
+                                  {stateDetails(chapter)
+                                    .map(
+                                      (item) =>
+                                        `${formatDuration(item.durationMs)} ${item.label.toLowerCase()}`
+                                    )
+                                    .join(' · ')}
+                                </p>
+                              )}
                             </div>
                             <div className="tempo-timeline-duration">
                               <span>{formatDuration(durationMs)}</span>
-                              <span>tracked</span>
                               <span>
                                 {timeLabel(chapter.startTime)}–{timeLabel(chapter.endTime)}
                               </span>

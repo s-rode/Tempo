@@ -857,3 +857,120 @@ export const sessionTotals = (sessions: ActivitySessionBlock[]) =>
     },
     { focusedMs: 0, distractedMs: 0, uncertainMs: 0 }
   )
+
+const MICRO_CHAPTER_MS = 60_000
+
+const chapterTrackedMs = (chapter: TimelineChapter) =>
+  chapter.focusedMs + chapter.distractedMs + chapter.uncertainMs
+
+/** The state that covers most of a chapter; ties lean towards focused. */
+export const timelineChapterState = (
+  chapter: TimelineChapter
+): 'focused' | 'distracted' | 'uncertain' => {
+  if (chapter.uncertainMs > chapter.focusedMs && chapter.uncertainMs > chapter.distractedMs)
+    return 'uncertain'
+  if (chapter.distractedMs > chapter.focusedMs) return 'distracted'
+  return 'focused'
+}
+
+const sameGoalText = (left?: TimelineFocusGoal, right?: TimelineFocusGoal) =>
+  !!left &&
+  !!right &&
+  left.kind !== 'pomodoro' &&
+  right.kind !== 'pomodoro' &&
+  left.goal.trim().toLowerCase() === right.goal.trim().toLowerCase()
+
+/** Two neighbouring chapters that a reader would describe the same way. */
+const tellSameStory = (left: TimelineChapter, right: TimelineChapter) => {
+  if (left.focusGoal || right.focusGoal) return sameGoalText(left.focusGoal, right.focusGoal)
+  return (
+    left.label.trim().toLowerCase() === right.label.trim().toLowerCase() &&
+    timelineChapterState(left) === timelineChapterState(right)
+  )
+}
+
+const absorbChapter = (target: TimelineChapter, source: TimelineChapter): TimelineChapter => {
+  const focusedMs = target.focusedMs + source.focusedMs
+  const distractedMs = target.distractedMs + source.distractedMs
+  const uncertainMs = target.uncertainMs + source.uncertainMs
+  const goal = target.focusGoal
+  const otherGoal = source.focusGoal
+  return {
+    ...target,
+    startTime: new Date(Math.min(+target.startTime, +source.startTime)),
+    endTime: new Date(Math.max(+target.endTime, +source.endTime)),
+    sessions: [...target.sessions, ...source.sessions].sort(
+      (left, right) => +left.startTime - +right.startTime
+    ),
+    focusedMs,
+    distractedMs,
+    uncertainMs,
+    focusGoal:
+      goal && otherGoal && sameGoalText(goal, otherGoal)
+        ? {
+            ...goal,
+            startTime: new Date(Math.min(+goal.startTime, +otherGoal.startTime)),
+            endTime: new Date(Math.max(+goal.endTime, +otherGoal.endTime)),
+            runIds: [
+              ...new Set([
+                ...(goal.runIds || [goal.runId]),
+                ...(otherGoal.runIds || [otherGoal.runId])
+              ])
+            ],
+            focusedMs,
+            distractedMs,
+            uncertainMs,
+            observedMs: focusedMs + distractedMs + uncertainMs,
+            ...adherenceFor(focusedMs, distractedMs, uncertainMs)
+          }
+        : goal
+  }
+}
+
+/**
+ * Display pass for the Timeline list.  Neighbouring chapters that read the
+ * same ("Distracted by Firefox" four times in a row, or one task split by a
+ * queue switch) become one block, and blocks under a minute fold into a
+ * neighbour so seconds-long switches do not get a card of their own.  The
+ * folded time stays in the host block's totals, rail and details.
+ */
+export const coalesceTimelineChapters = (chapters: TimelineChapter[]): TimelineChapter[] => {
+  let result = chapters.map((chapter) => ({ ...chapter, sessions: [...chapter.sessions] }))
+  const near = (left?: TimelineChapter, right?: TimelineChapter) =>
+    !!left && !!right && +right.startTime - +left.endTime < TIMELINE_GAP_MS
+
+  for (let changed = true; changed; ) {
+    changed = false
+    const merged: TimelineChapter[] = []
+    for (const chapter of result) {
+      const previous = merged[merged.length - 1]
+      if (near(previous, chapter) && tellSameStory(previous, chapter)) {
+        merged[merged.length - 1] = absorbChapter(previous, chapter)
+        changed = true
+      } else merged.push(chapter)
+    }
+    result = merged
+
+    for (let index = 0; index < result.length; index += 1) {
+      const chapter = result[index]
+      if (chapterTrackedMs(chapter) >= MICRO_CHAPTER_MS) continue
+      const previous = near(result[index - 1], chapter) ? result[index - 1] : undefined
+      const next = near(chapter, result[index + 1]) ? result[index + 1] : undefined
+      const state = timelineChapterState(chapter)
+      const host =
+        [previous, next].find((item) => item && tellSameStory(item, chapter)) ||
+        [previous, next].find((item) => item && timelineChapterState(item) === state) ||
+        // Otherwise the longer neighbour, which is the activity the switch interrupted.
+        [previous, next]
+          .filter((item): item is TimelineChapter => !!item)
+          .sort((left, right) => chapterTrackedMs(right) - chapterTrackedMs(left))[0]
+      if (!host) continue
+      const hostIndex = host === previous ? index - 1 : index + 1
+      result[hostIndex] = absorbChapter(host, chapter)
+      result.splice(index, 1)
+      index -= 1
+      changed = true
+    }
+  }
+  return result
+}
