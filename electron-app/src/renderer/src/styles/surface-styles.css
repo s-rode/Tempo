@@ -162,3 +162,63 @@
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
+
+/* ---------- Light: Solid ----------
+   The light twin of dark Solid: the Claude app's ivory background (#faf9f5),
+   a warm sidebar (#f0eee6) and white cards with a hairline edge.  Gruvbox's
+   faded light accents carry state, as in the light Timeline. */
+:root.tempo-light-solid:not(.dark),
+:root.tempo-light-gruvbox:not(.dark) {
+  --background: 48 33% 97%;
+  --foreground: 60 3% 8%;
+  --card: 0 0% 100%;
+  --card-foreground: 60 3% 8%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 60 3% 8%;
+  --secondary: 48 23% 92%;
+  --secondary-foreground: 60 3% 8%;
+  --muted: 48 20% 93%;
+  --muted-foreground: 53 3% 44%;
+  --accent: 48 15% 89%;
+  --accent-foreground: 60 3% 8%;
+  --border: 48 10% 85%;
+  --input: 48 8% 79%;
+
+  --tempo-flat-sidebar: #f0eee6;
+  --tempo-flat-sidebar-edge: rgb(31 30 29 / 0.08);
+  --tempo-flat-sheet-edge: rgb(31 30 29 / 0.12);
+  --tempo-flat-card: #ffffff;
+  --tempo-flat-card-radius: 10px;
+  --tempo-flat-focused: #79740e;
+  --tempo-flat-distracted: #9d0006;
+  --tempo-flat-now-focused: transparent;
+  --tempo-flat-now-distracted: rgb(204 36 29 / 0.06);
+
+  --glass-divider: rgb(31 30 29 / 0.08);
+  --glass-hover: rgb(31 30 29 / 0.05);
+  --glass-pill-top: rgb(31 30 29 / 0.07);
+  --glass-pill-bottom: rgb(31 30 29 / 0.07);
+  --glass-rim: transparent;
+  --glass-edge: rgb(31 30 29 / 0.1);
+  --glass-shadow: rgb(0 0 0 / 0.08);
+  --glass-sheen: transparent;
+  --glass-surface-top: var(--tempo-flat-card);
+  --glass-surface-bottom: var(--tempo-flat-card);
+  --glass-surface-shadow: rgb(0 0 0 / 0.14);
+  --glass-track: rgb(31 30 29 / 0.05);
+  --insight-card-top: var(--tempo-flat-card);
+  --insight-card-bottom: var(--tempo-flat-card);
+  --insight-glow: transparent;
+  --insight-glow-2: transparent;
+  --insight-deep: #79740e;
+  --insight-focus: #98971a;
+  --insight-distract: #cc241d;
+
+  --day-hairline: rgb(31 30 29 / 0.08);
+  --day-row-hover: rgb(31 30 29 / 0.035);
+}
+/* The segmented control's selected segment stays a white chip. */
+:root.tempo-light-solid:not(.dark) .tempo-glass-segmented > button[data-state='on'],
+:root.tempo-light-gruvbox:not(.dark) .tempo-glass-segmented > button[data-state='on'] {
+  background: #fff;
+}
