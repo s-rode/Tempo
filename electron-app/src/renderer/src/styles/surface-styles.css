@@ -149,7 +149,7 @@
   --glass-edge: rgb(235 219 178 / 0.07);
   --tempo-flat-label: #a89984;
 }
-:root.dark.tempo-dark-gruvbox :is(
+:root:is(.dark.tempo-dark-gruvbox, .tempo-light-gruvbox:not(.dark)) :is(
     .tempo-inspector-card-heading h3,
     .tempo-today-plan-heading p,
     .tempo-focus-week > div:first-child > h3,
@@ -221,4 +221,42 @@
 :root.tempo-light-solid:not(.dark) .tempo-glass-segmented > button[data-state='on'],
 :root.tempo-light-gruvbox:not(.dark) .tempo-glass-segmented > button[data-state='on'] {
   background: #fff;
+}
+
+/* ---------- Light: Gruvbox ----------
+   Soft gruvbox paper: a warm background, cream cards, gruvbox's dark brown
+   text and grey labels, and the same small uppercase card headings. */
+:root.tempo-light-gruvbox:not(.dark) {
+  --background: 44 52% 93%;
+  --foreground: 20 5% 22%;
+  --card: 45 64% 96%;
+  --card-foreground: 20 5% 22%;
+  --popover: 45 64% 96%;
+  --popover-foreground: 20 5% 22%;
+  --secondary: 44 39% 87%;
+  --secondary-foreground: 20 5% 22%;
+  --muted: 44 35% 89%;
+  --muted-foreground: 28 11% 44%;
+  --accent: 44 30% 84%;
+  --accent-foreground: 20 5% 22%;
+  --border: 40 18% 80%;
+  --input: 40 14% 74%;
+
+  --tempo-flat-sidebar: #ece5d1;
+  --tempo-flat-sidebar-edge: rgb(60 56 54 / 0.1);
+  --tempo-flat-sheet-edge: rgb(60 56 54 / 0.14);
+  --tempo-flat-card: #fbf8ee;
+  --tempo-flat-card-radius: 8px;
+  --tempo-flat-now-focused: rgb(152 151 26 / 0.08);
+  --tempo-flat-label: #7c6f64;
+  --glass-edge: rgb(60 56 54 / 0.1);
+  --glass-divider: rgb(60 56 54 / 0.1);
+  --glass-hover: rgb(60 56 54 / 0.06);
+  --glass-pill-top: rgb(60 56 54 / 0.08);
+  --glass-pill-bottom: rgb(60 56 54 / 0.08);
+  --glass-track: rgb(60 56 54 / 0.06);
+  --day-hairline: rgb(60 56 54 / 0.1);
+}
+:root.tempo-light-gruvbox:not(.dark) .tempo-glass-segmented > button[data-state='on'] {
+  background: #fbf8ee;
 }
