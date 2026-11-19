@@ -24,7 +24,12 @@ import {
   SemanticActivityDecisionSchema,
   PERSONALIZED_SUPPORTING_MODES,
 } from './llm';
-import { isIdentifierStyleTitle, isVisibleSubjectGrounded } from './classificationEvidence';
+import {
+  isIdentifierStyleTitle,
+  isSourceFileInOtherLanguage,
+  isToolSettingsTitle,
+  isVisibleSubjectGrounded,
+} from './classificationEvidence';
 import { GoalSupportProfileData, SUPPORTING_MODES, isSupportingMode } from './goalSupportTypes';
 import type { PageActivityDescriptorData } from './pageDescriptorTypes';
 import type { LearningExampleForPrompt } from './correctionLearning';
@@ -98,6 +103,84 @@ export interface SemanticActivityProviderResult {
   decision: SemanticActivityDecision | null;
   failureCode?: ClassificationFailureCode;
   attemptCount: number;
+  /** Personalized path only: the model's own reply and which server check changed it. */
+  trace?: PersonalizedVerdictTrace;
+}
+
+export type PersonalizedVerdict = 'productive' | 'distracting' | 'uncertain';
+
+/**
+ * The fields of a personalized reply that the server checks, kept so that an
+ * evaluation can re-run the checks offline (--replay) after a policy change.
+ */
+export interface PersonalizedVerdictTrace {
+  o: string | null;
+  k: string | null;
+  q: string | null;
+  v: string | null;
+  t: string | null;
+  m: string | null;
+  check: 'no_subject' | 'file_name_only' | 'ungrounded_subject' | null;
+}
+
+/**
+ * Server-side checks that turn a personalized verdict into "uncertain":
+ * the model itself reported that no subject is visible; it called the activity
+ * productive for a subject that does not occur in the evidence it was given
+ * (typically one copied from the task or from injected text); or it called a
+ * native window distracting when all it could see was a file or project name,
+ * which says too little about the subject to justify an alert on what is
+ * usually real work. That last shield is lifted when the title itself shows the
+ * conflict: a source file in another language than every task names, or the
+ * editor's or shell's own settings.
+ */
+export function checkPersonalizedVerdict(
+  raw: Record<string, unknown>,
+  activity: Pick<
+    ActivityContext,
+    'ownerName' | 'title' | 'type' | 'browser' | 'siteHost' | 'content'
+  >,
+  targets: Array<{ text: string; classificationText?: string | null }>
+): { verdict: PersonalizedVerdict | null; trace: PersonalizedVerdictTrace } {
+  const text = (value: unknown) => (typeof value === 'string' ? value : null);
+  const title = activity.title || '';
+  const taskTexts = targets.map((target) => target.classificationText || target.text);
+  const check: PersonalizedVerdictTrace['check'] =
+    raw.k === 'no_subject'
+      ? 'no_subject'
+      : raw.v === 'distracting' &&
+          raw.k !== 'leisure' &&
+          activity.type !== 'browser' &&
+          !activity.browser &&
+          isIdentifierStyleTitle(title, activity.ownerName) &&
+          !isSourceFileInOtherLanguage(title, taskTexts) &&
+          !isToolSettingsTitle(title, taskTexts)
+        ? 'file_name_only'
+        : raw.v === 'productive' &&
+            !isVisibleSubjectGrounded(text(raw.o), [
+              activity.title,
+              activity.browser === 'firefox' ? activity.siteHost : null,
+              activity.browser === 'firefox' ? activity.content : null,
+            ])
+          ? 'ungrounded_subject'
+          : null;
+  const v = text(raw.v);
+  return {
+    verdict: check
+      ? 'uncertain'
+      : v === 'productive' || v === 'distracting' || v === 'uncertain'
+        ? v
+        : null,
+    trace: {
+      o: text(raw.o),
+      k: text(raw.k),
+      q: text(raw.q),
+      v,
+      t: text(raw.t),
+      m: text(raw.m),
+      check,
+    },
+  };
 }
 
 export interface ClassificationProvider {
@@ -647,30 +730,10 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
         return { decision: null, failure: 'invalid_json' as const };
       const raw = parsed as Record<string, unknown>;
-      // Three server-side checks turn a personalized verdict into "uncertain":
-      // the model itself reported that no subject is visible; it called the
-      // activity productive for a subject that does not occur in the evidence
-      // it was given (typically one copied from the task or from injected
-      // text); or it called a native window distracting when all it could see
-      // was a file or project name, which says too little about the subject to
-      // justify an alert on what is usually real work.
-      const verdict = !personalized
-        ? null
-        : raw.k === 'no_subject' ||
-            (raw.v === 'distracting' &&
-              raw.k !== 'leisure' &&
-              activity.type !== 'browser' &&
-              !activity.browser &&
-              isIdentifierStyleTitle(activity.title || '', activity.ownerName))
-          ? 'uncertain'
-          : raw.v === 'productive' &&
-              !isVisibleSubjectGrounded(typeof raw.o === 'string' ? raw.o : null, [
-                activity.title,
-                activity.browser === 'firefox' ? activity.siteHost : null,
-                activity.browser === 'firefox' ? activity.content : null,
-              ])
-            ? 'uncertain'
-            : raw.v;
+      const check = personalized
+        ? checkPersonalizedVerdict(raw, activity, goals.targets || [])
+        : null;
+      const verdict = check?.verdict ?? null;
       const checked = SemanticActivityDecisionSchema.safeParse({
         state: personalized
           ? verdict === 'productive'
@@ -743,6 +806,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
           learningExampleId: learningExample?.id || null,
           learningSimilarity: learningExample ? checked.data.learningSimilarity : 'none',
         } as SemanticActivityDecision,
+        trace: check?.trace,
       };
     };
     const prompt = personalized
@@ -770,7 +834,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     );
     if (first.decision) {
       semanticDecisionCache.set(cacheKey, first.decision);
-      return { decision: first.decision, attemptCount: 1 };
+      return { decision: first.decision, trace: first.trace, attemptCount: 1 };
     }
     if (
       first.failure === 'timeout' ||
@@ -800,7 +864,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     );
     if (second.decision) semanticDecisionCache.set(cacheKey, second.decision);
     return second.decision
-      ? { decision: second.decision, attemptCount: 2 }
+      ? { decision: second.decision, trace: second.trace, attemptCount: 2 }
       : {
           decision: null,
           failureCode:

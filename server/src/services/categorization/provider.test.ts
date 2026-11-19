@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { buildCoreClassificationPromptInput } from './llm';
-import { OllamaClassificationProvider, clearClassificationDecisionCaches } from './provider';
+import {
+  OllamaClassificationProvider,
+  checkPersonalizedVerdict,
+  clearClassificationDecisionCaches,
+} from './provider';
 import { DecisionCache } from './decisionCache';
 import type { EffectiveGoalContext } from '../goalPlans';
 
@@ -682,6 +686,68 @@ describe('personalized semantic wire contract', () => {
       { ownerName: 'VLC', title: 'holiday_movie.mp4', type: 'window' as any, browser: null as any }
     );
     expect(leisure?.state).toBe('distracted');
+  });
+  test('a file name that itself shows the conflict keeps the distraction', async () => {
+    const native = { type: 'window' as any, browser: null as any };
+    const otherLanguage = await personalized(
+      { o: 'discord-music-bot', k: 'named_subject', v: 'distracting' },
+      { ...native, ownerName: 'IntelliJ IDEA', title: 'main.py — discord-music-bot' }
+    );
+    expect(otherLanguage?.state).toBe('uncertain');
+    const javaGoals = {
+      ...goals,
+      targets: [{ ...goals.targets![0], text: 'Prepare Java exam', classificationText: undefined }],
+    };
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({
+              o: 'discord-music-bot',
+              k: 'named_subject',
+              q: 'Java exam',
+              v: 'distracting',
+              t: null,
+              m: null,
+              p: 'medium',
+              e: ['E2'],
+            }),
+          },
+        })
+      )) as unknown as typeof fetch;
+    const result = await new OllamaClassificationProvider().decideActivity(
+      javaGoals as any,
+      categories,
+      { ...activity, ...native, ownerName: 'IntelliJ IDEA', title: 'main.py — discord-music-bot' },
+      'balanced',
+      10000,
+      [],
+      true
+    );
+    expect(result.decision?.state).toBe('distracted');
+    expect(result.trace).toMatchObject({ v: 'distracting', check: null });
+    const settings = await personalized(
+      { o: 'keybindings', k: 'named_subject', v: 'distracting' },
+      { ...native, ownerName: 'Visual Studio Code', title: 'keybindings.json — User' }
+    );
+    expect(settings?.state).toBe('distracted');
+  });
+  test('reports which server check changed the model verdict', () => {
+    const native = { ownerName: 'Code', type: 'window' as const, browser: null };
+    expect(
+      checkPersonalizedVerdict(
+        { o: 'CarMarket', k: 'named_subject', v: 'distracting' },
+        { ...native, title: 'Practice2_CarMarket.ipynb — interview-notebooks' },
+        [{ text: 'Do pandas exercises' }]
+      )
+    ).toMatchObject({ verdict: 'uncertain', trace: { v: 'distracting', check: 'file_name_only' } });
+    expect(
+      checkPersonalizedVerdict(
+        { o: 'Algorithms', k: 'named_subject', v: 'productive' },
+        { ...native, title: 'Celebrity news' },
+        [{ text: 'Algorithms' }]
+      ).trace.check
+    ).toBe('ungrounded_subject');
   });
   test('grounding never weakens a distracting verdict', async () => {
     const decision = await personalized(

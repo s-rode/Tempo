@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import {
   isIdentifierStyleTitle,
+  isSourceFileInOtherLanguage,
+  isToolSettingsTitle,
   isVisibleSubjectGrounded,
   validateFocusedEvidence,
 } from './classificationEvidence';
@@ -179,5 +181,60 @@ describe('identifier-style titles', () => {
       ['brew upgrade — updating casks', 'Terminal'],
     ])
       expect(isIdentifierStyleTitle(title, app)).toBe(false);
+  });
+});
+
+describe('isSourceFileInOtherLanguage', () => {
+  test('a source file in a language no task names conflicts with the task', () => {
+    expect(isSourceFileInOtherLanguage('main.py — discord-music-bot', ['Prepare Java exam'])).toBe(
+      true
+    );
+    expect(isSourceFileInOtherLanguage('Server.java — chat', ['Learn Rust ownership'])).toBe(true);
+  });
+  test('the same language, a sibling language or an unnamed language does not', () => {
+    expect(isSourceFileInOtherLanguage('Main.java — exam-prep', ['Prepare Java exam'])).toBe(false);
+    expect(
+      isSourceFileInOtherLanguage('vite.config.js — web', ['Port the form to TypeScript'])
+    ).toBe(false);
+    expect(
+      isSourceFileInOtherLanguage('main.rs — algos', ['Implement binary search tree deletion'])
+    ).toBe(false);
+    expect(isSourceFileInOtherLanguage('main.py — tools', ['Rewrite the Python CLI in Rust'])).toBe(
+      false
+    );
+    expect(isSourceFileInOtherLanguage('App.js — site', ['Prepare JavaScript exam'])).toBe(false);
+  });
+  test('a non-code file or a task without a language never conflicts', () => {
+    expect(isSourceFileInOtherLanguage('notes.md — java-course', ['Prepare Java exam'])).toBe(
+      false
+    );
+    expect(isSourceFileInOtherLanguage('main.go — cli', ['Go through the Java slides'])).toBe(true);
+    expect(isSourceFileInOtherLanguage('main.py — cli', ['Go through the lecture slides'])).toBe(
+      false
+    );
+  });
+  test('every active task must name a different language', () => {
+    expect(
+      isSourceFileInOtherLanguage('main.py — bot', ['Prepare Java exam', 'Fix the image cache'])
+    ).toBe(false);
+  });
+});
+
+describe('isToolSettingsTitle', () => {
+  test("editor and shell configuration is the tool's own settings", () => {
+    for (const title of [
+      'keybindings.json — User',
+      'settings.json — User — Visual Studio Code',
+      '~/.zshrc',
+      'README.md — dotfiles — Visual Studio Code',
+    ])
+      expect(isToolSettingsTitle(title, ['Migrate the events collection to SQLite'])).toBe(true);
+  });
+  test('project files and tasks about tooling are not', () => {
+    expect(isToolSettingsTitle('settings.json — api-gateway', ['Refactor auth'])).toBe(false);
+    expect(isToolSettingsTitle('ci.yml — .github/workflows', ['Refactor auth'])).toBe(false);
+    expect(isToolSettingsTitle('keybindings.json — User', ['Configure editor shortcuts'])).toBe(
+      false
+    );
   });
 });

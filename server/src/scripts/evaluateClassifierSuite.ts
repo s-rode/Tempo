@@ -1,4 +1,9 @@
-import { OllamaClassificationProvider } from '../services/categorization/provider';
+import {
+  OllamaClassificationProvider,
+  checkPersonalizedVerdict,
+  type PersonalizedVerdictTrace,
+  type SemanticActivityDecision,
+} from '../services/categorization/provider';
 import {
   PERSONALIZED_POLICY_VERSION,
   resolvePersonalizedPolicy,
@@ -60,6 +65,38 @@ const cases = suite.cases.filter(
 );
 
 const provider = new OllamaClassificationProvider();
+
+/**
+ * Re-runs the server-side verdict checks on a saved model reply, so a change
+ * to those checks can be scored on --replay without calling the model. The
+ * mapping mirrors decideActivity's parse step.
+ */
+function recheck(
+  saved: SemanticActivityDecision | null,
+  trace: PersonalizedVerdictTrace,
+  activity: Parameters<typeof checkPersonalizedVerdict>[1],
+  targets: Array<{ ref: string; text: string; classificationText?: string }>
+): { decision: SemanticActivityDecision | null; trace: PersonalizedVerdictTrace } {
+  if (!saved) return { decision: saved, trace };
+  const { verdict, trace: next } = checkPersonalizedVerdict(trace as any, activity, targets);
+  const state =
+    verdict === 'productive' ? 'focused' : verdict === 'distracting' ? 'distracted' : 'uncertain';
+  const index = trace.t
+    ?.trim()
+    .toUpperCase()
+    .match(/^T(\d+)$/)?.[1];
+  const target = index ? targets[Number(index) - 1] || null : null;
+  const decision = {
+    ...saved,
+    state,
+    assessment:
+      state === 'focused' ? 'relevant' : state === 'distracted' ? 'conflicting' : 'opaque',
+    relation: state === 'focused' ? (trace.m ? 'supporting' : 'direct') : 'none',
+    matchedGoalRef: state !== 'distracted' ? target?.ref || null : null,
+    supportingMode: state !== 'distracted' ? trace.m || null : null,
+  } as SemanticActivityDecision;
+  return { decision, trace: next };
+}
 const categories = [
   { name: 'Work', isProductive: true },
   { name: 'Distraction', isProductive: false },
@@ -100,8 +137,16 @@ for (const item of cases) {
   const replay = replayRows.find((row) => row.id === item.id);
   if (!replay) await new Promise((resolve) => setTimeout(resolve, paceMs));
   const started = performance.now();
+  const rechecked = replay?.trace
+    ? recheck(replay.decision, replay.trace, activity, targets)
+    : null;
   const response = replay
-    ? { decision: replay.decision, failureCode: replay.failure, attemptCount: replay.attempts }
+    ? {
+        decision: rechecked ? rechecked.decision : replay.decision,
+        trace: rechecked?.trace,
+        failureCode: replay.failure,
+        attemptCount: replay.attempts,
+      }
     : await provider.decideActivity(
         { scope: 'session', primaryGoal: goalTexts[0], dailyTasks: [], targets },
         categories,
@@ -163,6 +208,7 @@ for (const item of cases) {
     acceptable: item.acceptable || [],
     predicted,
     decision,
+    trace: response.trace || null,
     failure: response.failureCode || null,
     attempts: response.attemptCount,
     latencyMs,
