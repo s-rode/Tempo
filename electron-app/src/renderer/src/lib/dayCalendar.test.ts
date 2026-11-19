@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { ProcessedEventBlock } from '../components/DashboardView'
 import { buildActivitySessions, type FocusTimelineRun } from './activitySessions'
-import { buildDayCalendarBlocks } from './dayCalendar'
+import { buildDayCalendarBlocks, summarizeDayCalendarBlock } from './dayCalendar'
 
 const base = new Date('2026-11-19T08:00:00.000Z').getTime()
 const at = (minute: number, second = 0) => base + minute * 60_000 + second * 1000
@@ -152,5 +152,31 @@ describe('day calendar blocks', () => {
 
   test('a session with nothing tracked is not drawn', () => {
     expect(build([], [run('r1', 'Reading', 0, 60)])).toHaveLength(0)
+  })
+
+  test('the summary sums work and distractions instead of listing every switch', () => {
+    const [result] = build(
+      [
+        block('Code: Abend_Tickets.ipynb', 0, 3, true, 'Code'),
+        block('Claude', 3, 1, undefined, 'Claude'),
+        block('Code: Abend_Tickets.ipynb', 4, 2, true, 'Code'),
+        block('Spring GDS', 6, 0.2, false),
+        block('Code: Abend_Tickets.ipynb', 6.2, 5, true, 'Code'),
+        block('pandas day name - Google Suche', 11.2, 0.2, true),
+        block('Spring GDS', 11.4, 2, false),
+        block('Code: Abend_Tickets.ipynb', 13.4, 4, true, 'Code')
+      ],
+      [run('r1', 'Data analysis homework', 0, 18)]
+    )
+    const groups = summarizeDayCalendarBlock(result)
+    expect(groups.map((group) => group.state)).toEqual(['focused', 'distracted', 'uncertain'])
+    const [work, distraction] = groups
+    expect(work.rows[0].label).toBe('Code: Abend_Tickets.ipynb')
+    expect(work.rows[0].durationMs).toBe(14 * 60_000)
+    expect(work.rows[0].detail).toBe('Code · 4 times')
+    expect(work.rows).toHaveLength(2)
+    expect(distraction.rows).toHaveLength(1)
+    expect(distraction.rows[0].label).toBe('Spring GDS')
+    expect(distraction.rows[0].detail).toBe('Firefox · 2 times')
   })
 })

@@ -1129,6 +1129,9 @@
   background: var(--day-uncertain);
 }
 .tempo-cal-details-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-top: 4px;
   border-top: 1px solid var(--day-hairline);
   padding-top: 10px;
@@ -1142,7 +1145,7 @@
 .tempo-cal-activities button {
   display: grid;
   width: 100%;
-  grid-template-columns: 34px 7px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   border-radius: 4px;
@@ -1256,4 +1259,9 @@
 .tempo-cal-event-chip {
   max-width: 100%;
   padding: 2px 6px;
+}
+
+.tempo-cal-details-heading > span:last-child {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
 }

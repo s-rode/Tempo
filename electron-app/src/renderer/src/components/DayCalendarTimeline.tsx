@@ -3,6 +3,7 @@ import type { ActivitySessionBlock, FocusTimelineRun } from '../lib/activitySess
 import { formatDuration } from '../lib/activityByCategoryWidgetHelpers'
 import {
   buildDayCalendarBlocks,
+  summarizeDayCalendarBlock,
   trackedMs,
   type DayCalendarBlock,
   type DayCalendarState
@@ -36,6 +37,12 @@ const STATES: { key: DayCalendarState; label: string; field: keyof DayCalendarBl
   { key: 'distracted', label: 'distracted', field: 'distractedMs' },
   { key: 'uncertain', label: 'uncertain', field: 'uncertainMs' }
 ]
+
+const SUMMARY_HEADING: Record<DayCalendarState, string> = {
+  focused: 'Worked on',
+  distracted: 'Distracted by',
+  uncertain: 'Not classified yet'
+}
 
 const timeLabel = (ms: number) =>
   new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -107,39 +114,35 @@ function BlockDetails({
           </span>
         ))}
       </div>
-      {block.activities.length > 0 && (
-        <>
-          <p className="tempo-cal-details-heading">What happened, in order</p>
-          <ol className="tempo-cal-activities">
-            {block.activities.map((activity) => (
-              <li key={`${activity.startMs}:${activity.label}`}>
+      {summarizeDayCalendarBlock(block).map((group) => (
+        <section key={group.state} className="tempo-cal-summary-group">
+          <p className="tempo-cal-details-heading">
+            <span className={cn('tempo-day-dot', `is-${group.state}`)} aria-hidden="true" />
+            <span>{SUMMARY_HEADING[group.state]}</span>
+            <span>{formatDuration(group.totalMs)}</span>
+          </p>
+          <ul className="tempo-cal-activities">
+            {group.rows.map((row) => (
+              <li key={row.key}>
                 <button
                   type="button"
-                  className={cn(selectedSessionId === activity.session.id && 'is-selected')}
-                  onClick={() => onSelectSession(activity.session)}
-                  aria-label={`${timeLabel(activity.startMs)}, ${activity.label}, ${activity.appName}, ${formatDuration(activity.durationMs)} ${activity.state}. Show details.`}
+                  className={cn(selectedSessionId === row.session.id && 'is-selected')}
+                  onClick={() => onSelectSession(row.session)}
+                  aria-label={`${row.label}${row.detail ? `, ${row.detail}` : ''}, ${formatDuration(row.durationMs)}. Show details.`}
                 >
-                  <time>{timeLabel(activity.startMs)}</time>
-                  <span
-                    className={cn('tempo-day-dot', `is-${activity.state}`)}
-                    aria-hidden="true"
-                  />
                   <span className="tempo-cal-activity-text">
-                    <span>{activity.label}</span>
-                    <span>
-                      {activity.appName}
-                      {activity.visits > 1 ? ` · ${activity.visits} visits` : ''}
-                    </span>
+                    <span>{row.label}</span>
+                    {row.detail && <span>{row.detail}</span>}
                   </span>
                   <span className="tempo-cal-activity-duration">
-                    {formatDuration(activity.durationMs)}
+                    {formatDuration(row.durationMs)}
                   </span>
                 </button>
               </li>
             ))}
-          </ol>
-        </>
-      )}
+          </ul>
+        </section>
+      ))}
       {block.kind === 'free' && (
         <p className="tempo-cal-hint">
           No focus session was running. Start one to give this time a goal.

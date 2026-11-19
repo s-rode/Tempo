@@ -297,3 +297,119 @@ export const buildDayCalendarBlocks = (
   })
   return [...focusBlocks, ...freeBlocks].sort((left, right) => left.startMs - right.startMs)
 }
+
+/** One line of a block summary: an activity, site or app and the time it took. */
+export interface DayCalendarSummaryRow {
+  key: string
+  label: string
+  detail: string
+  durationMs: number
+  /** The longest stretch, so the row can open it in the inspector. */
+  session: ActivitySessionBlock
+}
+
+export interface DayCalendarSummaryGroup {
+  state: DayCalendarState
+  totalMs: number
+  rows: DayCalendarSummaryRow[]
+}
+
+const SUMMARY_ROWS = 4
+const SUMMARY_MIN_ROW_MS = 60 * 1000
+
+const hostOf = (url?: string) => {
+  try {
+    return url ? new URL(url).hostname.replace(/^www\./, '') : ''
+  } catch {
+    return ''
+  }
+}
+
+// Work is named by what it was ("Code: Abend_Tickets.ipynb"); a distraction
+// by where it happened (the site or the app), which is what you would avoid.
+const summaryName = (activity: DayCalendarActivity) => {
+  const { session } = activity
+  if (activity.state === 'focused') return activity.label
+  if (activity.state === 'uncertain') return session.ownerName
+  // "Reddit – thread" and "Reddit – front page" are one site.
+  const page = session.browser ? session.title?.split(/ [–—|-] /)[0]?.trim() : ''
+  return hostOf(session.url) || page || session.ownerName
+}
+
+/**
+ * A block reduced to a few lines: what you worked on and what distracted
+ * you, each summed across the block and longest first.  Anything under a
+ * minute beyond the top lines folds into one "Other" line.
+ */
+export const summarizeDayCalendarBlock = (block: DayCalendarBlock): DayCalendarSummaryGroup[] =>
+  (['focused', 'distracted', 'uncertain'] as const).flatMap((state) => {
+    const groups = new Map<
+      string,
+      {
+        label: string
+        apps: Set<string>
+        count: number
+        durationMs: number
+        longest: DayCalendarActivity
+      }
+    >()
+    for (const activity of block.activities.filter((item) => item.state === state)) {
+      const label = summaryName(activity)
+      const key = label.toLowerCase()
+      const group = groups.get(key)
+      if (group) {
+        group.durationMs += activity.durationMs
+        group.count += activity.visits
+        group.apps.add(activity.appName)
+        if (activity.durationMs > group.longest.durationMs) group.longest = activity
+      } else {
+        groups.set(key, {
+          label,
+          apps: new Set([activity.appName]),
+          count: activity.visits,
+          durationMs: activity.durationMs,
+          longest: activity
+        })
+      }
+    }
+    const sorted = [...groups.entries()].sort(
+      (left, right) => right[1].durationMs - left[1].durationMs
+    )
+    if (!sorted.length) return []
+    const kept = sorted.filter(
+      ([, group], index) =>
+        index === 0 || (index < SUMMARY_ROWS && group.durationMs >= SUMMARY_MIN_ROW_MS)
+    )
+    const rest = sorted.slice(kept.length)
+    const rows: DayCalendarSummaryRow[] = kept.map(([key, group]) => {
+      const apps = [...group.apps].filter((app) => app !== group.label)
+      return {
+        key,
+        label: group.label,
+        detail: [apps.join(', '), group.count > 1 ? `${group.count} times` : '']
+          .filter(Boolean)
+          .join(' · '),
+        durationMs: group.durationMs,
+        session: group.longest.session
+      }
+    })
+    if (rest.length) {
+      const longest = rest.reduce((best, item) =>
+        item[1].durationMs > best[1].durationMs ? item : best
+      )[1].longest
+      rows.push({
+        key: 'other',
+        label: rest.length === 1 ? rest[0][1].label : `${rest.length} other things`,
+        detail:
+          rest.length === 1
+            ? [...rest[0][1].apps].join(', ')
+            : rest
+                .slice(0, 3)
+                .map(([, group]) => group.label)
+                .join(', ') + (rest.length > 3 ? ', …' : ''),
+        durationMs: rest.reduce((total, [, group]) => total + group.durationMs, 0),
+        session: longest.session
+      })
+    }
+    return [{ state, totalMs: rows.reduce((total, row) => total + row.durationMs, 0), rows }]
+  })
