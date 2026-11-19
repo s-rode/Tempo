@@ -1,7 +1,7 @@
 import './assets/custom-title-bar.css'
 import './styles/index.css'
 import './styles/day.css'
-import './styles/dark-styles.css'
+import './styles/surface-styles.css'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React, { useState } from 'react'
 import ReactDOM from 'react-dom/client'

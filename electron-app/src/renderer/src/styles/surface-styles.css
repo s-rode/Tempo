@@ -1,4 +1,7 @@
-/* Dark mode surfaces.  Tempo's dark mode sits on the same warm grey-black as
+/* Flat surfaces.  Dark mode always uses them; light mode uses them unless
+   Light style is set to Glass.  The light styles are at the end.
+
+   Dark mode surfaces.  Tempo's dark mode sits on the same warm grey-black as
    the Claude app (#262624) with a darker sidebar (#1f1e1d), and its cards are
    solid: one raised grey (#30302e), a hairline edge, no gradient, rim or
    shadow.  Floating surfaces (menus, popovers, dialogs) keep a shadow so they
@@ -25,13 +28,15 @@
   --border: 60 5% 23%;
   --input: 60 4% 29%;
 
-  --tempo-dark-sidebar: #1f1e1d;
-  --tempo-dark-card: #30302e;
-  --tempo-dark-card-radius: 10px;
-  --tempo-dark-focused: #b8bb26;
-  --tempo-dark-distracted: #fb4934;
-  --tempo-dark-now-focused: transparent;
-  --tempo-dark-now-distracted: rgb(251 73 52 / 0.06);
+  --tempo-flat-sidebar: #1f1e1d;
+  --tempo-flat-sidebar-edge: rgb(222 220 209 / 0.06);
+  --tempo-flat-sheet-edge: rgb(222 220 209 / 0.12);
+  --tempo-flat-card: #30302e;
+  --tempo-flat-card-radius: 10px;
+  --tempo-flat-focused: #b8bb26;
+  --tempo-flat-distracted: #fb4934;
+  --tempo-flat-now-focused: transparent;
+  --tempo-flat-now-distracted: rgb(251 73 52 / 0.06);
 
   /* The glass tokens, flattened. */
   --glass-divider: rgb(222 220 209 / 0.09);
@@ -42,12 +47,12 @@
   --glass-edge: rgb(222 220 209 / 0.08);
   --glass-shadow: rgb(0 0 0 / 0.3);
   --glass-sheen: transparent;
-  --glass-surface-top: var(--tempo-dark-card);
-  --glass-surface-bottom: var(--tempo-dark-card);
+  --glass-surface-top: var(--tempo-flat-card);
+  --glass-surface-bottom: var(--tempo-flat-card);
   --glass-surface-shadow: rgb(0 0 0 / 0.45);
   --glass-track: rgb(222 220 209 / 0.07);
-  --insight-card-top: var(--tempo-dark-card);
-  --insight-card-bottom: var(--tempo-dark-card);
+  --insight-card-top: var(--tempo-flat-card);
+  --insight-card-bottom: var(--tempo-flat-card);
   --insight-glow: transparent;
   --insight-glow-2: transparent;
   /* Analysis charts in the Timeline's gruvbox colours. */
@@ -64,20 +69,20 @@
 }
 
 /* A solid sidebar instead of the translucent material. */
-:root.dark .tempo-sidebar {
-  background: var(--tempo-dark-sidebar);
-  box-shadow: inset -1px 0 0 rgb(222 220 209 / 0.06);
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-sidebar {
+  background: var(--tempo-flat-sidebar);
+  box-shadow: inset -1px 0 0 var(--tempo-flat-sidebar-edge);
 }
-:root.dark.tempo-vibrancy body:has(.tempo-shell) {
-  background: var(--tempo-dark-sidebar);
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox).tempo-vibrancy body:has(.tempo-shell) {
+  background: var(--tempo-flat-sidebar);
 }
 /* Selected sidebar page: a quiet raised grey, no rim. */
-:root.dark .tempo-sidebar-item[data-active='true'] {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-sidebar-item[data-active='true'] {
   box-shadow: none;
 }
 
 /* Cards: one solid surface and a hairline, nothing else. */
-:root.dark :is(
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) :is(
     .tempo-glass-card,
     .tempo-inspector-section,
     .tempo-inspector .tempo-today-plan,
@@ -86,45 +91,45 @@
     .tempo-pref-group,
     .tempo-day-scroll .tempo-calendar-comparison
   ) {
-  border-radius: var(--tempo-dark-card-radius);
+  border-radius: var(--tempo-flat-card-radius);
   box-shadow: 0 0 0 0.5px var(--glass-edge);
 }
-:root.dark .tempo-insight-suggestion {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-insight-suggestion {
   box-shadow: 0 0 0 0.5px var(--glass-edge);
 }
-:root.dark .tempo-glass-segmented > button[data-state='on'],
-:root.dark .tempo-glass-button {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-glass-segmented > button[data-state='on'],
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-glass-button {
   box-shadow:
     0 0 0 0.5px var(--glass-edge),
     0 1px 2px -1px var(--glass-shadow);
 }
 /* Floating sheets stay opaque; blur adds nothing over a solid fill. */
-:root.dark .tempo-glass-surface {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-glass-surface {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   box-shadow:
-    0 0 0 0.5px rgb(222 220 209 / 0.12),
+    0 0 0 0.5px var(--tempo-flat-sheet-edge),
     0 14px 36px -10px var(--glass-surface-shadow);
 }
 
 /* The Now card carries state in gruvbox colours instead of blue. */
-:root.dark .tempo-inspector-section[data-state='focused'] {
-  --now-tint: var(--tempo-dark-now-focused);
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-inspector-section[data-state='focused'] {
+  --now-tint: var(--tempo-flat-now-focused);
 }
-:root.dark .tempo-inspector-section[data-state='distracted'] {
-  --now-tint: var(--tempo-dark-now-distracted);
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-inspector-section[data-state='distracted'] {
+  --now-tint: var(--tempo-flat-now-distracted);
 }
-:root.dark .tempo-status-focused {
-  color: var(--tempo-dark-focused);
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-status-focused {
+  color: var(--tempo-flat-focused);
 }
-:root.dark .tempo-status-distracted {
-  color: var(--tempo-dark-distracted);
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-status-distracted {
+  color: var(--tempo-flat-distracted);
 }
-:root.dark .tempo-plan-active {
-  color: var(--tempo-dark-focused);
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-plan-active {
+  color: var(--tempo-flat-focused);
 }
-:root.dark .tempo-plan-task.is-in-focus {
-  box-shadow: inset 2px 0 0 var(--tempo-dark-focused);
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-plan-task.is-in-focus {
+  box-shadow: inset 2px 0 0 var(--tempo-flat-focused);
 }
 
 /* ---------- Gruvbox ----------
@@ -138,10 +143,11 @@
   --accent-foreground: 43 59% 81%;
   --muted-foreground: 35 17% 59%;
   --card: 45 5% 17%;
-  --tempo-dark-card: #2e2d2a;
-  --tempo-dark-card-radius: 8px;
-  --tempo-dark-now-focused: rgb(184 187 38 / 0.07);
+  --tempo-flat-card: #2e2d2a;
+  --tempo-flat-card-radius: 8px;
+  --tempo-flat-now-focused: rgb(184 187 38 / 0.07);
   --glass-edge: rgb(235 219 178 / 0.07);
+  --tempo-flat-label: #a89984;
 }
 :root.dark.tempo-dark-gruvbox :is(
     .tempo-inspector-card-heading h3,
@@ -150,7 +156,7 @@
     .tempo-inspector-section > div:first-child > p:first-child,
     .tempo-insight-card > div:first-child h2
   ) {
-  color: #a89984;
+  color: var(--tempo-flat-label);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.07em;
