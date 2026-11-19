@@ -25,7 +25,7 @@
     "build:firefox-extension": "mkdir -p build-resources && cd firefox-extension && zip -X -q ../build-resources/Tempo-Firefox-Companion-UNSIGNED.zip manifest.json background.js content.js",
     "build:local-server": "cd ../server && bun run build:local",
     "sign:mac:local": "bash scripts/sign-local-app.sh dist-local/mac-arm64/Tempo.app",
-    "build:mac:local": "bun run build:assets && bun run build:notch-helper && bun run build:firefox-host && bun run build:firefox-extension && bun run build:local-server && bun run build && electron-builder --config electron-builder.local.yml --mac --dir --arm64 && bun run sign:mac:local",
+    "build:mac:local": "bun run --cwd .. native:rebuild && bun run build:assets && bun run build:notch-helper && bun run build:firefox-host && bun run build:firefox-extension && bun run build:local-server && bun run build && electron-builder --config electron-builder.local.yml --mac --dir --arm64 && bun run sign:mac:local",
     "install:local": "python3 scripts/install-local.py",
     "build:mac:local:install": "bun run build:mac:local && bun run install:local",
     "build:mac": "bun run build:mac:local",
