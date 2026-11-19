@@ -12,6 +12,7 @@ export const userRouter = router({
         token: z.string(),
         calendarZoomLevel: z.number().min(40).max(120).optional(),
         theme: z.enum(['light', 'dark', 'system']).optional(),
+        darkStyle: z.enum(['solid', 'gruvbox']).optional(),
         playDistractionSound: z.boolean().optional(),
         distractionSound: z.enum(DISTRACTION_SOUNDS.map((sound) => sound.id) as ['pop', ...Array<(typeof DISTRACTION_SOUNDS)[number]['id']>]).optional(),
         distractionSoundInterval: z.number().min(5).max(300).optional(),
@@ -89,6 +90,7 @@ export const userRouter = router({
       const defaultSettings = {
         calendarZoomLevel: 60,
         theme: 'system',
+        darkStyle: 'solid' as 'solid' | 'gruvbox',
         playDistractionSound: true,
         distractionSound: DEFAULT_DISTRACTION_SOUND,
         distractionSoundInterval: 30,
