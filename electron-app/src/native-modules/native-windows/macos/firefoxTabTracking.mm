@@ -1,9 +1,36 @@
 #import "firefoxTabTracking.h"
 
+#import <ApplicationServices/ApplicationServices.h>
+
 #import "firefoxWindowSelection.h"
 #import "windowOcrCapture.h"
 
 static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
+static const NSUInteger kMaximumRememberedWindowTitles = 32;
+
+// Accessibility reports the focused window's title even when CGWindowList
+// gives none. Only used if the user already granted Accessibility, so it
+// never triggers a permission prompt.
+static NSString *FocusedWindowTitleForPid(pid_t pid) {
+    if (!AXIsProcessTrusted()) return nil;
+    AXUIElementRef application = AXUIElementCreateApplication(pid);
+    if (!application) return nil;
+    AXUIElementSetMessagingTimeout(application, 0.25f);
+    NSString *result = nil;
+    CFTypeRef focusedWindow = NULL;
+    if (AXUIElementCopyAttributeValue(application, kAXFocusedWindowAttribute, &focusedWindow) == kAXErrorSuccess && focusedWindow) {
+        CFTypeRef title = NULL;
+        if (AXUIElementCopyAttributeValue((AXUIElementRef)focusedWindow, kAXTitleAttribute, &title) == kAXErrorSuccess && title) {
+            if (CFGetTypeID(title) == CFStringGetTypeID() && CFStringGetLength((CFStringRef)title) > 0) {
+                result = [[(NSString *)title copy] autorelease];
+            }
+            CFRelease(title);
+        }
+        CFRelease(focusedWindow);
+    }
+    CFRelease(application);
+    return result;
+}
 
 @interface FirefoxTabTracking ()
 @property (nonatomic, retain) NSTimer *tabCheckTimer;
@@ -15,6 +42,7 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
 @property (nonatomic, assign) NSUInteger captureGeneration;
 @property (nonatomic, retain) NSMutableDictionary *navigationByWindowId;
 @property (nonatomic, retain) NSMutableDictionary *navigationByTitle;
+@property (nonatomic, retain) NSMutableDictionary *titleByWindowId;
 @property (nonatomic, assign) BOOL companionConnected;
 @end
 
@@ -28,12 +56,36 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
     [_capturingWindowInfo release];
     [_navigationByWindowId release];
     [_navigationByTitle release];
+    [_titleByWindowId release];
     [super dealloc];
 }
 
 - (NSMutableDictionary *)navigationByWindowId {
     if (!_navigationByWindowId) _navigationByWindowId = [[NSMutableDictionary alloc] init];
     return _navigationByWindowId;
+}
+
+- (NSMutableDictionary *)titleByWindowId {
+    if (!_titleByWindowId) _titleByWindowId = [[NSMutableDictionary alloc] init];
+    return _titleByWindowId;
+}
+
+// Full-screen windows can report an empty title (no CGWindow name, and no
+// Accessibility access). The native window keeps its CGWindowID when it
+// enters full screen, so its last seen title is the best remaining context:
+// typically the lecture that was opened just before going full screen.
+- (NSString *)resolvedTitleForWindowId:(NSNumber *)windowId pid:(pid_t)pid cgTitle:(NSString *)cgTitle {
+    NSString *windowKey = [windowId stringValue];
+    if (cgTitle.length > 0) {
+        if (self.titleByWindowId.count >= kMaximumRememberedWindowTitles && !self.titleByWindowId[windowKey]) {
+            [self.titleByWindowId removeAllObjects];
+        }
+        self.titleByWindowId[windowKey] = cgTitle;
+        return cgTitle;
+    }
+    NSString *accessibilityTitle = FocusedWindowTitleForPid(pid);
+    if (accessibilityTitle.length > 0) return accessibilityTitle;
+    return self.titleByWindowId[windowKey] ?: @"";
 }
 
 - (NSMutableDictionary *)navigationByTitle {
@@ -78,7 +130,7 @@ static NSString * const kFirefoxBundleIdentifier = @"org.mozilla.firefox";
         result = @{
             @"id": pageWindow[@"id"],
             @"ownerName": @"Firefox",
-            @"title": pageWindow[@"title"],
+            @"title": [self resolvedTitleForWindowId:pageWindow[@"id"] pid:pid cgTitle:pageWindow[@"title"]],
             @"type": @"browser",
             @"browser": @"firefox",
         };
