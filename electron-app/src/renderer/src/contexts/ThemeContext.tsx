@@ -1,10 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
 export type Theme = 'light' | 'dark' | 'system'
+/** How cards and panels look in dark mode.  Light mode is the same for both. */
+export type DarkStyle = 'solid' | 'gruvbox'
+
+export const DARK_STYLES: ReadonlyArray<DarkStyle> = ['solid', 'gruvbox']
+export const isDarkStyle = (value: unknown): value is DarkStyle =>
+  DARK_STYLES.includes(value as DarkStyle)
 
 interface ThemeContextType {
   theme: Theme
   setTheme: (theme: Theme) => void
+  darkStyle: DarkStyle
+  setDarkStyle: (style: DarkStyle) => void
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
@@ -17,6 +25,18 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     return 'system'
   })
+  const [darkStyle, setDarkStyle] = useState<DarkStyle>(() => {
+    const stored = localStorage.getItem('darkStyle')
+    return isDarkStyle(stored) ? stored : 'solid'
+  })
+
+  // The style class sits next to `.dark` on the root; it only has an effect
+  // while `.dark` is present.
+  useEffect(() => {
+    const root = window.document.documentElement
+    for (const style of DARK_STYLES) root.classList.toggle(`tempo-dark-${style}`, style === darkStyle)
+    localStorage.setItem('darkStyle', darkStyle)
+  }, [darkStyle])
 
   useEffect(() => {
     const root = window.document.documentElement
@@ -59,7 +79,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }).catch(() => {})
   }, [])
 
-  return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>
+  return <ThemeContext.Provider value={{ theme, setTheme, darkStyle, setDarkStyle }}>{children}</ThemeContext.Provider>
 }
 
 export const useTheme = () => {
