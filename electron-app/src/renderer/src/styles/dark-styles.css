@@ -31,7 +31,7 @@
   --tempo-dark-focused: #b8bb26;
   --tempo-dark-distracted: #fb4934;
   --tempo-dark-now-focused: transparent;
-  --tempo-dark-now-distracted: rgb(251 73 52 / 0.08);
+  --tempo-dark-now-distracted: rgb(251 73 52 / 0.06);
 
   /* The glass tokens, flattened. */
   --glass-divider: rgb(222 220 209 / 0.09);
@@ -50,6 +50,10 @@
   --insight-card-bottom: var(--tempo-dark-card);
   --insight-glow: transparent;
   --insight-glow-2: transparent;
+  /* Analysis charts in the Timeline's gruvbox colours. */
+  --insight-deep: #98971a;
+  --insight-focus: #b8bb26;
+  --insight-distract: #fb4934;
 
   --day-hairline: rgb(222 220 209 / 0.09);
   --day-row-hover: rgb(222 220 209 / 0.05);
