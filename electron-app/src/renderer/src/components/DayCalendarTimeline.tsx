@@ -4,6 +4,7 @@ import { formatDuration } from '../lib/activityByCategoryWidgetHelpers'
 import {
   buildDayCalendarBlocks,
   summarizeDayCalendarBlock,
+  displaySegments,
   trackedMs,
   type DayCalendarBlock,
   type DayCalendarState
@@ -217,6 +218,8 @@ export default function DayCalendarTimeline({
     Math.max(MIN_PX_PER_MINUTE, (windowHeight - CHROME_HEIGHT) / minutes)
   )
   const y = (ms: number) => ((ms - startMs) / 60_000) * pxPerMinute
+  // Nothing in a block's fill is drawn thinner than this many pixels.
+  const minSegmentMs = (4 / pxPerMinute) * 60_000
   const hours = Array.from(
     { length: Math.floor((endMs - startMs) / HOUR_MS) + 1 },
     (_, index) => Math.ceil(startMs / HOUR_MS) * HOUR_MS + index * HOUR_MS
@@ -305,6 +308,7 @@ export default function DayCalendarTimeline({
           const span = Math.max(1, block.endMs - block.startMs)
           const total = trackedMs(block)
           const mix = mixOf(block)
+          const fill = displaySegments(block, minSegmentMs)
           const selected = block.sessions.some((session) => session.id === selectedSessionId)
           const open = openBlockId === block.id
           const kindLabel =
@@ -335,9 +339,7 @@ export default function DayCalendarTimeline({
                   aria-haspopup="dialog"
                   aria-label={`${kindLabel}: ${block.title}. ${timeLabel(block.startMs)} to ${timeLabel(block.endMs)}. ${mix.map((state) => `${formatDuration(state.ms)} ${state.label}`).join(', ')}.`}
                 >
-                  {block.segments
-                    .filter((segment) => segment.state !== 'focused')
-                    .map((segment) => (
+                  {fill.map((segment) => (
                       <span
                         key={`band:${segment.startMs}`}
                         className={cn('tempo-cal-band', `is-${segment.state}`)}
@@ -348,7 +350,7 @@ export default function DayCalendarTimeline({
                         aria-hidden="true"
                       />
                     ))}
-                  {block.segments.map((segment) => (
+                  {fill.map((segment) => (
                     <span
                       key={`stripe:${segment.startMs}`}
                       className={cn('tempo-cal-stripe', `is-${segment.state}`)}

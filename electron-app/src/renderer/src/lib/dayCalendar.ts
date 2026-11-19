@@ -230,6 +230,69 @@ const makeBlock = (
   }
 }
 
+/**
+ * The block's segments simplified for drawing, so the fill reads as a few
+ * calm bands instead of dozens of hairlines.  Short untracked gaps are
+ * closed.  A run of back-to-back stretches that are each thinner than
+ * `minMs` (a few pixels) becomes one band per state, sized by the time each
+ * state took, so flicker between apps still shows its true mix.  A single
+ * thin stretch between long ones keeps a minimal height rather than vanishing.
+ */
+export const displaySegments = (block: DayCalendarBlock, minMs: number): DayCalendarSegment[] => {
+  const closed: DayCalendarSegment[] = []
+  for (const segment of block.segments) {
+    const previous = closed[closed.length - 1]
+    if (previous && segment.startMs - previous.endMs < minMs) {
+      const middle = (previous.endMs + segment.startMs) / 2
+      previous.endMs = Math.max(previous.endMs, middle)
+      closed.push({ ...segment, startMs: Math.min(segment.startMs, middle) })
+    } else closed.push({ ...segment })
+  }
+
+  const length = (segment: DayCalendarSegment) => segment.endMs - segment.startMs
+  const drawn: DayCalendarSegment[] = []
+  const push = (segment: DayCalendarSegment) => {
+    const previous = drawn[drawn.length - 1]
+    if (previous && previous.state === segment.state && segment.startMs - previous.endMs < minMs)
+      previous.endMs = Math.max(previous.endMs, segment.endMs)
+    else drawn.push(segment)
+  }
+  for (let index = 0; index < closed.length; index += 1) {
+    if (length(closed[index]) >= minMs) {
+      push(closed[index])
+      continue
+    }
+    let end = index
+    while (
+      end + 1 < closed.length &&
+      length(closed[end + 1]) < minMs &&
+      closed[end + 1].startMs - closed[end].endMs < minMs
+    )
+      end += 1
+    const run = closed.slice(index, end + 1)
+    index = end
+    if (run.length === 1) {
+      const [segment] = run
+      const endMs = Math.min(block.endMs, segment.startMs + minMs)
+      push({ ...segment, startMs: Math.max(block.startMs, endMs - minMs), endMs })
+      continue
+    }
+    const startMs = run[0].startMs
+    const span = run[run.length - 1].endMs - startMs
+    const shares = new Map<DayCalendarState, number>()
+    for (const segment of run)
+      shares.set(segment.state, (shares.get(segment.state) || 0) + length(segment))
+    const total = [...shares.values()].reduce((sum, value) => sum + value, 0)
+    let cursor = startMs
+    for (const [state, ms] of shares) {
+      const height = (ms / total) * span
+      push({ state, startMs: cursor, endMs: cursor + height })
+      cursor += height
+    }
+  }
+  return drawn
+}
+
 export const trackedMs = (block: DayCalendarBlock) =>
   block.focusedMs + block.distractedMs + block.uncertainMs
 
