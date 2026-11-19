@@ -46,6 +46,8 @@ export interface DayCalendarBlock {
   segments: DayCalendarSegment[]
   activities: DayCalendarActivity[]
   sessions: ActivitySessionBlock[]
+  /** True when this block continues an earlier block of the same session after a long break. */
+  continued?: boolean
   focus?: {
     goal: string
     kind: 'custom' | 'pomodoro'
@@ -78,6 +80,9 @@ interface FocusInterval {
 const FREE_BLOCK_MIN_MS = 2 * 60 * 1000
 // Activity pieces closer than this read as one continuous stripe.
 const SEGMENT_JOIN_MS = 30 * 1000
+// A session the Mac slept or sat idle through for longer than this is drawn
+// as two blocks with the same title, so the break is visible.
+export const SESSION_BREAK_MS = 10 * 60 * 1000
 
 const stateOf = (session: ActivitySessionBlock): DayCalendarState =>
   session.isProductive === true
@@ -228,6 +233,18 @@ const makeBlock = (
 export const trackedMs = (block: DayCalendarBlock) =>
   block.focusedMs + block.distractedMs + block.uncertainMs
 
+/** Splits a session's pieces wherever nothing was tracked for longer than SESSION_BREAK_MS. */
+const splitAtBreaks = (pieces: Piece[]): Piece[][] => {
+  const parts: Piece[][] = []
+  let lastEnd = -Infinity
+  for (const piece of [...pieces].sort((left, right) => left.startMs - right.startMs)) {
+    if (!parts.length || piece.startMs - lastEnd > SESSION_BREAK_MS) parts.push([piece])
+    else parts[parts.length - 1].push(piece)
+    lastEnd = Math.max(lastEnd, piece.endMs)
+  }
+  return parts
+}
+
 /** The day as calendar blocks: focus sessions, and the tracked time between them. */
 export const buildDayCalendarBlocks = (
   sessions: ActivitySessionBlock[],
@@ -282,19 +299,18 @@ export const buildDayCalendarBlocks = (
   // A session block spans the activity tracked while it ran. A run that was
   // left open (or began on another day) therefore never paints hours of
   // empty session, and a session with nothing tracked is not drawn.
-  const focusBlocks = intervals.flatMap((interval, index) => {
-    const own = focusPieces[index]
-    if (!own.length) return []
-    return [
-      makeBlock(
+  const focusBlocks = intervals.flatMap((interval, index) =>
+    splitAtBreaks(focusPieces[index]).map((part, partIndex) => ({
+      ...makeBlock(
         'focus',
-        own,
-        Math.min(...own.map((piece) => piece.startMs)),
-        Math.max(...own.map((piece) => piece.endMs)),
+        part,
+        Math.min(...part.map((piece) => piece.startMs)),
+        Math.max(...part.map((piece) => piece.endMs)),
         interval
-      )
-    ]
-  })
+      ),
+      ...(partIndex > 0 ? { continued: true } : {})
+    }))
+  )
   return [...focusBlocks, ...freeBlocks].sort((left, right) => left.startMs - right.startMs)
 }
 

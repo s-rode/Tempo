@@ -150,6 +150,25 @@ describe('day calendar blocks', () => {
     expect(result[0].endMs).toBe(at(585))
   })
 
+  test('a long sleep inside a session starts a new block with the same title', () => {
+    const result = build(
+      [block('Lecture 9', 0, 40, true), block('Lecture 9', 95, 30, true), block('Reddit', 133, 3, false)],
+      [run('r1', 'Watch Formal Methods Lecture', 0, 140)]
+    )
+    expect(result.map((item) => [item.title, item.startMs, item.endMs, !!item.continued])).toEqual([
+      ['Watch Formal Methods Lecture', at(0), at(40), false],
+      ['Watch Formal Methods Lecture', at(95), at(136), true]
+    ])
+  })
+
+  test('a short pause inside a session keeps one block', () => {
+    const result = build(
+      [block('Lecture 9', 0, 40, true), block('Lecture 9', 48, 30, true)],
+      [run('r1', 'Watch lecture', 0, 80)]
+    )
+    expect(result).toHaveLength(1)
+  })
+
   test('a session with nothing tracked is not drawn', () => {
     expect(build([], [run('r1', 'Reading', 0, 60)])).toHaveLength(0)
   })
