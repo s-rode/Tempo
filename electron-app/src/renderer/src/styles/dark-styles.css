@@ -146,6 +146,7 @@
 :root.dark.tempo-dark-gruvbox :is(
     .tempo-inspector-card-heading h3,
     .tempo-today-plan-heading p,
+    .tempo-focus-week > div:first-child > h3,
     .tempo-inspector-section > div:first-child > p:first-child,
     .tempo-insight-card > div:first-child h2
   ) {
