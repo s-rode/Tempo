@@ -22,6 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from './ui/dropdown-menu'
+import { gruvboxCategoryColor } from '../lib/colors'
 
 interface DaySummaryPanelProps {
   dayRange: { startDateMs: number; endDateMs: number }
@@ -183,14 +184,17 @@ export default function DaySummaryPanel({
           {categoryTotals.map(({ category, durationMs }) => (
             <div key={category?._id || 'uncategorized'} className="tempo-category-row">
               <div>
-                <i style={{ backgroundColor: category?.color || '#d97706' }} aria-hidden="true" />
+                <i
+                  style={{ backgroundColor: gruvboxCategoryColor(category?.color) }}
+                  aria-hidden="true"
+                />
                 <span className="truncate">{category?.name || 'Uncertain'}</span>
                 <time>{formatDuration(durationMs)}</time>
               </div>
               <div className="tempo-category-bar">
                 <span
                   style={{
-                    backgroundColor: category?.color || '#d97706',
+                    backgroundColor: gruvboxCategoryColor(category?.color),
                     width: `${(durationMs / maxCategoryDuration) * 100}%`
                   }}
                 />
@@ -330,7 +334,7 @@ export default function DaySummaryPanel({
                       >
                         <span
                           className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: category.color }}
+                          style={{ backgroundColor: gruvboxCategoryColor(category.color) }}
                         />
                         {category.name}
                       </DropdownMenuItem>

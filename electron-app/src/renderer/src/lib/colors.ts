@@ -44,3 +44,31 @@ export const getDarkerColor = (hex: string, amount = 0.5): string => {
     return '#000000' // fallback to black
   }
 }
+
+// Gruvbox's neutral accents, which read on light and dark surfaces alike.
+const GRUVBOX = [
+  { hue: 2, hex: '#cc241d' },
+  { hue: 24, hex: '#d65d0e' },
+  { hue: 40, hex: '#d79921' },
+  { hue: 60, hex: '#98971a' },
+  { hue: 122, hex: '#689d6a' },
+  { hue: 183, hex: '#458588' },
+  { hue: 330, hex: '#b16286' }
+]
+
+/**
+ * The Today page draws category colours from the gruvbox palette, so they sit
+ * with the focused, distracted and uncertain accents.  Each category keeps its
+ * own hue family: the stored colour maps to the nearest gruvbox accent.
+ */
+export const gruvboxCategoryColor = (hex?: string | null): string => {
+  if (!hex) return 'var(--day-uncertain)'
+  try {
+    const [hue, saturation] = Color(hex).hsl().array()
+    if (saturation < 15) return '#928374'
+    const distance = (value: number) => Math.min(Math.abs(value - hue), 360 - Math.abs(value - hue))
+    return [...GRUVBOX].sort((left, right) => distance(left.hue) - distance(right.hue))[0].hex
+  } catch {
+    return 'var(--day-uncertain)'
+  }
+}

@@ -380,7 +380,7 @@
   overflow: hidden;
   padding: 16px 18px;
   background:
-    radial-gradient(110% 150% at 0% 0%, var(--insight-glow), transparent 55%),
+    radial-gradient(110% 150% at 0% 0%, var(--day-focused-soft), transparent 55%),
     linear-gradient(180deg, var(--insight-card-top), var(--insight-card-bottom));
 }
 .tempo-dayhero-top {
