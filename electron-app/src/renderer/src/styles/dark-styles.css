@@ -122,3 +122,32 @@
 :root.dark .tempo-plan-task.is-in-focus {
   box-shadow: inset 2px 0 0 var(--tempo-dark-focused);
 }
+
+/* ---------- Gruvbox ----------
+   The same layout with gruvbox's cream text and grey, a slightly warmer card,
+   small uppercase card headings, and a faint green wash on Now while focused. */
+:root.dark.tempo-dark-gruvbox {
+  --foreground: 43 59% 81%;
+  --card-foreground: 43 59% 81%;
+  --popover-foreground: 43 59% 81%;
+  --secondary-foreground: 43 59% 81%;
+  --accent-foreground: 43 59% 81%;
+  --muted-foreground: 35 17% 59%;
+  --card: 45 5% 17%;
+  --tempo-dark-card: #2e2d2a;
+  --tempo-dark-card-radius: 8px;
+  --tempo-dark-now-focused: rgb(184 187 38 / 0.07);
+  --glass-edge: rgb(235 219 178 / 0.07);
+}
+:root.dark.tempo-dark-gruvbox :is(
+    .tempo-inspector-card-heading h3,
+    .tempo-today-plan-heading p,
+    .tempo-inspector-section > div:first-child > p:first-child,
+    .tempo-insight-card > div:first-child h2
+  ) {
+  color: #a89984;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
