@@ -1,0 +1,262 @@
+/* Flat surfaces.  Dark mode always uses them; light mode uses them unless
+   Light style is set to Glass.  The light styles are at the end.
+
+   Dark mode surfaces.  Tempo's dark mode sits on the same warm grey-black as
+   the Claude app (#262624) with a darker sidebar (#1f1e1d), and its cards are
+   solid: one raised grey (#30302e), a hairline edge, no gradient, rim or
+   shadow.  Floating surfaces (menus, popovers, dialogs) keep a shadow so they
+   still read as above the window.  Gruvbox accents carry state.
+
+   Two styles share this base, chosen in Settings > General > Dark style:
+   Solid (these rules) and Gruvbox (the overrides at the end).  The style
+   class sits on <html> next to `.dark`.  Loaded after index.css and day.css;
+   `:root.dark` outranks the plain `.dark` token blocks there. */
+
+:root.dark {
+  --background: 60 2.7% 14.5%;
+  --foreground: 48 33% 97%;
+  --card: 60 2.1% 18.4%;
+  --card-foreground: 48 33% 97%;
+  --popover: 60 2.1% 18.4%;
+  --popover-foreground: 48 33% 97%;
+  --secondary: 60 2% 20%;
+  --secondary-foreground: 48 33% 97%;
+  --muted: 60 2% 19%;
+  --muted-foreground: 48 4% 59%;
+  --accent: 60 3% 22%;
+  --accent-foreground: 48 33% 97%;
+  --border: 60 5% 23%;
+  --input: 60 4% 29%;
+
+  --tempo-flat-sidebar: #1f1e1d;
+  --tempo-flat-sidebar-edge: rgb(222 220 209 / 0.06);
+  --tempo-flat-sheet-edge: rgb(222 220 209 / 0.12);
+  --tempo-flat-card: #30302e;
+  --tempo-flat-card-radius: 10px;
+  --tempo-flat-focused: #b8bb26;
+  --tempo-flat-distracted: #fb4934;
+  --tempo-flat-now-focused: transparent;
+  --tempo-flat-now-distracted: rgb(251 73 52 / 0.06);
+
+  /* The glass tokens, flattened. */
+  --glass-divider: rgb(222 220 209 / 0.09);
+  --glass-hover: rgb(222 220 209 / 0.06);
+  --glass-pill-top: rgb(222 220 209 / 0.1);
+  --glass-pill-bottom: rgb(222 220 209 / 0.1);
+  --glass-rim: transparent;
+  --glass-edge: rgb(222 220 209 / 0.08);
+  --glass-shadow: rgb(0 0 0 / 0.3);
+  --glass-sheen: transparent;
+  --glass-surface-top: var(--tempo-flat-card);
+  --glass-surface-bottom: var(--tempo-flat-card);
+  --glass-surface-shadow: rgb(0 0 0 / 0.45);
+  --glass-track: rgb(222 220 209 / 0.07);
+  --insight-card-top: var(--tempo-flat-card);
+  --insight-card-bottom: var(--tempo-flat-card);
+  --insight-glow: transparent;
+  --insight-glow-2: transparent;
+  /* Analysis charts in the Timeline's gruvbox colours. */
+  --insight-deep: #98971a;
+  --insight-focus: #b8bb26;
+  --insight-distract: #fb4934;
+
+  --day-hairline: rgb(222 220 209 / 0.09);
+  --day-row-hover: rgb(222 220 209 / 0.05);
+  --planner-surface: rgb(222 220 209 / 0.05);
+  --planner-line: rgb(222 220 209 / 0.09);
+  --planner-line-strong: rgb(222 220 209 / 0.2);
+  --planner-fill: rgb(222 220 209 / 0.035);
+}
+
+/* A solid sidebar instead of the translucent material. */
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-sidebar {
+  background: var(--tempo-flat-sidebar);
+  box-shadow: inset -1px 0 0 var(--tempo-flat-sidebar-edge);
+}
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox).tempo-vibrancy body:has(.tempo-shell) {
+  background: var(--tempo-flat-sidebar);
+}
+/* Selected sidebar page: a quiet raised grey, no rim. */
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-sidebar-item[data-active='true'] {
+  box-shadow: none;
+}
+
+/* Cards: one solid surface and a hairline, nothing else. */
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) :is(
+    .tempo-glass-card,
+    .tempo-inspector-section,
+    .tempo-inspector .tempo-today-plan,
+    .tempo-inspector .tempo-reminders,
+    .tempo-insight-card,
+    .tempo-pref-group,
+    .tempo-day-scroll .tempo-calendar-comparison
+  ) {
+  border-radius: var(--tempo-flat-card-radius);
+  box-shadow: 0 0 0 0.5px var(--glass-edge);
+}
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-insight-suggestion {
+  box-shadow: 0 0 0 0.5px var(--glass-edge);
+}
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-glass-segmented > button[data-state='on'],
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-glass-button {
+  box-shadow:
+    0 0 0 0.5px var(--glass-edge),
+    0 1px 2px -1px var(--glass-shadow);
+}
+/* Floating sheets stay opaque; blur adds nothing over a solid fill. */
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-glass-surface {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow:
+    0 0 0 0.5px var(--tempo-flat-sheet-edge),
+    0 14px 36px -10px var(--glass-surface-shadow);
+}
+
+/* The Now card carries state in gruvbox colours instead of blue. */
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-inspector-section[data-state='focused'] {
+  --now-tint: var(--tempo-flat-now-focused);
+}
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-inspector-section[data-state='distracted'] {
+  --now-tint: var(--tempo-flat-now-distracted);
+}
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-status-focused {
+  color: var(--tempo-flat-focused);
+}
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-status-distracted {
+  color: var(--tempo-flat-distracted);
+}
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-plan-active {
+  color: var(--tempo-flat-focused);
+}
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-plan-task.is-in-focus {
+  box-shadow: inset 2px 0 0 var(--tempo-flat-focused);
+}
+
+/* ---------- Gruvbox ----------
+   The same layout with gruvbox's cream text and grey, a slightly warmer card,
+   small uppercase card headings, and a faint green wash on Now while focused. */
+:root.dark.tempo-dark-gruvbox {
+  --foreground: 43 59% 81%;
+  --card-foreground: 43 59% 81%;
+  --popover-foreground: 43 59% 81%;
+  --secondary-foreground: 43 59% 81%;
+  --accent-foreground: 43 59% 81%;
+  --muted-foreground: 35 17% 59%;
+  --card: 45 5% 17%;
+  --tempo-flat-card: #2e2d2a;
+  --tempo-flat-card-radius: 8px;
+  --tempo-flat-now-focused: rgb(184 187 38 / 0.07);
+  --glass-edge: rgb(235 219 178 / 0.07);
+  --tempo-flat-label: #a89984;
+}
+:root:is(.dark.tempo-dark-gruvbox, .tempo-light-gruvbox:not(.dark)) :is(
+    .tempo-inspector-card-heading h3,
+    .tempo-today-plan-heading p,
+    .tempo-focus-week > div:first-child > h3,
+    .tempo-inspector-section > div:first-child > p:first-child,
+    .tempo-insight-card > div:first-child h2
+  ) {
+  color: var(--tempo-flat-label);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+/* ---------- Light: Solid ----------
+   The light twin of dark Solid: the Claude app's ivory background (#faf9f5),
+   a warm sidebar (#f0eee6) and white cards with a hairline edge.  Gruvbox's
+   faded light accents carry state, as in the light Timeline. */
+:root.tempo-light-solid:not(.dark),
+:root.tempo-light-gruvbox:not(.dark) {
+  --background: 48 33% 97%;
+  --foreground: 60 3% 8%;
+  --card: 0 0% 100%;
+  --card-foreground: 60 3% 8%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 60 3% 8%;
+  --secondary: 48 23% 92%;
+  --secondary-foreground: 60 3% 8%;
+  --muted: 48 20% 93%;
+  --muted-foreground: 53 3% 44%;
+  --accent: 48 15% 89%;
+  --accent-foreground: 60 3% 8%;
+  --border: 48 10% 85%;
+  --input: 48 8% 79%;
+
+  --tempo-flat-sidebar: #f0eee6;
+  --tempo-flat-sidebar-edge: rgb(31 30 29 / 0.08);
+  --tempo-flat-sheet-edge: rgb(31 30 29 / 0.12);
+  --tempo-flat-card: #ffffff;
+  --tempo-flat-card-radius: 10px;
+  --tempo-flat-focused: #79740e;
+  --tempo-flat-distracted: #9d0006;
+  --tempo-flat-now-focused: transparent;
+  --tempo-flat-now-distracted: rgb(204 36 29 / 0.06);
+
+  --glass-divider: rgb(31 30 29 / 0.08);
+  --glass-hover: rgb(31 30 29 / 0.05);
+  --glass-pill-top: rgb(31 30 29 / 0.07);
+  --glass-pill-bottom: rgb(31 30 29 / 0.07);
+  --glass-rim: transparent;
+  --glass-edge: rgb(31 30 29 / 0.1);
+  --glass-shadow: rgb(0 0 0 / 0.08);
+  --glass-sheen: transparent;
+  --glass-surface-top: var(--tempo-flat-card);
+  --glass-surface-bottom: var(--tempo-flat-card);
+  --glass-surface-shadow: rgb(0 0 0 / 0.14);
+  --glass-track: rgb(31 30 29 / 0.05);
+  --insight-card-top: var(--tempo-flat-card);
+  --insight-card-bottom: var(--tempo-flat-card);
+  --insight-glow: transparent;
+  --insight-glow-2: transparent;
+  --insight-deep: #79740e;
+  --insight-focus: #98971a;
+  --insight-distract: #cc241d;
+
+  --day-hairline: rgb(31 30 29 / 0.08);
+  --day-row-hover: rgb(31 30 29 / 0.035);
+}
+/* The segmented control's selected segment stays a white chip. */
+:root.tempo-light-solid:not(.dark) .tempo-glass-segmented > button[data-state='on'],
+:root.tempo-light-gruvbox:not(.dark) .tempo-glass-segmented > button[data-state='on'] {
+  background: #fff;
+}
+
+/* ---------- Light: Gruvbox ----------
+   Soft gruvbox paper: a warm background, cream cards, gruvbox's dark brown
+   text and grey labels, and the same small uppercase card headings. */
+:root.tempo-light-gruvbox:not(.dark) {
+  --background: 44 52% 93%;
+  --foreground: 20 5% 22%;
+  --card: 45 64% 96%;
+  --card-foreground: 20 5% 22%;
+  --popover: 45 64% 96%;
+  --popover-foreground: 20 5% 22%;
+  --secondary: 44 39% 87%;
+  --secondary-foreground: 20 5% 22%;
+  --muted: 44 35% 89%;
+  --muted-foreground: 28 11% 44%;
+  --accent: 44 30% 84%;
+  --accent-foreground: 20 5% 22%;
+  --border: 40 18% 80%;
+  --input: 40 14% 74%;
+
+  --tempo-flat-sidebar: #ece5d1;
+  --tempo-flat-sidebar-edge: rgb(60 56 54 / 0.1);
+  --tempo-flat-sheet-edge: rgb(60 56 54 / 0.14);
+  --tempo-flat-card: #fbf8ee;
+  --tempo-flat-card-radius: 8px;
+  --tempo-flat-now-focused: rgb(152 151 26 / 0.08);
+  --tempo-flat-label: #7c6f64;
+  --glass-edge: rgb(60 56 54 / 0.1);
+  --glass-divider: rgb(60 56 54 / 0.1);
+  --glass-hover: rgb(60 56 54 / 0.06);
+  --glass-pill-top: rgb(60 56 54 / 0.08);
+  --glass-pill-bottom: rgb(60 56 54 / 0.08);
+  --glass-track: rgb(60 56 54 / 0.06);
+  --day-hairline: rgb(60 56 54 / 0.1);
+}
+:root.tempo-light-gruvbox:not(.dark) .tempo-glass-segmented > button[data-state='on'] {
+  background: #fbf8ee;
+}
