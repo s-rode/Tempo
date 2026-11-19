@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { ProcessedEventBlock } from '../components/DashboardView'
 import { buildActivitySessions, type FocusTimelineRun } from './activitySessions'
-import { buildDayCalendarBlocks, summarizeDayCalendarBlock } from './dayCalendar'
+import { buildDayCalendarBlocks, displaySegments, summarizeDayCalendarBlock } from './dayCalendar'
 
 const base = new Date('2026-11-19T08:00:00.000Z').getTime()
 const at = (minute: number, second = 0) => base + minute * 60_000 + second * 1000
@@ -150,6 +150,25 @@ describe('day calendar blocks', () => {
     expect(result[0].endMs).toBe(at(585))
   })
 
+  test('a long sleep inside a session starts a new block with the same title', () => {
+    const result = build(
+      [block('Lecture 9', 0, 40, true), block('Lecture 9', 95, 30, true), block('Reddit', 133, 3, false)],
+      [run('r1', 'Watch Formal Methods Lecture', 0, 140)]
+    )
+    expect(result.map((item) => [item.title, item.startMs, item.endMs, !!item.continued])).toEqual([
+      ['Watch Formal Methods Lecture', at(0), at(40), false],
+      ['Watch Formal Methods Lecture', at(95), at(136), true]
+    ])
+  })
+
+  test('a short pause inside a session keeps one block', () => {
+    const result = build(
+      [block('Lecture 9', 0, 40, true), block('Lecture 9', 48, 30, true)],
+      [run('r1', 'Watch lecture', 0, 80)]
+    )
+    expect(result).toHaveLength(1)
+  })
+
   test('a session with nothing tracked is not drawn', () => {
     expect(build([], [run('r1', 'Reading', 0, 60)])).toHaveLength(0)
   })
@@ -178,5 +197,23 @@ describe('day calendar blocks', () => {
     expect(distraction.rows).toHaveLength(1)
     expect(distraction.rows[0].label).toBe('Spring GDS')
     expect(distraction.rows[0].detail).toBe('Firefox · 2 times')
+  })
+
+  test('the drawn fill folds slivers into calm bands that keep their mix', () => {
+    const blocks: ProcessedEventBlock[] = [block('Lecture 7', 0, 20, true)]
+    for (let minute = 20; minute < 30; minute += 2) {
+      blocks.push(block('Reddit', minute, 1, false))
+      blocks.push(block('Lecture 7', minute + 1, 1, true))
+    }
+    blocks.push(block('Lecture 7', 30, 20, true))
+    const [session] = build(blocks, [run('r1', 'Lecture', 0, 50)])
+    expect(session.segments.length).toBeGreaterThan(8)
+    const fill = displaySegments(session, 3 * 60_000)
+    expect(fill.length).toBeLessThanOrEqual(3)
+    expect(fill.some((segment) => segment.state === 'distracted')).toBe(true)
+    expect(fill[0].startMs).toBe(at(0))
+    expect(fill[fill.length - 1].endMs).toBe(at(50))
+    for (let index = 1; index < fill.length; index += 1)
+      expect(fill[index].state).not.toBe(fill[index - 1].state)
   })
 })
