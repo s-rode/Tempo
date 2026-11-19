@@ -268,10 +268,10 @@ const CalendarWidget = ({
               nowMs={nowMs}
               selectedSessionId={selectedSessionId}
               onSelectSession={onSelectSession}
-              taskSummary={dayTaskSummary}
             />
           ) : (
             <>
+              {dayTaskSummary}
               <DayHero overview={overview} />
               <DayOverviewTimeline
                 overview={overview}

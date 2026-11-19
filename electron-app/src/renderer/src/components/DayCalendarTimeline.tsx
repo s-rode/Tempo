@@ -1,11 +1,4 @@
-import {
-  type CSSProperties,
-  type KeyboardEvent,
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useState
-} from 'react'
+import { type CSSProperties, type KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import type { ActivitySessionBlock, FocusTimelineRun } from '../lib/activitySessions'
 import { formatDuration } from '../lib/activityByCategoryWidgetHelpers'
 import {
@@ -29,8 +22,6 @@ interface DayCalendarTimelineProps {
   nowMs: number | null
   selectedSessionId: string | null
   onSelectSession: (session: ActivitySessionBlock) => void
-  /** Time per planned task, shown above the calendar. */
-  taskSummary?: ReactNode
 }
 
 const HOUR_MS = 60 * 60 * 1000
@@ -165,8 +156,7 @@ export default function DayCalendarTimeline({
   runs,
   nowMs,
   selectedSessionId,
-  onSelectSession,
-  taskSummary
+  onSelectSession
 }: DayCalendarTimelineProps) {
   const [openBlockId, setOpenBlockId] = useState<string | null>(null)
   const windowHeight = useWindowHeight()
@@ -280,7 +270,6 @@ export default function DayCalendarTimeline({
           {formatDuration(totals.inSessions)} in focus sessions
         </span>
       </div>
-      {taskSummary}
       {showCalendar && allDayEvents.length > 0 && (
         <div className="tempo-cal-allday" aria-label="All-day events">
           {allDayEvents.map((event) => (

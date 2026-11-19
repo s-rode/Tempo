@@ -142,4 +142,15 @@ describe('day calendar blocks', () => {
     )
     expect(result.map((item) => item.title)).toEqual(['Watch lecture', 'Flashcards'])
   })
+
+  test('a session left open since the night only spans the activity tracked in it', () => {
+    const result = build([block('Anki', 555, 30, true)], [run('r1', 'Flashcards', -600, 600)])
+    expect(result).toHaveLength(1)
+    expect(result[0].startMs).toBe(at(555))
+    expect(result[0].endMs).toBe(at(585))
+  })
+
+  test('a session with nothing tracked is not drawn', () => {
+    expect(build([], [run('r1', 'Reading', 0, 60)])).toHaveLength(0)
+  })
 })

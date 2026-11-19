@@ -279,14 +279,21 @@ export const buildDayCalendarBlocks = (
     freeBlocks.push(makeBlock('free', group, startMs, endMs))
   }
 
-  const focusBlocks = intervals.map((interval, index) =>
-    makeBlock(
-      'focus',
-      focusPieces[index],
-      focusRanges[index].startMs,
-      focusRanges[index].endMs,
-      interval
-    )
-  )
+  // A session block spans the activity tracked while it ran. A run that was
+  // left open (or began on another day) therefore never paints hours of
+  // empty session, and a session with nothing tracked is not drawn.
+  const focusBlocks = intervals.flatMap((interval, index) => {
+    const own = focusPieces[index]
+    if (!own.length) return []
+    return [
+      makeBlock(
+        'focus',
+        own,
+        Math.min(...own.map((piece) => piece.startMs)),
+        Math.max(...own.map((piece) => piece.endMs)),
+        interval
+      )
+    ]
+  })
   return [...focusBlocks, ...freeBlocks].sort((left, right) => left.startMs - right.startMs)
 }
