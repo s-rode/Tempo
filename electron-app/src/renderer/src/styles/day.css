@@ -11,6 +11,10 @@
   --day-focused-soft: rgb(152 151 26 / 0.14);
   --day-distracted-soft: rgb(204 36 29 / 0.1);
   --day-uncertain-soft: rgb(215 153 33 / 0.14);
+  /* Fill inside Timeline blocks: strong enough to read the mix at a glance. */
+  --day-focused-fill: rgb(152 151 26 / 0.3);
+  --day-distracted-fill: rgb(204 36 29 / 0.24);
+  --day-uncertain-fill: rgb(215 153 33 / 0.28);
   --day-focused-text: #79740e;
   --day-distracted-text: #9d0006;
   --day-uncertain-text: #b57614;
@@ -27,6 +31,9 @@
   --day-focused-soft: rgb(184 187 38 / 0.16);
   --day-distracted-soft: rgb(251 73 52 / 0.15);
   --day-uncertain-soft: rgb(250 189 47 / 0.15);
+  --day-focused-fill: rgb(184 187 38 / 0.3);
+  --day-distracted-fill: rgb(251 73 52 / 0.28);
+  --day-uncertain-fill: rgb(250 189 47 / 0.26);
   --day-focused-text: #b8bb26;
   --day-distracted-text: #fb4934;
   --day-uncertain-text: #fabd2f;
@@ -992,11 +999,14 @@
 .tempo-cal-stripe.is-uncertain {
   background: var(--day-uncertain);
 }
+.tempo-cal-band.is-focused {
+  background: var(--day-focused-fill);
+}
 .tempo-cal-band.is-distracted {
-  background: var(--day-distracted-soft);
+  background: var(--day-distracted-fill);
 }
 .tempo-cal-band.is-uncertain {
-  background: var(--day-uncertain-soft);
+  background: var(--day-uncertain-fill);
 }
 .tempo-cal-block-body {
   position: absolute;
