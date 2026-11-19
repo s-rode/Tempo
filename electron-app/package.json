@@ -20,6 +20,7 @@
     "test:notch-interaction-layout": "bash scripts/test-notch-interaction-layout.sh",
     "test:notch-overlap": "bash scripts/test-notch-overlap.sh",
     "test:notch-controller": "bash scripts/test-notch-controller.sh",
+    "test:firefox-window-selection": "bash scripts/test-firefox-window-selection.sh",
     "build:firefox-host": "bash scripts/build-firefox-host.sh",
     "build:firefox-extension": "mkdir -p build-resources && cd firefox-extension && zip -X -q ../build-resources/Tempo-Firefox-Companion-UNSIGNED.zip manifest.json background.js content.js",
     "build:local-server": "cd ../server && bun run build:local",
