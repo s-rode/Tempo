@@ -296,9 +296,9 @@ export function DashboardFocusCard() {
           aria-live="polite"
         >
           {delta >= 0 ? (
-            <TrendingUp size={14} className="mt-0.5 shrink-0 text-emerald-500" />
+            <TrendingUp size={14} className="mt-0.5 shrink-0 text-[var(--day-focused-text)]" />
           ) : (
-            <TrendingDown size={14} className="mt-0.5 shrink-0 text-rose-500" />
+            <TrendingDown size={14} className="mt-0.5 shrink-0 text-[var(--day-distracted-text)]" />
           )}
           <span>
             {Math.abs(delta) < 60_000

@@ -387,7 +387,7 @@ const chapterContributionWithin = (chapter: TimelineChapter, startMs: number, en
     { overlapMs: 0, focusedMs: 0, distractedMs: 0, uncertainMs: 0 }
   )
 
-const adherenceFor = (
+export const adherenceFor = (
   focusedMs: number,
   distractedMs: number,
   uncertainMs: number
@@ -415,7 +415,10 @@ const adherenceFor = (
   return { focusRatio, adherence: 'interrupted', adherenceLabel: 'Focus was interrupted' }
 }
 
-const focusGoalCandidates = (runs: FocusTimelineRun[], nowMs: number): FocusGoalCandidate[] =>
+export const focusGoalCandidates = (
+  runs: FocusTimelineRun[],
+  nowMs: number
+): FocusGoalCandidate[] =>
   runs.flatMap(({ run, endedAtMs }) =>
     run.phases.flatMap((phase, phaseIndex) => {
       const startMs = phase.startedAtMs
