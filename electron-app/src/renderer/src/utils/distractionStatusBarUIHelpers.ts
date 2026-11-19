@@ -56,8 +56,8 @@ export const getStatusTextColor = (value: unknown): string => {
   const category = knownCategory(value)
   if (!category) return 'text-muted-foreground'
   return category.isProductive === true
-    ? 'text-blue-700 dark:text-blue-200'
-    : 'text-red-700 dark:text-red-200'
+    ? 'tempo-status-focused text-blue-700 dark:text-blue-200'
+    : 'tempo-status-distracted text-red-700 dark:text-red-200'
 }
 
 const isSameVisibleActivity = (

@@ -1,0 +1,124 @@
+/* Dark mode surfaces.  Tempo's dark mode sits on the same warm grey-black as
+   the Claude app (#262624) with a darker sidebar (#1f1e1d), and its cards are
+   solid: one raised grey (#30302e), a hairline edge, no gradient, rim or
+   shadow.  Floating surfaces (menus, popovers, dialogs) keep a shadow so they
+   still read as above the window.  Gruvbox accents carry state.
+
+   Two styles share this base, chosen in Settings > General > Dark style:
+   Solid (these rules) and Gruvbox (the overrides at the end).  The style
+   class sits on <html> next to `.dark`.  Loaded after index.css and day.css;
+   `:root.dark` outranks the plain `.dark` token blocks there. */
+
+:root.dark {
+  --background: 60 2.7% 14.5%;
+  --foreground: 48 33% 97%;
+  --card: 60 2.1% 18.4%;
+  --card-foreground: 48 33% 97%;
+  --popover: 60 2.1% 18.4%;
+  --popover-foreground: 48 33% 97%;
+  --secondary: 60 2% 20%;
+  --secondary-foreground: 48 33% 97%;
+  --muted: 60 2% 19%;
+  --muted-foreground: 48 4% 59%;
+  --accent: 60 3% 22%;
+  --accent-foreground: 48 33% 97%;
+  --border: 60 5% 23%;
+  --input: 60 4% 29%;
+
+  --tempo-dark-sidebar: #1f1e1d;
+  --tempo-dark-card: #30302e;
+  --tempo-dark-card-radius: 10px;
+  --tempo-dark-focused: #b8bb26;
+  --tempo-dark-distracted: #fb4934;
+  --tempo-dark-now-focused: transparent;
+  --tempo-dark-now-distracted: rgb(251 73 52 / 0.08);
+
+  /* The glass tokens, flattened. */
+  --glass-divider: rgb(222 220 209 / 0.09);
+  --glass-hover: rgb(222 220 209 / 0.06);
+  --glass-pill-top: rgb(222 220 209 / 0.1);
+  --glass-pill-bottom: rgb(222 220 209 / 0.1);
+  --glass-rim: transparent;
+  --glass-edge: rgb(222 220 209 / 0.08);
+  --glass-shadow: rgb(0 0 0 / 0.3);
+  --glass-sheen: transparent;
+  --glass-surface-top: var(--tempo-dark-card);
+  --glass-surface-bottom: var(--tempo-dark-card);
+  --glass-surface-shadow: rgb(0 0 0 / 0.45);
+  --glass-track: rgb(222 220 209 / 0.07);
+  --insight-card-top: var(--tempo-dark-card);
+  --insight-card-bottom: var(--tempo-dark-card);
+  --insight-glow: transparent;
+  --insight-glow-2: transparent;
+
+  --day-hairline: rgb(222 220 209 / 0.09);
+  --day-row-hover: rgb(222 220 209 / 0.05);
+  --planner-surface: rgb(222 220 209 / 0.05);
+  --planner-line: rgb(222 220 209 / 0.09);
+  --planner-line-strong: rgb(222 220 209 / 0.2);
+  --planner-fill: rgb(222 220 209 / 0.035);
+}
+
+/* A solid sidebar instead of the translucent material. */
+:root.dark .tempo-sidebar {
+  background: var(--tempo-dark-sidebar);
+  box-shadow: inset -1px 0 0 rgb(222 220 209 / 0.06);
+}
+:root.dark.tempo-vibrancy body:has(.tempo-shell) {
+  background: var(--tempo-dark-sidebar);
+}
+/* Selected sidebar page: a quiet raised grey, no rim. */
+:root.dark .tempo-sidebar-item[data-active='true'] {
+  box-shadow: none;
+}
+
+/* Cards: one solid surface and a hairline, nothing else. */
+:root.dark :is(
+    .tempo-glass-card,
+    .tempo-inspector-section,
+    .tempo-inspector .tempo-today-plan,
+    .tempo-inspector .tempo-reminders,
+    .tempo-insight-card,
+    .tempo-pref-group,
+    .tempo-day-scroll .tempo-calendar-comparison
+  ) {
+  border-radius: var(--tempo-dark-card-radius);
+  box-shadow: 0 0 0 0.5px var(--glass-edge);
+}
+:root.dark .tempo-insight-suggestion {
+  box-shadow: 0 0 0 0.5px var(--glass-edge);
+}
+:root.dark .tempo-glass-segmented > button[data-state='on'],
+:root.dark .tempo-glass-button {
+  box-shadow:
+    0 0 0 0.5px var(--glass-edge),
+    0 1px 2px -1px var(--glass-shadow);
+}
+/* Floating sheets stay opaque; blur adds nothing over a solid fill. */
+:root.dark .tempo-glass-surface {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow:
+    0 0 0 0.5px rgb(222 220 209 / 0.12),
+    0 14px 36px -10px var(--glass-surface-shadow);
+}
+
+/* The Now card carries state in gruvbox colours instead of blue. */
+:root.dark .tempo-inspector-section[data-state='focused'] {
+  --now-tint: var(--tempo-dark-now-focused);
+}
+:root.dark .tempo-inspector-section[data-state='distracted'] {
+  --now-tint: var(--tempo-dark-now-distracted);
+}
+:root.dark .tempo-status-focused {
+  color: var(--tempo-dark-focused);
+}
+:root.dark .tempo-status-distracted {
+  color: var(--tempo-dark-distracted);
+}
+:root.dark .tempo-plan-active {
+  color: var(--tempo-dark-focused);
+}
+:root.dark .tempo-plan-task.is-in-focus {
+  box-shadow: inset 2px 0 0 var(--tempo-dark-focused);
+}
