@@ -4,10 +4,7 @@
 
 # Tempo
 
-**Your tasks, your timeline, and a timer in the notch.**
-
-A macOS focus companion that knows what you meant to work on,<br/>
-judged by a language model that never leaves your Mac.
+A macOS focus tracker that checks your activity against the task you chose, using a local language model.
 
 [![Source checks](https://github.com/s-rode/Tempo/actions/workflows/ci.yml/badge.svg)](https://github.com/s-rode/Tempo/actions/workflows/ci.yml)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-1f2430?logo=apple&logoColor=white)](docs/BUILDING.md)
@@ -21,45 +18,11 @@ judged by a language model that never leaves your Mac.
 
 </div>
 
-<br/>
+Tempo is a focus tracker for macOS. You pick the task you want to work on, and a small language model running locally on your Mac checks whether what is on screen matches it. Nothing leaves the machine.
 
-Most time trackers can tell you that you spent the morning in Firefox. Tempo can tell you how much of it went to the paper you meant to read.
-
-<table>
-<tr>
-<th width="50%">What a time tracker sees</th>
-<th width="50%">What Tempo sees</th>
-</tr>
-<tr>
-<td valign="top">
-
-⚪ &nbsp;Firefox · **1h 44m**
-
-</td>
-<td valign="top">
-
-🟢 &nbsp;Read the attention paper · **40m** focused<br/>
-🟢 &nbsp;Review API docs · **44m** focused<br/>
-🔴 &nbsp;Distracted · **20m**
-
-</td>
-</tr>
-</table>
-
-You pick a task. A small language model running on your own Mac compares what is on screen with what you meant to do, and nothing leaves the machine. You get a timeline you can read back, a timer that lives in the notch, and a nudge when you drift.
+It shows the day as a timeline, keeps a focused and a distracted timer next to the MacBook notch, and can nudge you when you drift. It also has a simple planner for goals and tasks, or it can read your tasks from Apple Reminders.
 
 ![Tempo's Today view with the plan, Calendar, time per task and the timeline](docs/images/tempo-today.png)
-
-<div align="center">
-<table>
-<tr>
-<td align="center" width="25%"><h3>100%</h3>on-device<br/><sub>no account, no cloud AI, no telemetry</sub></td>
-<td align="center" width="25%"><h3>3</h3>languages<br/><sub>TypeScript, Swift, Objective-C++</sub></td>
-<td align="center" width="25%"><h3>290+</h3>deterministic tests<br/><sub>plus 466 classifier scenarios</sub></td>
-<td align="center" width="25%"><h3>11×</h3>faster analytics<br/><sub>427 ms → 39 ms over 33,600 events</sub></td>
-</tr>
-</table>
-</div>
 
 ## Features
 
