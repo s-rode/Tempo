@@ -342,7 +342,7 @@ export function QueueView({
                 size="sm"
                 disabled={session.working}
                 onClick={session.resume}
-                title="Start the clock again (⇧⌘P)"
+                title="Start the clock again (Space)"
               >
                 <Play size={12} fill="currentColor" />
                 Resume
@@ -353,7 +353,7 @@ export function QueueView({
                 size="sm"
                 disabled={session.working || !session.canPause}
                 onClick={session.pause}
-                title="Stop the clock until you resume. Paused time does not count toward the task (⇧⌘P)"
+                title="Stop the clock until you resume. Paused time does not count toward the task (Space)"
               >
                 <Pause size={12} fill="currentColor" />
                 Pause
