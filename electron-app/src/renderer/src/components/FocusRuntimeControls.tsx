@@ -58,7 +58,13 @@ export interface FocusRuntimeSnapshot {
     openEnded?: boolean
     sampledAtMs?: number
   } | null
-  suspension: { reasons: string[]; pausedUntilMs?: number | null }
+  suspension: {
+    reasons: string[]
+    pausedUntilMs?: number | null
+    manualPausedAtMs?: number | null
+    /** Paused until resumed, with no countdown. */
+    manualPauseOpenEnded?: boolean
+  }
 }
 
 interface FocusRuntimeControlsProps {
@@ -203,6 +209,14 @@ export function FocusRuntimeControls({
     if (!quickActionRequest || !runtime || !token) return
     if (runtime.trackingState === 'paused' && runtime.suspension.reasons.includes('manual_pause'))
       resume.mutate({ token })
+    // A planned task pauses at once, until resumed, as with Pause in the queue.
+    else if (
+      runtime.run &&
+      runtime.taskProgress?.taskId &&
+      runtime.currentPhase?.kind === 'work' &&
+      runtime.trackingState === 'active'
+    )
+      pause.mutate({ token })
     else setOpen(true)
   }, [quickActionRequest])
   useEffect(() => {

@@ -46,8 +46,10 @@ export interface DayCalendarBlock {
   segments: DayCalendarSegment[]
   activities: DayCalendarActivity[]
   sessions: ActivitySessionBlock[]
-  /** True when this block continues an earlier block of the same session after a long break. */
+  /** True when this block continues an earlier block of the same session after a long break or a pause. */
   continued?: boolean
+  /** The deliberate pause right before this block, when the session was paused and resumed. */
+  pauseBefore?: { startMs: number; endMs: number }
   focus?: {
     goal: string
     kind: 'custom' | 'pomodoro'
@@ -73,6 +75,7 @@ interface FocusInterval {
   kind: 'custom' | 'pomodoro'
   taskId?: string
   runIds: string[]
+  pauseBefore?: { startMs: number; endMs: number }
 }
 
 // A free stretch shorter than this, next to a focus session, is the hand-over
@@ -83,6 +86,8 @@ const SEGMENT_JOIN_MS = 30 * 1000
 // A session the Mac slept or sat idle through for longer than this is drawn
 // as two blocks with the same title, so the break is visible.
 export const SESSION_BREAK_MS = 10 * 60 * 1000
+// A pause shorter than this is not drawn: the session block simply continues.
+export const PAUSE_SPLIT_MS = 60 * 1000
 
 const stateOf = (session: ActivitySessionBlock): DayCalendarState =>
   session.isProductive === true
@@ -105,8 +110,12 @@ const focusIntervals = (runs: FocusTimelineRun[], nowMs: number): FocusInterval[
     const endMs = Math.min(+candidate.endTime, nowMs)
     if (endMs <= startMs) continue
     // The same goal continued, through a queue switch, a resumed run or a
-    // short break, stays one session block.
+    // short break, stays one session block. A pause the person chose is
+    // shown, so the time after it is a block of its own.
+    const pausedBeforeMs =
+      (candidate.pausedBeforeMs || 0) >= PAUSE_SPLIT_MS ? candidate.pausedBeforeMs || 0 : 0
     if (
+      !pausedBeforeMs &&
       previous &&
       previous.goal.toLowerCase() === candidate.goal.toLowerCase() &&
       startMs - previous.endMs < TIMELINE_GAP_MS
@@ -122,7 +131,10 @@ const focusIntervals = (runs: FocusTimelineRun[], nowMs: number): FocusInterval[
       goal: candidate.goal,
       kind: candidate.kind,
       taskId: candidate.taskId,
-      runIds: [candidate.runId]
+      runIds: [candidate.runId],
+      ...(pausedBeforeMs
+        ? { pauseBefore: { startMs: startMs - pausedBeforeMs, endMs: startMs } }
+        : {})
     })
   }
   return intervals
@@ -308,6 +320,40 @@ const splitAtBreaks = (pieces: Piece[]): Piece[][] => {
   return parts
 }
 
+/** A deliberate pause of a focus session, drawn in the gap it leaves. */
+export interface DayCalendarPause {
+  startMs: number
+  endMs: number
+  goal: string | null
+  /** Still paused now. */
+  ongoing: boolean
+}
+
+/** Every pause long enough to draw, from all work phases of the day's runs. */
+export const dayCalendarPauses = (runs: FocusTimelineRun[] = [], nowMs = Date.now()) =>
+  runs
+    .flatMap(({ run }) =>
+      run.phases.flatMap((phase) =>
+        phase.kind !== 'work'
+          ? []
+          : (phase.pauses || []).map((pause) => {
+              const ongoing = pause.endedAtMs === null || pause.endedAtMs === undefined
+              return {
+                startMs: pause.startedAtMs,
+                endMs: ongoing
+                  ? run.state === 'active'
+                    ? nowMs
+                    : pause.startedAtMs
+                  : pause.endedAtMs!,
+                goal: phase.goal?.trim() || null,
+                ongoing: ongoing && run.state === 'active'
+              }
+            })
+      )
+    )
+    .filter((pause) => pause.endMs - pause.startMs >= PAUSE_SPLIT_MS)
+    .sort((left, right) => left.startMs - right.startMs) as DayCalendarPause[]
+
 /** The day as calendar blocks: focus sessions, and the tracked time between them. */
 export const buildDayCalendarBlocks = (
   sessions: ActivitySessionBlock[],
@@ -371,7 +417,10 @@ export const buildDayCalendarBlocks = (
         Math.max(...part.map((piece) => piece.endMs)),
         interval
       ),
-      ...(partIndex > 0 ? { continued: true } : {})
+      ...(partIndex > 0 ? { continued: true } : {}),
+      ...(partIndex === 0 && interval.pauseBefore
+        ? { continued: true, pauseBefore: interval.pauseBefore }
+        : {})
     }))
   )
   return [...focusBlocks, ...freeBlocks].sort((left, right) => left.startMs - right.startMs)

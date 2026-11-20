@@ -1217,8 +1217,37 @@
   }
 }
 
+/* A paused stretch of a focus session: a dashed rail where the block would
+   be, and a small label. Lighter than any block so it never reads as time. */
+.tempo-cal-pause {
+  position: absolute;
+  left: 58px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  border-left: 1.5px dashed var(--day-pause-rail, rgb(0 0 0 / 0.24));
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  line-height: 1;
+  pointer-events: auto;
+}
+.dark .tempo-cal-pause {
+  --day-pause-rail: rgb(255 255 255 / 0.26);
+}
+.tempo-cal-pause.is-ongoing {
+  --day-pause-rail: var(--day-uncertain, #d79921);
+}
+.tempo-cal-pause span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Calendar events in a narrow lane on the right of the Timeline. */
-.tempo-cal-grid.has-calendar .tempo-cal-block {
+.tempo-cal-grid.has-calendar .tempo-cal-block,
+.tempo-cal-grid.has-calendar .tempo-cal-pause {
   right: calc(20% + 10px);
 }
 .tempo-cal-lane {

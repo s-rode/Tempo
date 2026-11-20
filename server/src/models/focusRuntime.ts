@@ -33,6 +33,18 @@ const focusGoalHistorySchema = new Schema(
   { _id: false }
 );
 
+// A deliberate pause inside a work phase. The phase clock already stands still
+// while it lasts; the record lets the timeline and insights leave that stretch
+// out instead of treating the whole wall-clock span of the phase as work.
+const focusPauseSchema = new Schema(
+  {
+    startedAtMs: { type: Number, required: true },
+    endedAtMs: { type: Number, default: null },
+    reason: { type: String, enum: ['manual', 'calendar'], default: 'manual' },
+  },
+  { _id: false }
+);
+
 const focusPhaseSchema = new Schema(
   {
     id: { type: String, required: true },
@@ -51,6 +63,7 @@ const focusPhaseSchema = new Schema(
     plannedDurationMs: { type: Number, required: true },
     activeElapsedMs: { type: Number, default: 0 },
     runningSinceMs: { type: Number, default: null },
+    pauses: { type: [focusPauseSchema], default: [] },
     state: {
       type: String,
       required: true,
@@ -99,6 +112,9 @@ const focusRuntimeSchema = new Schema(
     calendarPauseEventIds: { type: [String], default: [] },
     manualPauseUntilMs: { type: Number, default: null },
     manualPausedAtMs: { type: Number, default: null },
+    // Pause until resumed (the queue's Pause). `manualPauseUntilMs` then only
+    // holds a safety cap, so it is not shown as a countdown.
+    manualPauseOpenEnded: { type: Boolean, default: false },
     systemLocked: { type: Boolean, default: false },
     systemSleeping: { type: Boolean, default: false },
     systemSuspendedAtMs: { type: Number, default: null },

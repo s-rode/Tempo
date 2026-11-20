@@ -208,6 +208,8 @@ export interface FocusPhase {
   plannedDurationMs: number;
   activeElapsedMs: number;
   runningSinceMs: number | null;
+  /** Deliberate pauses inside this work phase; their time is not work time. */
+  pauses?: import('./focusPauses').FocusPause[];
   state: FocusPhaseState;
   productiveMs: number;
   distractedMs: number;

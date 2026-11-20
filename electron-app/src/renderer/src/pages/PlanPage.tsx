@@ -183,6 +183,19 @@ export function PlanPage({
         return
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return
+      // Space pauses or resumes the task in focus, like a media player. A
+      // focused button or switch keeps Space for itself.
+      if (event.key === ' ' && tab === 'queue' && session.activeTask) {
+        if (
+          (event.target as HTMLElement | null)?.closest?.(
+            'button, a, [role="switch"], [role="checkbox"]'
+          )
+        )
+          return
+        event.preventDefault()
+        if (!event.repeat) session.togglePause()
+        return
+      }
       const key = event.key.toLowerCase()
       if (key === 'n') {
         event.preventDefault()
