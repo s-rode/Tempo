@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleCheckBig,
+  Pause,
   Play,
   SkipForward,
   Square
@@ -265,21 +266,26 @@ export function QueueView({
         : targetMs && !openEnded
           ? Math.min(100, (elapsedMs / targetMs) * 100)
           : 0
-    const status = paused
-      ? 'Paused'
-      : onBreak
-        ? phaseLeftMs !== null
-          ? `Break · ${shortClock(phaseLeftMs)} left`
-          : 'On a break'
-        : reached
-          ? `Planned ${displayMinutes(Math.round(targetMs / 60000))} reached`
-          : pomodoro && openEnded
-            ? phaseLeftMs !== null
-              ? `Pomodoro · ${shortClock(phaseLeftMs)} left in this block`
-              : 'Pomodoro'
-            : openEnded
-              ? 'Counting up'
-              : `of ${displayMinutes(Math.round(targetMs / 60000))}`
+    const pausedAtMs = runtime?.suspension.manualPausedAtMs
+    const status = session.paused
+      ? pausedAtMs
+        ? `Paused at ${new Date(pausedAtMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+        : 'Paused'
+      : paused
+        ? 'Paused'
+        : onBreak
+          ? phaseLeftMs !== null
+            ? `Break · ${shortClock(phaseLeftMs)} left`
+            : 'On a break'
+          : reached
+            ? `Planned ${displayMinutes(Math.round(targetMs / 60000))} reached`
+            : pomodoro && openEnded
+              ? phaseLeftMs !== null
+                ? `Pomodoro · ${shortClock(phaseLeftMs)} left in this block`
+                : 'Pomodoro'
+              : openEnded
+                ? 'Counting up'
+                : `of ${displayMinutes(Math.round(targetMs / 60000))}`
     const showBar = !(openEnded && !pomodoro)
     const goal = goalOf(activeTask)
     const place = day.done.length + 1
@@ -289,7 +295,7 @@ export function QueueView({
           Task {place} of {total} · {dateLabel}
         </p>
         <section
-          className={cn('planner-now', reached && 'is-over')}
+          className={cn('planner-now', reached && 'is-over', paused && 'is-paused')}
           aria-label={`Working on ${activeTask.text}`}
         >
           {goal && <GoalChip goal={goal} className="is-large" />}
@@ -330,6 +336,29 @@ export function QueueView({
               {upcoming.length && session.autoNext ? 'Done · Next Task' : 'Done'}
               <kbd>⌘↵</kbd>
             </Button>
+            {session.paused ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={session.working}
+                onClick={session.resume}
+                title="Start the clock again (⇧⌘P)"
+              >
+                <Play size={12} fill="currentColor" />
+                Resume
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={session.working || !session.canPause}
+                onClick={session.pause}
+                title="Stop the clock until you resume. Paused time does not count toward the task (⇧⌘P)"
+              >
+                <Pause size={12} fill="currentColor" />
+                Pause
+              </Button>
+            )}
             {reached && (
               <Button
                 variant="outline"

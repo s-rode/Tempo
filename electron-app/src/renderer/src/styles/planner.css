@@ -774,6 +774,13 @@
   color: hsl(var(--muted-foreground));
   font-size: 13px;
 }
+/* Paused: the clock and its bar step back, like a stopped timer. */
+.planner-now.is-paused .planner-now-time {
+  color: hsl(var(--muted-foreground));
+}
+.planner-now.is-paused .planner-now-bar > span {
+  opacity: 0.45;
+}
 .planner-now.is-over .planner-now-target {
   color: hsl(var(--foreground));
   font-weight: 600;

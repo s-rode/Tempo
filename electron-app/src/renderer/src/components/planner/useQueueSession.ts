@@ -60,6 +60,7 @@ export function useQueueSession(runtime: FocusRuntimeSnapshot | undefined, queue
 
   const synced = useCallback(() => {
     void utils.focusRuntime.getState.invalidate()
+    void utils.focusRuntime.getTimelineRuns.invalidate()
     void utils.planner.getWeek.invalidate()
     void utils.planner.getGoals.invalidate()
     void utils.goals.getDailyPlan.invalidate()
@@ -74,6 +75,8 @@ export function useQueueSession(runtime: FocusRuntimeSnapshot | undefined, queue
   const finishTask = trpc.focusRuntime.finishTaskSession.useMutation()
   const endRun = trpc.focusRuntime.endRun.useMutation()
   const extend = trpc.focusRuntime.extendTaskSession.useMutation()
+  const pauseRun = trpc.focusRuntime.pause.useMutation()
+  const resumeRun = trpc.focusRuntime.resume.useMutation()
   const moveTask = trpc.planner.moveTask.useMutation()
 
   const guarded = useCallback(
@@ -149,6 +152,33 @@ export function useQueueSession(runtime: FocusRuntimeSnapshot | undefined, queue
     })
   }
 
+  const reasons = runtime?.suspension.reasons || []
+  /** Paused by hand (here, in the toolbar or the notch), so Resume can lift it. */
+  const paused = Boolean(activeTask) && reasons.includes('manual_pause')
+  /** Only a running work stretch can be paused; a break or a lock already holds the clock. */
+  const canPause =
+    Boolean(activeTask) &&
+    runtime?.currentPhase?.kind === 'work' &&
+    runtime?.currentPhase?.state === 'running' &&
+    !reasons.length
+
+  /** Stops the clock until Resume. Paused time is not task, goal or focus time. */
+  const pause = () => {
+    if (!canPause) return
+    void guarded('Could not pause the task', async () => {
+      await pauseRun.mutateAsync(auth)
+    })
+  }
+
+  const resume = () => {
+    if (!paused) return
+    void guarded('Could not resume the task', async () => {
+      await resumeRun.mutateAsync(auth)
+    })
+  }
+
+  const togglePause = () => (paused ? resume() : pause())
+
   const addTime = (minutes: number) => {
     if (!runtime?.run) return
     const runId = runtime.run.id
@@ -187,6 +217,11 @@ export function useQueueSession(runtime: FocusRuntimeSnapshot | undefined, queue
     finish,
     later,
     stop,
+    paused,
+    canPause,
+    pause,
+    resume,
+    togglePause,
     addTime
   }
 }
