@@ -1133,6 +1133,7 @@
 :root {
   --insight-deep: #166534;
   --insight-focus: #22c55e;
+  --insight-behind: #b57614;
   --insight-distract: #e11d48;
   --insight-uncertain: rgb(120 120 128 / 0.35);
   --insight-card-top: rgb(255 255 255 / 0.96);
@@ -1143,6 +1144,7 @@
 .dark {
   --insight-deep: #15803d;
   --insight-focus: #38c98a;
+  --insight-behind: #d79921;
   --insight-distract: #f43f5e;
   --insight-uncertain: rgb(160 160 170 / 0.3);
   --insight-card-top: rgb(46 46 50 / 0.92);
