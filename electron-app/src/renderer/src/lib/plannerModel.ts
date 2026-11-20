@@ -20,6 +20,8 @@ export interface PlannerGoal {
   icon: string
   position: number
   completedAtMs: number | null
+  /** Time a week the user means to give this goal, in minutes; null when unset. */
+  weeklyTargetMinutes: number | null
   openTasks: number
   doneTasks: number
 }
@@ -202,3 +204,7 @@ export const formatClock = (ms: number): string => {
   const pad = (value: number) => String(value).padStart(2, '0')
   return hours ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`
 }
+
+/** "4 h", "1.5 h" or "45 min" for a weekly goal target. */
+export const formatWeeklyTarget = (minutes: number): string =>
+  minutes < 60 ? `${minutes} min` : `${Math.round((minutes / 60) * 10) / 10} h`

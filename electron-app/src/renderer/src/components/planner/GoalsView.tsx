@@ -10,7 +10,7 @@ import {
   Trash2
 } from 'lucide-react'
 import { ReactElement } from 'react'
-import { goalColorVar, type PlannerGoal } from '../../lib/plannerModel'
+import { formatWeeklyTarget, goalColorVar, type PlannerGoal } from '../../lib/plannerModel'
 import { Button } from '../ui/button'
 import { DropdownMenuItem, DropdownMenuSeparator } from '../ui/dropdown-menu'
 import { AnchoredMenu, useMenuAnchor } from './AnchoredMenu'
@@ -125,6 +125,11 @@ function GoalCard({
           <span>
             <strong>{goal.openTasks}</strong> planned
           </span>
+          {!achieved && goal.weeklyTargetMinutes && (
+            <span>
+              <strong>{formatWeeklyTarget(goal.weeklyTargetMinutes)}</strong> a week
+            </span>
+          )}
           {!achieved && (
             <button type="button" onClick={() => actions.onShowTasks(goal)}>
               Show in Week
