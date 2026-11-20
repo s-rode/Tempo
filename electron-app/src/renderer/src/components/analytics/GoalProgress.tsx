@@ -58,8 +58,7 @@ function ShareBar({ analysis }: { analysis: GoalsAnalysis }) {
 
 /** Progress toward the target with a tick where the pace says you should be by now. */
 function TargetMeter({ goal, max }: { goal: GoalRow; max: number }) {
-  const scale = goal.targetMs ?? max
-  const fill = scale ? Math.min(1, goal.workMs / scale) : 0
+  const fill = goal.targetMs ? Math.min(1, goal.workMs / goal.targetMs) : goal.share ?? (max ? goal.workMs / max : 0)
   const pace = goal.targetMs && goal.expectedByNowMs !== null && goal.expectedByNowMs < goal.targetMs ? goal.expectedByNowMs / goal.targetMs : null
   return (
     <div className="relative">
@@ -100,7 +99,7 @@ function Status({ goal, inProgress, daysLeft }: { goal: GoalRow; inProgress: boo
     case 'untouched':
       return <span>No time yet</span>
     default:
-      return <span>No target</span>
+      return <span>No target · share of your session time</span>
   }
 }
 
@@ -190,11 +189,18 @@ export function GoalProgress({
                   <span className="truncate text-[13px] font-medium" title={goal.title}>{goal.title}</span>
                   {goal.achieved && <span className="shrink-0 text-[10px] text-muted-foreground">Achieved</span>}
                 </span>
-                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                  <span className="font-medium text-foreground">{minutesText(goal.workMs)}</span>
-                  {goal.targetMs !== null && <> of {minutesText(goal.targetMs)}</>}
-                  {goal.share !== null && goal.workMs > 0 && <> · {percent(goal.share)}</>}
-                </span>
+                {goal.targetMs !== null ? (
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                    <span className="font-medium text-foreground">{minutesText(goal.workMs)}</span> of {minutesText(goal.targetMs)}
+                    {goal.share !== null && goal.workMs > 0 && <> · {percent(goal.share)}</>}
+                  </span>
+                ) : (
+                  // Without a target, the goal's share of the load is the number that matters.
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {minutesText(goal.workMs)} ·{' '}
+                    <span className="text-[13px] font-semibold text-foreground">{goal.share !== null ? percent(goal.share) : '0%'}</span>
+                  </span>
+                )}
               </div>
               <div className="mt-1.5">
                 <TargetMeter goal={goal} max={maxWork} />
