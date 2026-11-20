@@ -1,6 +1,6 @@
 export type SystemBoundary = {
   captureId: string
-  kind: 'sleep' | 'wake' | 'lock' | 'unlock'
+  kind: 'sleep' | 'wake' | 'lock' | 'unlock' | 'stop'
   timestamp: number
 }
 

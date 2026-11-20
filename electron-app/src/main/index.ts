@@ -152,7 +152,7 @@ function App() {
     isQuitting = true
     stopReminders?.()
     stopCalendars?.()
-    monitoring?.stop()
+    monitoring?.shutdown()
     notchHelper?.stop()
     firefoxNavigationBridge?.stop()
     stopLocalServer()
