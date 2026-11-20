@@ -8,8 +8,6 @@ A macOS focus tracker that checks your activity against the task you chose, usin
 
 [![Source checks](https://github.com/s-rode/Tempo/actions/workflows/ci.yml/badge.svg)](https://github.com/s-rode/Tempo/actions/workflows/ci.yml)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-1f2430?logo=apple&logoColor=white)](docs/BUILDING.md)
-[![Apple Silicon](https://img.shields.io/badge/Apple_Silicon-arm64-1f2430)](docs/BUILDING.md)
-[![Local AI via Ollama](https://img.shields.io/badge/AI-on--device-1f2430)](docs/LOCAL_AI.md)
 [![MIT License](https://img.shields.io/badge/license-MIT-1f2430)](LICENSE)
 
 <img src="docs/images/tempo-notch-hero.svg" alt="Tempo's focused and distracted timers on either side of the MacBook notch" width="720" />
