@@ -39,6 +39,7 @@ const goalFields = {
   notes: z.string().trim().max(2000),
   color: z.enum(PLANNER_GOAL_COLORS),
   icon: z.string().trim().max(16),
+  weeklyTargetMinutes: z.number().int().min(15).max(6000).nullable(),
 };
 
 const today = (): string => keyFromDate(new Date());
@@ -83,6 +84,7 @@ const publicGoal = (goal: any) => ({
   icon: (goal.icon || '') as string,
   position: goal.position as number,
   completedAtMs: (goal.completedAtMs ?? null) as number | null,
+  weeklyTargetMinutes: (goal.weeklyTargetMinutes ?? null) as number | null,
 });
 
 const listGoals = async (userId: string) => {
@@ -181,6 +183,7 @@ export const plannerRouter = router({
         notes: goalFields.notes.optional().default(''),
         color: goalFields.color,
         icon: goalFields.icon.optional().default(''),
+        weeklyTargetMinutes: goalFields.weeklyTargetMinutes.optional().default(null),
       })
     )
     .mutation(async ({ input }) => {
@@ -194,6 +197,7 @@ export const plannerRouter = router({
         notes: input.notes,
         color: input.color,
         icon: input.icon,
+        weeklyTargetMinutes: input.weeklyTargetMinutes,
         position: last ? last.position + 1 : 0,
         completedAtMs: null,
       });
@@ -208,6 +212,7 @@ export const plannerRouter = router({
         notes: goalFields.notes.optional(),
         color: goalFields.color.optional(),
         icon: goalFields.icon.optional(),
+        weeklyTargetMinutes: goalFields.weeklyTargetMinutes.optional(),
         completed: z.boolean().optional(),
       })
     )

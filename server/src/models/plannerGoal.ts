@@ -14,6 +14,8 @@ const plannerGoalSchema = new mongoose.Schema(
     icon: { type: String, default: '', maxlength: 16 },
     position: { type: Number, required: true, min: 0 },
     completedAtMs: { type: Number, default: null },
+    // How much time a week the user means to give this goal; null when unset.
+    weeklyTargetMinutes: { type: Number, default: null, min: 15, max: 6000 },
   },
   { timestamps: true }
 );
