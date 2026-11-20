@@ -25,7 +25,16 @@ try {
   assert.equal(result.totals.distractedMs, 60000);
   await persistSystemBoundary(userId, { captureId: randomUUID(), kind: 'sleep', timestamp: start + 120000 });
   assert.equal((await FocusRuntimeModel.findOne({ userId }))?.systemSleeping, false);
-  console.log('PASS: durable boundary deduplication, fifteen-hour sleep exclusion, historical replay safety');
+  // Quitting Tempo (or a shutdown) closes the last window like a sleep, but
+  // never leaves the live runtime suspended once Tempo is running again.
+  const quitUser = new mongoose.Types.ObjectId().toString();
+  await ActiveWindowEventModel.create({ userId: quitUser, ownerName: 'Notes', type: 'window', timestamp: start, categoryId: 'w' });
+  await persistSystemBoundary(quitUser, { captureId: randomUUID(), kind: 'stop', timestamp: start + 90000 });
+  assert.notEqual((await FocusRuntimeModel.findOne({ userId: quitUser }))?.systemSleeping, true);
+  const quitEvents = await ActiveWindowEventModel.find({ userId: quitUser }).lean();
+  const quit = calculatePeriodAnalytics(quitEvents as any, [{ _id: 'w', isProductive: true, name: 'Work' }] as any, start, Date.now(), Date.now());
+  assert.equal(quit.totals.focusedMs, 90000);
+  console.log('PASS: durable boundary deduplication, fifteen-hour sleep exclusion, historical replay safety, quit closes the last window');
 } finally {
   if (mongoose.connection.name === database) await mongoose.connection.dropDatabase();
   await mongoose.disconnect();
