@@ -1,7 +1,13 @@
 import { app, BrowserWindow, powerMonitor } from 'electron'
-import { readFileSync, writeFileSync, renameSync } from 'fs'
+import { readFileSync, writeFileSync, renameSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { SystemBoundaryJournal, type SystemBoundary } from './systemBoundaryJournal'
+import {
+  LIVENESS_INTERVAL_MS,
+  boundaryForUncleanExit,
+  parseLivenessMarker,
+  stopBoundary
+} from './appLiveness'
 import { tempoInternalRequest } from './localServer'
 import { randomUUID } from 'crypto'
 import { ActiveWindowDetails } from 'shared/dist/types.js'
@@ -45,6 +51,7 @@ export interface ManualSystemResumeResult {
 export class ActivityMonitoringCoordinator {
   private journal: SystemBoundaryJournal | null = null
   private journalRetry: ReturnType<typeof setInterval> | null = null
+  private livenessTimer: ReturnType<typeof setInterval> | null = null
   private readonly powerHandlers = {
     suspend: () => this.onPowerBoundary('sleep'),
     resume: () => this.onPowerBoundary('wake'),
@@ -106,6 +113,7 @@ export class ActivityMonitoringCoordinator {
         (boundary) => tempoInternalRequest('/internal/system-boundary', boundary)
       )
     }
+    this.startLiveness()
     for (const [event, listener] of Object.entries(this.powerHandlers))
       powerMonitor.on(event as any, listener)
     this.journalRetry = setInterval(() => void this.journal?.flush(), 30_000)
@@ -113,6 +121,49 @@ export class ActivityMonitoringCoordinator {
     void this.journal?.flush()
     nativeWindows.startActiveWindowObserver((details) => this.onNativeActivity(details))
     this.health = { state: this.paused || this.calendarPaused ? 'paused' : 'active' }
+  }
+
+  private livenessPath(): string {
+    return join(app.getPath('userData'), 'monitoring-alive.json')
+  }
+
+  /** See appLiveness.ts: closes the last session if the previous launch never stopped cleanly. */
+  private startLiveness(): void {
+    // A restart of the observer keeps the same launch, so it keeps its marker.
+    if (this.livenessTimer) return
+    const path = this.livenessPath()
+    let raw: string | null = null
+    try {
+      raw = readFileSync(path, 'utf8')
+    } catch {}
+    const unclean = boundaryForUncleanExit(parseLivenessMarker(raw), Date.now())
+    if (unclean) this.journal?.enqueue(unclean)
+    const beat = () => {
+      try {
+        writeFileSync(`${path}.tmp`, JSON.stringify({ aliveAtMs: Date.now() }), { mode: 0o600 })
+        renameSync(`${path}.tmp`, path)
+      } catch {}
+    }
+    beat()
+    this.livenessTimer = setInterval(beat, LIVENESS_INTERVAL_MS)
+    this.livenessTimer.unref()
+  }
+
+  private stopLiveness(): void {
+    if (this.livenessTimer) clearInterval(this.livenessTimer)
+    this.livenessTimer = null
+    // The journal commits to disk before delivery, so a quit that stops the
+    // local server first still replays this boundary on the next launch.
+    this.journal?.enqueue(stopBoundary(Date.now()))
+    try {
+      unlinkSync(this.livenessPath())
+    } catch {}
+  }
+
+  /** Quitting Tempo: ends the open session now, then stops monitoring. */
+  shutdown(): void {
+    if (this.started) this.stopLiveness()
+    this.stop()
   }
 
   stop(): void {
