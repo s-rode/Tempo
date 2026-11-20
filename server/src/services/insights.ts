@@ -1,4 +1,5 @@
 import type { ActiveWindowEvent, Category } from '../../../shared/types';
+import { pausedWithin, workWindows, type FocusPause } from '../../../shared/focusPauses';
 import { analyzeGoals, type GoalPhaseWork, type GoalPlannerInput, type GoalsAnalysis } from './goalInsights';
 import { formatHour, formatMinutes, percent } from './insightFormat';
 
@@ -34,6 +35,7 @@ export interface InsightRunPhase {
   state?: string;
   runningSinceMs?: number | null;
   todayPlanTask?: { taskId?: string | null } | null;
+  pauses?: FocusPause[] | null;
 }
 
 export interface InsightRun {
@@ -576,15 +578,18 @@ export const calculatePeriodInsights = (args: {
         // A phase's wall-clock span can include pauses, and archived phases
         // do not always carry a completion time. Bound the window by the
         // next phase, the run's end and the time actually on the clock (plus
-        // a little slack), and never count the same moment twice.
+        // the recorded pauses and a little slack), leave the pauses out, and
+        // never count the same moment twice.
         const index = phases.indexOf(phase);
         const nextStart = phases.slice(index + 1).find((candidate) => candidate.startedAtMs)?.startedAtMs ?? Infinity;
         const phaseStart = Math.max(phase.startedAtMs as number, coveredUntilMs);
-        const clockEnd = (phase.startedAtMs as number) + Math.max(phase.activeElapsedMs || 0, MINUTE) + SESSION_SLACK_MS;
-        const phaseEnd = Math.min(phase.completedAtMs ?? Infinity, nextStart, entry.endedAtMs ?? effectiveEndMs, clockEnd, effectiveEndMs);
+        const wallEnd = Math.min(phase.completedAtMs ?? Infinity, nextStart, entry.endedAtMs ?? effectiveEndMs, effectiveEndMs);
+        const pausedMs = Number.isFinite(wallEnd) ? pausedWithin(phase.startedAtMs as number, wallEnd, phase.pauses) : 0;
+        const clockEnd = (phase.startedAtMs as number) + Math.max(phase.activeElapsedMs || 0, MINUTE) + pausedMs + SESSION_SLACK_MS;
+        const phaseEnd = Math.min(wallEnd, clockEnd);
         if (phaseEnd <= phaseStart) continue;
         coveredUntilMs = phaseEnd;
-        const inside = clipped(intervals, phaseStart, phaseEnd);
+        const inside = workWindows(phaseStart, phaseEnd, phase.pauses).flatMap((window) => clipped(intervals, window.startMs, window.endMs));
         let focusBeforeDrift = 0;
         let drifted = false;
         let phaseFocusedMs = 0;

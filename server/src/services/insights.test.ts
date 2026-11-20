@@ -173,6 +173,38 @@ describe('period insights', () => {
     expect(insights.sessions.medianFirstDriftMs).toBe(30 * minute);
   });
 
+  test('a recorded pause inside one phase is neither work nor distraction', () => {
+    const start = monday + 9 * hour;
+    // 30 min work, a 30 min paused YouTube break, then 30 min work, all in one phase.
+    const events = [work(start), fun(start + 30 * minute), work(start + 60 * minute), sleep(start + 90 * minute)];
+    const runs: InsightRun[] = [
+      {
+        run: {
+          id: 'paused-in-phase',
+          kind: 'custom',
+          startedAtMs: start,
+          phases: [
+            {
+              kind: 'work',
+              goal: 'Pandas',
+              startedAtMs: start,
+              completedAtMs: start + 90 * minute,
+              plannedDurationMs: 720 * minute,
+              activeElapsedMs: 60 * minute,
+              pauses: [{ startedAtMs: start + 30 * minute, endedAtMs: start + 60 * minute, reason: 'manual' }],
+            },
+          ],
+        },
+        endedAtMs: start + 90 * minute,
+        outcome: 'completed',
+      },
+    ];
+    const insights = calculatePeriodInsights({ events, categories, runs, startDateMs: monday, endDateMs: monday + 7 * day, previousStartDateMs: previousMonday, nowMs: monday + 7 * day });
+    expect(insights.sessions.tasks[0].focusedMs).toBe(60 * minute);
+    expect(insights.sessions.tasks[0].distractedMs).toBe(0);
+    expect(insights.sessions.tasks[0].workMs).toBe(60 * minute);
+  });
+
   test('generic fallback labels are not shown as distraction examples', () => {
     const start = monday + 9 * hour;
     const events = [fun(start, { activityLabel: 'Distracted by Firefox' }), sleep(start + 30 * minute)];
