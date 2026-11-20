@@ -12,7 +12,7 @@ A focus tracker for macOS.
 
 <img src="docs/images/tempo-notch-hero.svg" alt="Tempo's focused and distracted timers on either side of the MacBook notch" width="720" />
 
-[Features](#features) · [How it works](#how-it-works) · [Setup](#setup) · [Docs](#documentation)
+[Features](#features) · [How it works](#how-it-works) · [Technical notes](#technical-notes) · [Setup](#setup) · [Docs](#documentation)
 
 </div>
 
@@ -92,15 +92,35 @@ Everything runs on your Mac. The parts talk over loopback, a private Unix socket
 3. If they don't decide it, the activity and your task go to a local model through [Ollama](https://ollama.com) (`qwen3:4b-instruct`). A "focused" answer is only accepted if it points to evidence that is actually in the window title or page text.
 4. Timeouts and unclear answers are recorded as uncertain. Uncertain time never counts as focused and never triggers an alert.
 
-Page text is only held in memory for the request. App names, window titles and summaries are stored in a local MongoDB database. More in [architecture](docs/ARCHITECTURE.md), [classification](docs/CLASSIFICATION.md) and [privacy](docs/NETWORK_NOTES.md).
+## Technical notes
 
-The app is Electron with React and TypeScript. The local API runs on Bun with tRPC. The notch helper is Swift and SwiftUI, and window tracking is an Objective-C++ addon.
+**Keeping a small model honest.** A 4B model is fast enough for a laptop but will make up reasons if you let it. Tempo asks for structured JSON and has the model cite evidence by short aliases, which the server checks. The model has to name the subject it sees before it gives a verdict, and a "focused" answer only counts if that subject really appears in the window title or page text. A malformed reply gets one retry, and the whole decision has a ten-second deadline.
+
+**Learning from corrections.** A correction applies to the task it was made in. Broader preferences need several confirmations across sessions, expire without new feedback, and are suspended by one contradicting observation. Tempo never learns from passive use. Details are in the [classification notes](docs/CLASSIFICATION.md).
+
+**Privacy.** Page text and OCR frames are kept in memory for one request and then dropped. Prompts and model replies are not stored. App names, window titles and summaries are kept in the local database. The notch helper never sees page text and makes no network requests. See [privacy and stored data](docs/NETWORK_NOTES.md).
+
+**Testing.** About 290 deterministic tests cover the server and renderer, and Swift suites cover the notch's layout, timing and lifecycle. The classifier is also checked against a live local model with 466 written scenarios, including paraphrases, look-alike keywords, prompt injection and empty windows. Part of that set is held out and never used for tuning. CI runs the tests on Linux and builds and verifies the signed app on Apple Silicon. See [classification evaluation](docs/CLASSIFICATION_VALIDATION.md).
+
+**Performance.** The weekly analytics now sort their events once and find each date range with a binary search instead of rescanning. On a 70-day fixture of 33,600 events, computing a week and its comparisons went from 427 ms to 39 ms, with identical results. The notch helper polls the window list adaptively instead of at a fixed 10 Hz, which cut its idle CPU from about 0.7 % to 0.1 %. Methods are in the [performance notes](docs/PERFORMANCE.md).
+
+## Built with
+
+| Layer        | Technology                                                           |
+| ------------ | -------------------------------------------------------------------- |
+| Desktop app  | Electron, React 19, TypeScript, Tailwind CSS, tRPC + React Query     |
+| Local API    | Bun, tRPC, Mongoose, Zod                                             |
+| Storage      | MongoDB (local)                                                      |
+| AI           | Ollama with `qwen3:4b-instruct`, structured JSON output              |
+| macOS native | Swift, SwiftUI and AppKit (notch helper); Objective-C++ N-API addon  |
+| Browser      | Firefox WebExtension with a Swift native-messaging host; Vision OCR  |
+| Tooling, CI  | Bun test, electron-vite, electron-builder, GitHub Actions            |
 
 ```text
 electron-app/   desktop app, native addon, notch helper, Firefox companion
-server/         local API and classification
+server/         local API, classification pipeline, evaluation fixtures
 shared/         types shared between app and server
-docs/           longer documentation
+docs/           architecture, classification, privacy, performance, build
 ```
 
 ## Setup
