@@ -66,7 +66,7 @@ describe('goal time', () => {
     expect(thesis.status).toBe('behind');
     expect(result.suggestions[0].id).toBe('goal-behind-thesis');
     expect(result.suggestions[0].body).toContain('2h of the 11h 40m');
-    expect(result.suggestions[0].body).toContain('a day over the last 4 days');
+    expect(result.suggestions[0].body).toContain('a day over the 4 days left');
   });
 
   test('a goal created mid-week is only held to the rest of it', () => {

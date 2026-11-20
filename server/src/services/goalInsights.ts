@@ -217,7 +217,7 @@ export const buildGoalSuggestions = (
         kind: 'goal',
         title: `${goal.title} is falling behind`,
         body: `${formatMinutes(goal.workMs)} of the ${formatMinutes(goal.targetMs)} you planned for it this ${periodWord}. ${
-          daysLeft === 1 ? `${formatMinutes(remainingMs)} today closes the gap.` : `About ${formatMinutes(perDayMs)} a day over the last ${daysLeft} days gets you there.`
+          daysLeft === 1 ? `${formatMinutes(remainingMs)} today closes the gap.` : `About ${formatMinutes(perDayMs)} a day over the ${daysLeft} days left gets you there.`
         }${next(goal)}`,
         weight: 70 + Math.min(1, gapMs / goal.targetMs) * 30,
       });
