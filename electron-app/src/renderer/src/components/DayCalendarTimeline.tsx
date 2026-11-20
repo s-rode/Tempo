@@ -3,6 +3,7 @@ import type { ActivitySessionBlock, FocusTimelineRun } from '../lib/activitySess
 import { formatDuration } from '../lib/activityByCategoryWidgetHelpers'
 import {
   buildDayCalendarBlocks,
+  dayCalendarPauses,
   summarizeDayCalendarBlock,
   displaySegments,
   trackedMs,
@@ -96,6 +97,13 @@ function BlockDetails({
       <p className="tempo-cal-details-range">
         {timeLabel(block.startMs)}–{timeLabel(block.endMs)} · {formatDuration(total)} tracked
       </p>
+      {block.pauseBefore && (
+        <p className="tempo-cal-details-range">
+          Resumed after a{' '}
+          {formatDuration(block.pauseBefore.endMs - block.pauseBefore.startMs)} pause at{' '}
+          {timeLabel(block.pauseBefore.startMs)}
+        </p>
+      )}
       {total > 0 && (
         <div className="tempo-cal-share" aria-hidden="true">
           {mix.map((state) => (
@@ -168,6 +176,7 @@ export default function DayCalendarTimeline({
     () => buildDayCalendarBlocks(sessions, runs, nowMs ?? Date.now()),
     [sessions, runs, nowMs]
   )
+  const pauses = useMemo(() => dayCalendarPauses(runs, nowMs ?? Date.now()), [runs, nowMs])
   const day = calendarPeriod(date, 'day')
   const { status: calendar } = useAppleCalendar({ startMs: day.startDateMs, endMs: day.endDateMs })
   // Events from the calendars chosen in Settings, beside the blocks.
@@ -405,6 +414,26 @@ export default function DayCalendarTimeline({
                 />
               </PopoverContent>
             </Popover>
+          )
+        })}
+        {/* A pause leaves a gap in the session; a quiet dashed rail and a
+            label say it was a pause, not idle time. */}
+        {pauses.map((pause) => {
+          const top = y(Math.max(pause.startMs, startMs))
+          const height = y(Math.min(pause.endMs, endMs)) - top
+          if (height < 4) return null
+          const label = `${pause.ongoing ? 'Paused now' : 'Paused'} · ${formatDuration(pause.endMs - pause.startMs)}`
+          return (
+            <div
+              key={`pause:${pause.startMs}`}
+              className={cn('tempo-cal-pause', pause.ongoing && 'is-ongoing')}
+              style={{ top, height }}
+              title={`${pause.goal ? `${pause.goal}: ` : ''}paused ${timeLabel(pause.startMs)}–${pause.ongoing ? 'now' : timeLabel(pause.endMs)}`}
+              aria-label={`${pause.goal ? `${pause.goal}, ` : ''}paused from ${timeLabel(pause.startMs)} to ${pause.ongoing ? 'now' : timeLabel(pause.endMs)}`}
+              role="note"
+            >
+              {height >= 15 && <span>{label}</span>}
+            </div>
           )
         })}
         {showCalendar && (

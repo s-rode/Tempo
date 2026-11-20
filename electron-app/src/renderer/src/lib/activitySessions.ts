@@ -1,4 +1,5 @@
 import type { FocusRun } from 'shared'
+import { workWindows } from 'shared/focusPauses'
 import type { ProcessedEventBlock } from '../components/DashboardView'
 import { displayActivityLabel, displayActivitySummary } from './activityPresentation'
 
@@ -101,6 +102,8 @@ export interface TimelineFocusGoal {
   runIds?: string[]
   /** Set when the goal was a planned task, so the block can be tied back to it. */
   taskId?: string
+  /** Set when this stretch follows a pause in the same phase: how long it was paused. */
+  pausedBeforeMs?: number
 }
 
 /** A privacy-preserving, app-level view of a compact timeline chapter. */
@@ -455,6 +458,9 @@ export const focusGoalCandidates = (
             }
           ]
 
+      // A deliberate pause is not part of the session: each goal segment is
+      // cut where the phase was paused, and the stretch after it says so.
+      const windows = workWindows(startMs, phaseEndMs, phase.pauses)
       return segments.flatMap((segment, segmentIndex) => {
         const segmentStartMs = Math.max(startMs, segment.startedAtMs)
         const segmentEndMs = Math.min(
@@ -462,27 +468,37 @@ export const focusGoalCandidates = (
           segments[segmentIndex + 1]?.startedAtMs || phaseEndMs
         )
         if (segmentEndMs <= segmentStartMs) return []
-        return [
-          {
-            runId: run.id,
-            // Treat each goal boundary as its own lead annotation. A phase can
-            // therefore show the task that was actually active for a chapter.
-            phaseId: `${run.id}:${phase.id}:${segmentIndex}`,
-            phaseIndex,
-            kind: run.kind,
-            goal: segment.goal.trim(),
-            taskId: segment.todayPlanTask?.taskId || undefined,
-            startTime: new Date(segmentStartMs),
-            endTime: new Date(segmentEndMs),
-            focusedMs: 0,
-            distractedMs: 0,
-            uncertainMs: 0,
-            observedMs: 0,
-            focusRatio: null,
-            adherence: 'not_enough_activity' as const,
-            adherenceLabel: 'No classified activity yet'
-          }
-        ]
+        return windows.flatMap((window, windowIndex) => {
+          const pieceStartMs = Math.max(segmentStartMs, window.startMs)
+          const pieceEndMs = Math.min(segmentEndMs, window.endMs)
+          if (pieceEndMs <= pieceStartMs) return []
+          const pausedBeforeMs =
+            windowIndex > 0 && pieceStartMs === window.startMs
+              ? window.startMs - windows[windowIndex - 1].endMs
+              : 0
+          return [
+            {
+              runId: run.id,
+              // Treat each goal boundary as its own lead annotation. A phase can
+              // therefore show the task that was actually active for a chapter.
+              phaseId: `${run.id}:${phase.id}:${segmentIndex}`,
+              phaseIndex,
+              kind: run.kind,
+              goal: segment.goal.trim(),
+              taskId: segment.todayPlanTask?.taskId || undefined,
+              ...(pausedBeforeMs > 0 ? { pausedBeforeMs } : {}),
+              startTime: new Date(pieceStartMs),
+              endTime: new Date(pieceEndMs),
+              focusedMs: 0,
+              distractedMs: 0,
+              uncertainMs: 0,
+              observedMs: 0,
+              focusRatio: null,
+              adherence: 'not_enough_activity' as const,
+              adherenceLabel: 'No classified activity yet'
+            }
+          ]
+        })
       })
     })
   )

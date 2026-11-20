@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import type { ProcessedEventBlock } from '../components/DashboardView'
-import { buildActivitySessions, type FocusTimelineRun } from './activitySessions'
-import { buildDayCalendarBlocks, displaySegments, summarizeDayCalendarBlock } from './dayCalendar'
+import { buildActivitySessions, summarizeTaskTime, type FocusTimelineRun } from './activitySessions'
+import {
+  buildDayCalendarBlocks,
+  dayCalendarPauses,
+  displaySegments,
+  summarizeDayCalendarBlock
+} from './dayCalendar'
 
 const base = new Date('2026-11-19T08:00:00.000Z').getTime()
 const at = (minute: number, second = 0) => base + minute * 60_000 + second * 1000
@@ -215,5 +220,85 @@ describe('day calendar blocks', () => {
     expect(fill[fill.length - 1].endMs).toBe(at(50))
     for (let index = 1; index < fill.length; index += 1)
       expect(fill[index].state).not.toBe(fill[index - 1].state)
+  })
+})
+
+const paused = (
+  entry: FocusTimelineRun,
+  pauses: { start: number; end: number | null }[]
+): FocusTimelineRun => {
+  const phase = entry.run.phases[0]
+  phase.pauses = pauses.map((pause) => ({
+    startedAtMs: at(pause.start),
+    endedAtMs: pause.end === null ? null : at(pause.end),
+    reason: 'manual' as const
+  }))
+  return entry
+}
+
+describe('paused focus sessions', () => {
+  test('a pause splits the session into two blocks with the same title', () => {
+    const result = build(
+      [block('Notes', 0, 20, true, 'Notes'), block('Notes', 26, 14, true, 'Notes')],
+      [paused(run('r1', 'Write the report', 0, 40), [{ start: 20, end: 26 }])]
+    )
+    expect(result.map((item) => [item.kind, item.title, item.startMs, item.endMs])).toEqual([
+      ['focus', 'Write the report', at(0), at(20)],
+      ['focus', 'Write the report', at(26), at(40)]
+    ])
+    expect(result[1].continued).toBe(true)
+    expect(result[1].pauseBefore).toEqual({ startMs: at(20), endMs: at(26) })
+    expect(dayCalendarPauses([paused(run('r2', 'Write', 0, 40), [{ start: 20, end: 26 }])])).toEqual([
+      { startMs: at(20), endMs: at(26), goal: 'Write', ongoing: false }
+    ])
+  })
+
+  test('activity during a pause is not session time', () => {
+    const result = build(
+      [block('Notes', 0, 20, true, 'Notes'), block('YouTube', 20, 10, false), block('Notes', 30, 10, true, 'Notes')],
+      [paused(run('r1', 'Write the report', 0, 40), [{ start: 20, end: 30 }])]
+    )
+    const focus = result.filter((item) => item.kind === 'focus')
+    expect(focus.reduce((sum, item) => sum + item.distractedMs, 0)).toBe(0)
+    expect(result.find((item) => item.kind === 'free')?.distractedMs).toBe(10 * 60_000)
+  })
+
+  test('a pause of a few seconds does not split the block', () => {
+    const result = build(
+      [block('Notes', 0, 40, true, 'Notes')],
+      [paused(run('r1', 'Write the report', 0, 40), [{ start: 20, end: 20.5 }])]
+    )
+    expect(result).toHaveLength(1)
+  })
+
+  test('the task total leaves out the paused stretch', () => {
+    const entry = paused(run('r1', 'Write the report', 0, 40), [{ start: 20, end: 30 }])
+    entry.run.phases[0].todayPlanTask = { taskId: 'task-1', dateKey: '2026-11-19' }
+    const sessions = buildActivitySessions(
+      [block('Notes', 0, 20, true, 'Notes'), block('YouTube', 20, 10, false), block('Notes', 30, 10, true, 'Notes')],
+      { foldBrief: false }
+    )
+    const [task] = summarizeTaskTime(sessions, [entry], at(600))
+    expect(task.focusedMs).toBe(30 * 60_000)
+    expect(task.distractedMs).toBe(0)
+  })
+
+  test('a session paused right now ends at its pause and shows it as ongoing', () => {
+    const entry = paused(run('r1', 'Write the report', 0, 40), [{ start: 20, end: null }])
+    entry.run.state = 'active'
+    entry.run.completedAtMs = null
+    entry.run.phases[0].completedAtMs = null
+    entry.endedAtMs = null
+    entry.outcome = null
+    const now = at(35)
+    const result = buildDayCalendarBlocks(
+      buildActivitySessions([block('Notes', 0, 20, true, 'Notes')], { foldBrief: false }),
+      [entry],
+      now
+    )
+    expect(result.map((item) => [item.kind, item.endMs])).toEqual([['focus', at(20)]])
+    expect(dayCalendarPauses([entry], now)).toEqual([
+      { startMs: at(20), endMs: now, goal: 'Write the report', ongoing: true }
+    ])
   })
 })
