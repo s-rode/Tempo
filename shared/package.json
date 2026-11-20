@@ -25,6 +25,10 @@
     "./calendar": {
       "types": "./dist/calendar.d.ts",
       "import": "./dist/calendar.js"
+    },
+    "./focusPauses": {
+      "types": "./dist/focusPauses.d.ts",
+      "import": "./dist/focusPauses.js"
     }
   },
   "scripts": {
