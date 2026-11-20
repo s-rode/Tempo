@@ -180,6 +180,48 @@ describe('period insights', () => {
     expect(insights.distractions.sources[0].examples).toEqual([]);
   });
 
+  test('credits session phases to planner goals, this week and last', () => {
+    const start = monday + 9 * hour;
+    const events = [work(start), fun(start + 40 * minute), sleep(start + hour)];
+    const phase = (startedAtMs: number, taskId: string | null, activeElapsedMs: number) => ({
+      kind: 'work' as const,
+      goal: 'Chapter 2',
+      startedAtMs,
+      completedAtMs: startedAtMs + activeElapsedMs,
+      plannedDurationMs: activeElapsedMs,
+      activeElapsedMs,
+      todayPlanTask: taskId ? { taskId } : null,
+    });
+    const runs: InsightRun[] = [
+      { run: { id: 'now', kind: 'custom', startedAtMs: start, phases: [phase(start, null, hour)], taskTarget: { taskId: 'task-a' } }, endedAtMs: start + hour, outcome: 'completed' },
+      { run: { id: 'before', kind: 'custom', startedAtMs: start - 7 * day, phases: [phase(start - 7 * day, 'task-a', 2 * hour)] }, endedAtMs: start - 7 * day + 2 * hour, outcome: 'completed' },
+    ];
+    const insights = calculatePeriodInsights({
+      events,
+      categories,
+      runs,
+      startDateMs: monday,
+      endDateMs: monday + 7 * day,
+      previousStartDateMs: previousMonday,
+      nowMs: monday + 7 * day,
+      planner: {
+        goals: [{ id: 'g', title: 'Thesis', color: 'blue', icon: '', completedAtMs: null, weeklyTargetMinutes: null, createdAtMs: null }],
+        taskGoals: { 'task-a': 'g' },
+        openTasks: {},
+      },
+    });
+    const goal = insights.goals!.goals[0];
+    expect(goal.workMs).toBe(hour);
+    expect(goal.focusedMs).toBe(40 * minute);
+    expect(goal.previousWorkMs).toBe(2 * hour);
+    expect(insights.sessions.count).toBe(1);
+  });
+
+  test('leaves goals out while the planner is off', () => {
+    const insights = calculatePeriodInsights({ events: [], categories, runs: [], startDateMs: monday, endDateMs: monday + 7 * day, previousStartDateMs: previousMonday, nowMs: monday + 7 * day });
+    expect(insights.goals).toBeNull();
+  });
+
   test('stays quiet without data', () => {
     const insights = calculatePeriodInsights({ events: [], categories, runs: [], startDateMs: monday, endDateMs: monday + 7 * day, previousStartDateMs: previousMonday, nowMs: monday + 7 * day });
     expect(insights.summary.trackedMs).toBe(0);

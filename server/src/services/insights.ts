@@ -1,4 +1,5 @@
 import type { ActiveWindowEvent, Category } from '../../../shared/types';
+import { analyzeGoals, type GoalPhaseWork, type GoalPlannerInput, type GoalsAnalysis } from './goalInsights';
 import { formatHour, formatMinutes, percent } from './insightFormat';
 
 /**
@@ -30,6 +31,9 @@ export interface InsightRunPhase {
   completedAtMs?: number | null;
   plannedDurationMs?: number;
   activeElapsedMs?: number;
+  state?: string;
+  runningSinceMs?: number | null;
+  todayPlanTask?: { taskId?: string | null } | null;
 }
 
 export interface InsightRun {
@@ -38,7 +42,7 @@ export interface InsightRun {
     kind: 'custom' | 'pomodoro';
     startedAtMs: number;
     phases: InsightRunPhase[];
-    taskTarget?: { goalSnapshot?: string | null; estimatedMinutes?: number | null } | null;
+    taskTarget?: { taskId?: string | null; goalSnapshot?: string | null; estimatedMinutes?: number | null } | null;
   };
   endedAtMs: number | null;
   outcome: 'completed' | 'cancelled' | null;
@@ -62,7 +66,7 @@ export interface DistractionEpisode {
 
 export interface InsightSuggestion {
   id: string;
-  kind: 'schedule' | 'session' | 'distraction' | 'switching' | 'planning' | 'momentum';
+  kind: 'schedule' | 'session' | 'distraction' | 'switching' | 'planning' | 'momentum' | 'goal';
   title: string;
   body: string;
 }
@@ -130,6 +134,8 @@ export interface PeriodInsights {
     estimate: { samples: number; medianRatio: number } | null;
     tasks: Array<{ goal: string; sessions: number; workMs: number; focusedMs: number; distractedMs: number; focusRate: number | null }>;
   };
+  /** Long-term goals from Tempo's planner; null when the planner is off. */
+  goals: GoalsAnalysis | null;
   suggestions: InsightSuggestion[];
 }
 
@@ -377,6 +383,13 @@ const STAMINA_BUCKETS = [
   { label: '90+ min', minMs: 90 * MINUTE, maxMs: null },
 ];
 
+/** The planner task a work phase was spent on: its own task, else the run's. */
+const phaseTaskId = (entry: InsightRun, phase: InsightRunPhase) => phase.todayPlanTask?.taskId || entry.run.taskTarget?.taskId || null;
+
+/** Time on the clock in a work phase, including the stretch still running now. */
+const phaseClockMs = (phase: InsightRunPhase, nowMs: number) =>
+  (phase.activeElapsedMs || 0) + (phase.state === 'running' && phase.runningSinceMs ? Math.max(0, nowMs - phase.runningSinceMs) : 0);
+
 export const calculatePeriodInsights = (args: {
   events: ActiveWindowEvent[];
   categories: Category[];
@@ -385,6 +398,7 @@ export const calculatePeriodInsights = (args: {
   endDateMs: number;
   previousStartDateMs: number;
   nowMs?: number;
+  planner?: GoalPlannerInput | null;
 }): PeriodInsights => {
   const nowMs = args.nowMs ?? Date.now();
   const { startDateMs, endDateMs, previousStartDateMs } = args;
@@ -556,6 +570,7 @@ export const calculatePeriodInsights = (args: {
       let focusedMs = 0;
       let distractedMs = 0;
       const firstDrifts: number[] = [];
+      const phaseWork: GoalPhaseWork[] = [];
       let coveredUntilMs = -Infinity;
       for (const phase of work) {
         // A phase's wall-clock span can include pauses, and archived phases
@@ -572,20 +587,25 @@ export const calculatePeriodInsights = (args: {
         const inside = clipped(intervals, phaseStart, phaseEnd);
         let focusBeforeDrift = 0;
         let drifted = false;
+        let phaseFocusedMs = 0;
+        let phaseDistractedMs = 0;
         for (const interval of inside) {
           const ms = interval.endMs - interval.startMs;
           if (interval.state === 'focused') {
-            focusedMs += ms;
+            phaseFocusedMs += ms;
             if (!drifted) focusBeforeDrift += ms;
           }
           if (interval.state === 'distracted') {
-            distractedMs += ms;
+            phaseDistractedMs += ms;
             if (!drifted && ms >= MINUTE) {
               drifted = true;
               firstDrifts.push(focusBeforeDrift);
             }
           }
         }
+        focusedMs += phaseFocusedMs;
+        distractedMs += phaseDistractedMs;
+        phaseWork.push({ taskId: phaseTaskId(entry, phase), workMs: phaseClockMs(phase, effectiveEndMs), focusedMs: phaseFocusedMs, distractedMs: phaseDistractedMs });
       }
       const goal = (entry.run.taskTarget?.goalSnapshot || work.find((phase) => phase.goal)?.goal || '').trim();
       return {
@@ -597,6 +617,7 @@ export const calculatePeriodInsights = (args: {
         focusedMs,
         distractedMs,
         firstDrifts,
+        phaseWork,
       };
     })
     .filter((row) => row.workMs >= MINUTE || row.focusedMs + row.distractedMs >= MINUTE);
@@ -640,6 +661,25 @@ export const calculatePeriodInsights = (args: {
       .map((task) => ({ goal: task.goal, sessions: task.sessions, workMs: task.workMs, focusedMs: task.focusedMs, distractedMs: task.distractedMs, focusRate: rate(task.focusedMs, task.distractedMs) })),
   };
 
+  // Long-term goals: the same work phases, credited to the goal of their task.
+  const goals = args.planner
+    ? analyzeGoals({
+        planner: args.planner,
+        phases: sessionRows.flatMap((row) => row.phaseWork),
+        previousPhases: args.runs
+          .filter((entry) => entry.run.startedAtMs >= previousStartDateMs && entry.run.startedAtMs < previousEndMs)
+          .flatMap((entry) =>
+            entry.run.phases
+              .filter((phase) => phase.kind === 'work' && phase.startedAtMs)
+              .map((phase) => ({ taskId: phaseTaskId(entry, phase), workMs: phaseClockMs(phase, previousEndMs), focusedMs: 0, distractedMs: 0 }))
+          ),
+        startDateMs,
+        endDateMs,
+        effectiveEndMs,
+        bestWindow: goldenWindow ? `${formatHour(goldenWindow.startHour)}–${formatHour(goldenWindow.endHour)}` : null,
+      })
+    : null;
+
   const insights: Omit<PeriodInsights, 'suggestions'> = {
     range: { startDateMs, endDateMs, effectiveEndMs },
     previousRange: { startDateMs: previousStartDateMs, endDateMs: previousEndMs },
@@ -654,6 +694,7 @@ export const calculatePeriodInsights = (args: {
     distractions,
     switching,
     sessions,
+    goals,
   };
   return { ...insights, suggestions: buildSuggestions(insights) };
 };
