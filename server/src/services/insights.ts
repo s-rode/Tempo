@@ -1,4 +1,5 @@
 import type { ActiveWindowEvent, Category } from '../../../shared/types';
+import { formatHour, formatMinutes, percent } from './insightFormat';
 
 /**
  * Behavioural insights for the Analysis page.
@@ -360,15 +361,6 @@ const summarize = (
   };
 };
 
-const formatMinutes = (ms: number) => {
-  const minutes = Math.round(ms / MINUTE);
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest ? `${hours}h ${rest}m` : `${hours}h`;
-};
-const formatHour = (hour: number) => `${String(hour % 24).padStart(2, '0')}:00`;
-const percent = (value: number) => `${Math.round(value * 100)}%`;
 const roundTo5 = (minutes: number) => Math.max(15, Math.min(90, Math.round(minutes / 5) * 5));
 
 const SESSION_LENGTHS = [
