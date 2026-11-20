@@ -79,14 +79,13 @@ docs/           longer documentation
 
 ## Setup
 
-You need an **Apple Silicon Mac running macOS 14 or later**. Tempo is built from source and needs these installed:
+Tempo needs an Apple Silicon Mac with macOS 14 or later and is built from source. Install:
 
-| Install        | Requirements                                                               |
-| -------------- | -------------------------------------------------------------------------- |
-| Build tools    | Xcode Command Line Tools, Node **22.23.2**, Bun **1.4.0**, Python **3.11** |
-| Local services | MongoDB Community **8.0**, Ollama with **`qwen3:4b-instruct`**             |
+- Xcode Command Line Tools, Node 22.23.2, Bun 1.4.0 and Python 3.11
+- MongoDB Community 8.0
+- Ollama with `qwen3:4b-instruct`
 
-Start MongoDB and Ollama, then run:
+Start MongoDB and Ollama, then:
 
 ```sh
 git clone https://github.com/s-rode/Tempo.git
@@ -95,56 +94,22 @@ bun run setup
 bun run dev
 ```
 
-The development app uses its own profile and a test database. To check the source and build an app bundle:
+The dev app uses its own profile and a test database. `bun run typecheck`, `bun run test` and `bun run build` check the code and build the app. Builds are signed locally and not notarized. The [build guide](docs/BUILDING.md) covers installing, backups and rollback, and the [demo guide](docs/DEMONSTRATION.md) explains how to try Tempo with sample data.
 
-```sh
-bun run typecheck
-bun run test
-bun run build
-```
+**Firefox:** the build makes an unsigned ZIP of the [companion extension](electron-app/firefox-extension). Load it from `about:debugging`; it has to be reloaded after Firefox restarts. Chrome and Safari work without an extension.
 
-The [build guide](docs/BUILDING.md) covers Python setup, installation, backups, and native checks. Builds are signed locally and are not notarized.
-
-<details>
-<summary><strong>Setting up Firefox</strong></summary>
-
-The build creates an unsigned ZIP of the [Firefox companion](electron-app/firefox-extension). Load it through Firefox's `about:debugging` page. You have to reload it after restarting Firefox, because a permanent install in standard Firefox needs a Mozilla-signed XPI.
-
-Chrome and Safari work without an extension through macOS browser automation.
-
-</details>
-
-<details>
-<summary><strong>Permissions</strong></summary>
-
-Apple Reminders and Calendar access are optional and read-only. Accessibility improves window-change detection. Screen Recording is only needed for the Firefox OCR fallback.
-
-</details>
-
-<details>
-<summary><strong>Trying it with sample data</strong></summary>
-
-The [demo guide](docs/DEMONSTRATION.md) shows how to seed a separate database and profile, so your real activity stays untouched.
-
-</details>
+**Permissions:** Reminders and Calendar access are optional and read-only. Accessibility improves window tracking. Screen Recording is only used for the Firefox OCR fallback.
 
 ## Documentation
 
-| Guide                                                          | What's inside                                             |
-| -------------------------------------------------------------- | --------------------------------------------------------- |
-| [Architecture](docs/ARCHITECTURE.md)                           | Processes, boundaries and how activity flows between them |
-| [Classification and learning](docs/CLASSIFICATION.md)          | The decision pipeline and the rules for corrections       |
-| [Local AI and browser support](docs/LOCAL_AI.md)               | The model, its limits, and what each browser provides     |
-| [Privacy and stored data](docs/NETWORK_NOTES.md)               | What is kept, what is not, and what touches the network   |
-| [Performance](docs/PERFORMANCE.md)                             | Measurements, methods and caveats                         |
-| [Classification evaluation](docs/CLASSIFICATION_VALIDATION.md) | What each level of testing does and does not prove        |
-| [Build and install](docs/BUILDING.md)                          | Toolchain, checks, installation and rollback              |
-| [Planner](docs/planner.md)                                     | Goals, the week plan, the queue and its shortcuts         |
-| [Apple Reminders](docs/apple-reminders.md)                     | Read-only planning from Reminders lists                   |
-| [Apple Calendar](docs/apple-calendar.md)                       | Read-only appointments on the timeline                    |
+- [Architecture](docs/ARCHITECTURE.md)
+- [Classification and learning](docs/CLASSIFICATION.md) and [how it is evaluated](docs/CLASSIFICATION_VALIDATION.md)
+- [Local AI and browser support](docs/LOCAL_AI.md)
+- [Privacy and stored data](docs/NETWORK_NOTES.md)
+- [Performance](docs/PERFORMANCE.md)
+- [Build and install](docs/BUILDING.md)
+- [Planner](docs/planner.md), [Apple Reminders](docs/apple-reminders.md), [Apple Calendar](docs/apple-calendar.md)
 
-## Credits & license
+## Credits and license
 
-Tempo is developed by **s-rode** and builds on [Cronus](docs/PROVENANCE.md) by Moritz Wallawitsch and Arne Strickmann. It adds local AI, correction learning, task-based focus sessions, a built-in planner, notch controls, Firefox support, Apple Reminders and Calendar, and reworked timelines and analysis.
-
-Both Tempo and the Cronus foundation are licensed under [MIT](LICENSE). Original copyright notices are preserved in [NOTICE](NOTICE); dependencies and assets are covered in the [third-party notices](docs/THIRD_PARTY_NOTICES.md).
+Tempo is built by s-rode on top of [Cronus](docs/PROVENANCE.md) by Moritz Wallawitsch and Arne Strickmann. Both are [MIT](LICENSE) licensed. Original notices are in [NOTICE](NOTICE), and dependencies are listed in the [third-party notices](docs/THIRD_PARTY_NOTICES.md).
