@@ -178,6 +178,7 @@ export function WeekBoard({
                   planner={planner}
                   defaultGoalId={soleGoal}
                   label={`New task for ${date.toLocaleDateString(undefined, { weekday: 'long' })}`}
+                  scope="week"
                 />
               )}
               {isPast && total === 0 && <p className="planner-day-empty">Nothing planned</p>}

@@ -458,6 +458,7 @@ export function QueueView({
               planner={planner}
               placeholder="New task for today"
               label="New task for today"
+              scope="queue"
             />
           </div>
           <Button variant="ghost" size="sm" onClick={onShowWeek}>
@@ -542,6 +543,7 @@ export function QueueView({
           planner={planner}
           placeholder="New task for today"
           label="New task for today"
+          scope="queue"
         />
       </div>
       <p className="planner-hint">
