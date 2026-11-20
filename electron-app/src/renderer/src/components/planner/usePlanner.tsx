@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from '../../hooks/use-toast'
 import { scheduleGoalProfileRefresh } from '../../lib/goalProfileRefresh'
@@ -10,6 +10,9 @@ import {
 } from '../../lib/plannerModel'
 import { trpc } from '../../utils/trpc'
 import { ToastAction } from '../ui/toast'
+
+/** A task that was just added without a goal, waiting for one to be picked. */
+export type GoalPrompt = { task: PlannerTask; dateKey: string; scope: string }
 
 type ContextResult = {
   effectiveContextChanged: boolean
@@ -27,6 +30,10 @@ export function usePlanner(weekStartKey?: string) {
   const auth = { token: token || '' }
   const utils = trpc.useContext()
   const undoRef = useRef<(() => void) | null>(null)
+  // Kept here rather than in the entry field, so the prompt survives the
+  // field being replaced (the empty queue turns into a list on the first task).
+  const [goalPrompt, setGoalPrompt] = useState<GoalPrompt | null>(null)
+  const dismissGoalPrompt = useCallback(() => setGoalPrompt(null), [])
 
   const refresh = useCallback(() => {
     void utils.planner.getWeek.invalidate()
@@ -160,13 +167,18 @@ export function usePlanner(weekStartKey?: string) {
       }
     )
 
-  const deleteTask = (task: PlannerTask, dateKey: string) =>
-    remove.mutate(
+  const dropPromptFor = (taskId: string) =>
+    setGoalPrompt((current) => (current?.task.id === taskId ? null : current))
+
+  const deleteTask = (task: PlannerTask, dateKey: string) => {
+    dropPromptFor(task.id)
+    return remove.mutate(
       { ...auth, dateKey, taskId: task.id },
       {
         onSuccess: () => offerUndo('Task deleted', () => restore.mutate({ ...auth, dateKey, task }))
       }
     )
+  }
 
   const addTask = (
     dateKey: string,
@@ -177,7 +189,10 @@ export function usePlanner(weekStartKey?: string) {
     task: PlannerTask,
     dateKey: string,
     changes: { text?: string; goalId?: string | null; estimatedMinutes?: number | null }
-  ) => update.mutate({ ...auth, dateKey, taskId: task.id, ...changes })
+  ) => {
+    if (changes.goalId !== undefined) dropPromptFor(task.id)
+    update.mutate({ ...auth, dateKey, taskId: task.id, ...changes })
+  }
 
   return {
     auth,
@@ -187,6 +202,9 @@ export function usePlanner(weekStartKey?: string) {
     moveTask,
     setCompleted,
     deleteTask,
+    goalPrompt,
+    promptForGoal: setGoalPrompt,
+    dismissGoalPrompt,
     busy: add.isLoading || move.isLoading
   }
 }

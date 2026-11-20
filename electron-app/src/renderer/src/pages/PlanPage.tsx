@@ -116,6 +116,9 @@ export function PlanPage({
     [thisWeek, todayKey]
   )
   const planner = usePlanner(weekStartKey)
+  // A goal question belongs to the view it was asked in.
+  const { dismissGoalPrompt } = planner
+  useEffect(() => dismissGoalPrompt(), [tab, weekStartKey, dismissGoalPrompt])
   const session = useQueueSession(runtime, today.open)
 
   const invalidateGoals = () => {
