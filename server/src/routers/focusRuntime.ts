@@ -12,8 +12,8 @@ import {
   continueFinishedSession,
   extendTaskRun,
   currentPhase,
-  freezePhase,
   getOrCreateRuntime,
+  pauseManually,
   resumePhase,
   runtimeSnapshot,
   resumeFromStaleSystemSuspension,
@@ -252,6 +252,7 @@ export const focusRuntimeRouter = router({
       if (openEnded && runtime.run.taskTarget) runtime.run.taskTarget.openEnded = true;
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
+      runtime.manualPauseOpenEnded = false;
       await saveRuntime(runtime);
       await scheduleActiveGoalProfile(userId);
       return runtimeSnapshot(runtime);
@@ -292,6 +293,7 @@ export const focusRuntimeRouter = router({
       if (openEnded && runtime.run.taskTarget) runtime.run.taskTarget.openEnded = true;
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
+      runtime.manualPauseOpenEnded = false;
       await saveRuntime(runtime);
       await scheduleActiveGoalProfile(userId);
       return runtimeSnapshot(runtime);
@@ -412,17 +414,16 @@ export const focusRuntimeRouter = router({
       return runtimeSnapshot(runtime);
     }),
 
+  // Without a duration the pause lasts until Resume (the queue's Pause).
   pause: publicProcedure
-    .input(tokenInput.extend({ durationMinutes: pauseDurations }))
+    .input(tokenInput.extend({ durationMinutes: pauseDurations.optional() }))
     .mutation(async ({ input }) => {
       const userId = verifyToken(input.token).userId;
       const runtime = await runtimeFor(input.token);
       cancelPendingEnrichment(userId);
       cancelPendingGoalSupportProfiles(userId);
       const now = Date.now();
-      freezePhase(runtime, now);
-      runtime.manualPauseUntilMs = now + input.durationMinutes * 60_000;
-      runtime.manualPausedAtMs = now;
+      pauseManually(runtime, input.durationMinutes ?? null, now);
       await saveRuntime(runtime);
       return runtimeSnapshot(runtime, now);
     }),
@@ -434,6 +435,7 @@ export const focusRuntimeRouter = router({
     cancelPendingGoalSupportProfiles(userId);
     runtime.manualPauseUntilMs = null;
     runtime.manualPausedAtMs = null;
+    runtime.manualPauseOpenEnded = false;
     resumePhase(runtime, Date.now());
     await saveRuntime(runtime);
     await scheduleActiveGoalProfile(userId);
@@ -495,6 +497,7 @@ export const focusRuntimeRouter = router({
     }
     runtime.manualPauseUntilMs = null;
     runtime.manualPausedAtMs = null;
+    runtime.manualPauseOpenEnded = false;
     await saveRuntime(runtime);
     return runtimeSnapshot(runtime);
   }),
@@ -513,6 +516,7 @@ export const focusRuntimeRouter = router({
         await archiveFinishedRun(runtime);
         runtime.manualPauseUntilMs = null;
         runtime.manualPausedAtMs = null;
+        runtime.manualPauseOpenEnded = false;
         await saveRuntime(runtime);
       } else {
         // A retry after archiving may still need to complete the plan task if

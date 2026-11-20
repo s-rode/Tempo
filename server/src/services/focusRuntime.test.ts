@@ -10,6 +10,7 @@ import {
   resumePhase,
   completeRun,
   shouldAwaitFreshSystemCapture,
+  pauseManually,
 } from './focusRuntime';
 
 const runtimeWith = (run: any): any => ({
@@ -396,5 +397,70 @@ describe('focus transition notices', () => {
     advanceRuntime(sleeping, 3_000, { emitTransitionNotice: true });
     expect(sleeping.transitionNotice).toBeNull();
     expect(sleeping.run.state).toBe('active');
+  });
+});
+
+describe('pausing a task until resumed', () => {
+  const source = { taskId: 'task-123', dateKey: '2026-10-04' };
+
+  test('records the pause on the phase and keeps it out of work time', () => {
+    const run = createCustomRun('Write the summary', 720, 1_000, source, null);
+    run.taskTarget!.openEnded = true;
+    const runtime = runtimeWith(run);
+    pauseManually(runtime, null, 1_000 + 10 * 60_000);
+    const pausedSnapshot = runtimeSnapshot(runtime, 1_000 + 25 * 60_000);
+    expect(pausedSnapshot.suspension.reasons).toContain('manual_pause');
+    expect(pausedSnapshot.suspension.manualPauseOpenEnded).toBe(true);
+    // No countdown for a pause that lasts until Resume.
+    expect(pausedSnapshot.suspension.pausedUntilMs).toBeNull();
+    expect(pausedSnapshot.taskProgress?.workElapsedMs).toBe(10 * 60_000);
+    expect(runtime.run.phases[0].pauses).toEqual([
+      { startedAtMs: 1_000 + 10 * 60_000, endedAtMs: null, reason: 'manual' },
+    ]);
+
+    runtime.manualPauseUntilMs = null;
+    runtime.manualPauseOpenEnded = false;
+    resumePhase(runtime, 1_000 + 25 * 60_000);
+    expect(runtime.run.phases[0].pauses[0].endedAtMs).toBe(1_000 + 25 * 60_000);
+    expect(runtimeSnapshot(runtime, 1_000 + 30 * 60_000).taskProgress?.workElapsedMs).toBe(
+      15 * 60_000
+    );
+  });
+
+  test('a timed pause still counts down and ends on its own', () => {
+    const runtime = runtimeWith(createCustomRun('Review', 45, 1_000, source, 45));
+    pauseManually(runtime, 5, 61_000);
+    expect(runtimeSnapshot(runtime, 61_000).suspension.pausedUntilMs).toBe(61_000 + 5 * 60_000);
+    advanceRuntime(runtime, 61_000 + 5 * 60_000);
+    expect(runtime.manualPauseUntilMs).toBeNull();
+    expect(runtime.run.phases[0].pauses[0].endedAtMs).toBe(61_000 + 5 * 60_000);
+    expect(runtime.run.phases[0].state).toBe('running');
+  });
+
+  test('finishing while paused closes the pause at the finish', () => {
+    const runtime = runtimeWith(createCustomRun('Review', 45, 1_000, source, 45));
+    pauseManually(runtime, null, 61_000);
+    completeRun(runtime, 121_000, 'completed');
+    expect(runtime.run.phases[0].pauses).toEqual([
+      { startedAtMs: 61_000, endedAtMs: 121_000, reason: 'manual' },
+    ]);
+    expect(runtime.run.phases[0].activeElapsedMs).toBe(60_000);
+  });
+
+  test('a lock during a pause keeps one pause, and a double click leaves none', () => {
+    const runtime = runtimeWith(createCustomRun('Review', 45, 1_000, source, 45));
+    pauseManually(runtime, null, 61_000);
+    runtime.systemLocked = true;
+    pauseManually(runtime, null, 70_000);
+    expect(runtime.run.phases[0].pauses).toHaveLength(1);
+    runtime.systemLocked = false;
+    runtime.manualPauseUntilMs = null;
+    resumePhase(runtime, 90_000);
+    expect(runtime.run.phases[0].pauses).toHaveLength(1);
+
+    pauseManually(runtime, null, 100_000);
+    runtime.manualPauseUntilMs = null;
+    resumePhase(runtime, 100_400);
+    expect(runtime.run.phases[0].pauses).toHaveLength(1);
   });
 });

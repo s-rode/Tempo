@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import type { ContextListRef, FocusTaskSource } from '../../../shared/reminders';
+import { MIN_VISIBLE_PAUSE_MS } from '../../../shared/focusPauses';
 import { FocusRunHistoryModel, FocusRuntimeModel } from '../models/focusRuntime';
 
 export type SuspensionReason =
@@ -48,6 +49,8 @@ export const taskSourceSnapshot = (target: any): TodayPlanTaskSource => ({
 type RuntimeDocument = any;
 
 const minute = 60_000;
+/** A pause until resumed still ends on its own after 12 hours, like an open-ended task. */
+export const OPEN_ENDED_PAUSE_MINUTES = 720;
 const taskTargetFor = (run: any) => (run?.taskTarget?.taskId ? run.taskTarget : null);
 const phaseElapsed = (current: any, now: number) =>
   current.activeElapsedMs +
@@ -129,16 +132,41 @@ const freezePhase = (runtime: RuntimeDocument, now: number) => {
   current.state = 'suspended';
 };
 
+/**
+ * Marks the start of a deliberate pause in the current work phase. Only one
+ * pause is open at a time: a calendar event during a manual pause (or the
+ * other way round) is one stretch away from work, not two.
+ */
+const openPause = (runtime: RuntimeDocument, now: number, reason: 'manual' | 'calendar') => {
+  const current = currentPhase(runtime);
+  if (!current || current.kind !== 'work') return;
+  if (current.state === 'awaiting_goal' || current.state === 'completed') return;
+  current.pauses ||= [];
+  if (current.pauses.some((pause: any) => pause.endedAtMs === null || pause.endedAtMs === undefined))
+    return;
+  current.pauses.push({ startedAtMs: now, endedAtMs: null, reason });
+};
+
+/** Ends any open pause of a phase; a pause too short to matter is dropped. */
+const closePauses = (phase: any, now: number) => {
+  if (!phase?.pauses?.length) return;
+  for (const pause of phase.pauses)
+    if (pause.endedAtMs === null || pause.endedAtMs === undefined)
+      pause.endedAtMs = Math.max(pause.startedAtMs, now);
+  const kept = phase.pauses.filter(
+    (pause: any) => pause.endedAtMs - pause.startedAtMs >= MIN_VISIBLE_PAUSE_MS
+  );
+  if (kept.length !== phase.pauses.length) phase.pauses = kept;
+};
+
 const resumePhase = (runtime: RuntimeDocument, now: number) => {
   const current = currentPhase(runtime);
   if (!current || current.state === 'awaiting_goal' || current.state === 'completed') return;
-  if (
-    runtime.calendarPauseUntilMs ||
-    runtime.manualPauseUntilMs ||
-    hasSystemSuspension(runtime) ||
-    runtime.awaitingSystemResumeCapture
-  )
-    return;
+  if (runtime.calendarPauseUntilMs || runtime.manualPauseUntilMs) return;
+  // The deliberate pause ends here, even if a lock or a pending fresh capture
+  // still holds the clock: that wait is the ordinary system boundary.
+  closePauses(current, now);
+  if (hasSystemSuspension(runtime) || runtime.awaitingSystemResumeCapture) return;
   current.state = 'running';
   current.runningSinceMs = now;
 };
@@ -147,6 +175,7 @@ const completeRun = (runtime: RuntimeDocument, now: number, state: 'completed' |
   if (!runtime.run) return;
   freezePhase(runtime, now);
   const current = currentPhase(runtime);
+  for (const entry of runtime.run.phases || []) closePauses(entry, now);
   if (current && current.state !== 'completed') {
     current.state = 'completed';
     current.runningSinceMs = null;
@@ -318,6 +347,7 @@ export const advanceRuntime = (
   ) {
     runtime.manualPauseUntilMs = null;
     runtime.manualPausedAtMs = null;
+    runtime.manualPauseOpenEnded = false;
     resumePhase(runtime, now);
   }
   if (runtime.calendarPauseUntilMs) { freezePhase(runtime, now); return null; }
@@ -390,7 +420,13 @@ export const runtimeSnapshot = (runtime: RuntimeDocument, now = Date.now()) => {
     trackingState,
     suspension: {
       reasons,
-      pausedUntilMs: Math.max(runtime.manualPauseUntilMs || 0, runtime.calendarPauseUntilMs || 0) || null,
+      // A pause until resumed has no end to count down to; its cap is internal.
+      pausedUntilMs:
+        Math.max(
+          runtime.manualPauseOpenEnded ? 0 : runtime.manualPauseUntilMs || 0,
+          runtime.calendarPauseUntilMs || 0
+        ) || null,
+      manualPauseOpenEnded: Boolean(runtime.manualPauseUntilMs && runtime.manualPauseOpenEnded),
       calendarPausedAtMs: runtime.calendarPausedAtMs || null,
       manualPausedAtMs: runtime.manualPausedAtMs || null,
       suspendedAtMs: runtime.systemSuspendedAtMs || runtime.calendarPausedAtMs || null,
@@ -466,6 +502,7 @@ export async function setSystemSuspension(
     if (runtime.manualPauseUntilMs && now >= runtime.manualPauseUntilMs) {
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
+      runtime.manualPauseOpenEnded = false;
     }
     resumePhase(runtime, now);
   }
@@ -512,6 +549,7 @@ export async function resumeAfterSystemCapture(userId: string) {
     if (runtime.manualPauseUntilMs && now >= runtime.manualPauseUntilMs) {
       runtime.manualPauseUntilMs = null;
       runtime.manualPausedAtMs = null;
+      runtime.manualPauseOpenEnded = false;
     }
     resumePhase(runtime, now);
   }
@@ -690,7 +728,28 @@ export const continueFinishedSession = (
   return true;
 };
 
-export { currentPhase, freezePhase, resumePhase, completeRun, shouldAwaitFreshSystemCapture };
+/** Pauses the session by hand, for a while or (without minutes) until resumed. */
+export const pauseManually = (
+  runtime: RuntimeDocument,
+  durationMinutes: number | null,
+  now = Date.now()
+) => {
+  freezePhase(runtime, now);
+  openPause(runtime, now, 'manual');
+  runtime.manualPauseUntilMs = now + (durationMinutes ?? OPEN_ENDED_PAUSE_MINUTES) * minute;
+  runtime.manualPausedAtMs = now;
+  runtime.manualPauseOpenEnded = durationMinutes === null;
+};
+
+export {
+  currentPhase,
+  freezePhase,
+  resumePhase,
+  completeRun,
+  shouldAwaitFreshSystemCapture,
+  openPause,
+  closePauses,
+};
 
 
 /** Calendar owns an independent lease. Ending it never clears a manual pause. */
@@ -699,6 +758,7 @@ export function applyCalendarPause(runtime: RuntimeDocument, untilMs: number | n
   const until = untilMs && untilMs > now ? untilMs : null;
   if (until) {
     freezePhase(runtime, now);
+    openPause(runtime, now, 'calendar');
     runtime.calendarPausedAtMs ||= now;
   }
   runtime.calendarPauseUntilMs = until;
