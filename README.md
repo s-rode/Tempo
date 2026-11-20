@@ -26,100 +26,26 @@ It shows the day as a timeline, keeps a focused and a distracted timer next to t
 
 ## Features
 
-<table>
-<tr>
-<td width="50%" valign="top">
+- **Task-aware tracking.** Activity is judged against the task you chose, not a fixed list of "productive" apps. The same site can be work for one task and a distraction for another.
+- **Timers in the notch.** A small native helper shows focused and distracted time beside the notch, even with the main window closed. Hover it to see the current activity, fix its category, pause, or add time to a finished session.
+- **Planner.** Long-term goals, a week plan and a queue for today. Tasks can link to a goal and carry an estimate. Sessions can count down the estimate, count up, or run as Pomodoro blocks.
+- **Apple Reminders and Calendar.** Use Reminders lists instead of the planner if you prefer. Calendar events show up on the timeline. Both are read-only.
+- **Timeline.** Today as blocks, hour by hour, or as a week, with the time spent on each task against its estimate.
+- **Analysis.** A week or month view of when you focus best, how long focus lasts, what pulls you away, how sessions went against their estimates, and how much time each goal got against its weekly target.
+- **Corrections.** Fix a wrong classification in the timeline or the notch and Tempo remembers it. Per-app rules cover the cases that never change.
+- **Private.** No account, no cloud AI, no telemetry. Classification and storage run on your Mac.
 
-**Task-aware tracking**<br/>
-Activity is judged against the task you chose, not against a fixed list of "productive" apps. The same site can be focused work for one task and a distraction for another.
-
-</td>
-<td width="50%" valign="top">
-
-**Timers in the notch**<br/>
-Focused and distracted time sit beside the camera housing. Hover to see the current activity, change its category, pause, or extend a finished session.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-**A built-in planner**<br/>
-Set long-term goals, plan tasks across the week, and work through today's queue one task at a time. Each session can count down the task's estimate, count up, or run as Pomodoro blocks.
-
-</td>
-<td valign="top">
-
-**Apple Reminders and Calendar**<br/>
-Prefer Reminders? Take your tasks from your Reminders lists instead of the planner. Calendar appointments appear on the same time scale as your activity. Both are read-only, and Tempo can pause tracking during an event.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-**Focus and Pomodoro sessions**<br/>
-Start a session from a task and set its length with a slider. When the timer ends, add more time from the notch and keep going.
-
-</td>
-<td valign="top">
-
-**A timeline you can read**<br/>
-Today shows the day as a timeline of blocks, hour by hour, or as a week. With the planner on, it also lists the time spent on each task against its estimate.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-**Analysis that tells you something**<br/>
-See when you focus best, how long your focus lasts, what pulls you away, and how your sessions went compared to their estimates. Tempo turns the clearest patterns into a few suggestions.
-
-</td>
-<td valign="top">
-
-**It learns from corrections**<br/>
-Fix a wrong classification in the timeline or the notch. Tempo remembers it, and you can set per-app rules for the cases that never change.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-**At home on the Mac**<br/>
-A translucent sidebar and glass cards, light and dark mode, menu commands with keyboard shortcuts, and settings laid out in panes like System Settings.
-
-</td>
-<td valign="top">
-
-**Private by design**<br/>
-No account, no cloud AI, no telemetry. Classification and storage both run on your Mac.
-
-</td>
-</tr>
-</table>
-
-## A closer look
-
-### The notch
+### Notch
 
 <p align="center">
   <img src="docs/images/tempo-notch.svg" alt="Tempo's expanded notch panel with the current activity, its category and session controls" width="760" />
 </p>
 
-The notch companion is a separate native Swift app, so the timers stay visible when the main window is closed. It steps aside when another notch app opens over it, and its clocks stop while the Mac is locked or asleep. You can hide the seconds if you find them distracting.
-
-### Planning
+### Planner
 
 ![Tempo's week plan with tasks per day and their goals](docs/images/tempo-plan.png)
 
-Under **Settings → Planning** you choose where tasks come from: Apple Reminders or Tempo's own planner. With the planner on, a Plan page appears in the sidebar with three views.
-
-- **Goals** are the long-term things you are working towards. Tasks can link to a goal.
-- **Week** has a column for each day. Drag tasks to reorder them or move them to another day. Typing `Draft chapter 3 #thesis 45m` adds a task with a goal and an estimate. Anything left unfinished moves to today.
-- **Queue** shows today's tasks in order. Start working and Tempo shows only the current task. Done starts the next one, Later sends it to the back of the queue.
-
-Details and keyboard shortcuts are in the [planner guide](docs/planner.md).
+Turn the planner on under **Settings → Planning**. Quick entry understands goals and estimates, so `Draft chapter 3 #thesis 45m` adds a 45-minute task linked to the thesis goal. Unfinished tasks move to today. See the [planner guide](docs/planner.md) for shortcuts.
 
 ### Focus sessions
 
@@ -127,15 +53,11 @@ Details and keyboard shortcuts are in the [planner guide](docs/planner.md).
   <img src="docs/images/tempo-focus.png" alt="A running focus session with its goal, timer, and controls" width="340" />
 </p>
 
-A session belongs to a task. You can pause it, change the goal while it runs, or extend it from the notch when the timer runs out. Sessions started from the planner queue can be timed in three ways: count down the task's estimate, count up with no fixed length, or work in 30-minute Pomodoro blocks with 5-minute breaks.
-
 ### Analysis
 
 ![Tempo's Analysis tab for one week, with suggestions and focus by day](docs/images/tempo-analysis.png)
 
-The Analysis tab looks at a week or a month. It shows your focus day by day, the hours you focus best in, how long your focus blocks last, which apps and sites pull you away and how long it takes to get back, how timed sessions went against their estimates, and how much you switch between apps. From this it picks up to three suggestions for what to try next.
-
-Everything is computed locally from the same events as the timeline. The screenshots on this page use synthetic data.
+Analysis is computed locally from the same events as the timeline and ends with up to three suggestions. The screenshots use sample data.
 
 ## How it works
 
