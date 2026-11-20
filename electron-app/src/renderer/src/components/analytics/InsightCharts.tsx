@@ -4,6 +4,7 @@ import { formatDuration } from '../../lib/activityByCategoryWidgetHelpers'
 export const DEEP = 'var(--insight-deep)'
 export const FOCUS = 'var(--insight-focus)'
 export const DISTRACT = 'var(--insight-distract)'
+export const BEHIND = 'var(--insight-behind)'
 
 const HOUR = 3_600_000
 export const formatHour = (hour: number) => `${String(hour % 24).padStart(2, '0')}:00`
@@ -275,5 +276,24 @@ export function Ring({ value, size = 56, color = FOCUS, children }: { value: num
       </svg>
       <div className="absolute inset-0 flex items-center justify-center text-[12px] font-semibold tabular-nums">{children}</div>
     </div>
+  )
+}
+
+/** One titled card on the Analysis page. */
+export function InsightSection({ icon, title, subtitle, children, className = '', aside }: { icon: ReactNode; title: string; subtitle?: string; children: ReactNode; className?: string; aside?: ReactNode }) {
+  return (
+    <section className={`tempo-insight-card p-5 ${className}`}>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <div className="mt-0.5 text-muted-foreground">{icon}</div>
+          <div>
+            <h2 className="text-[14px] font-semibold tracking-tight">{title}</h2>
+            {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
+          </div>
+        </div>
+        {aside}
+      </div>
+      {children}
+    </section>
   )
 }

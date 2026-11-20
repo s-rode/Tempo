@@ -67,7 +67,17 @@ export interface GoalDraft {
   notes: string
   color: GoalColorId
   icon: string
+  weeklyTargetMinutes: number | null
 }
+
+/** Hours as typed ("4", "1,5", "1.5") to whole minutes; empty or zero means no target. */
+const targetFromHours = (text: string): number | null => {
+  const hours = Number(text.trim().replace(',', '.'))
+  if (!text.trim() || !Number.isFinite(hours) || hours <= 0) return null
+  return Math.min(6000, Math.max(15, Math.round((hours * 60) / 15) * 15))
+}
+const hoursText = (minutes: number | null): string =>
+  minutes ? String(Math.round((minutes / 60) * 100) / 100) : ''
 
 /** A sheet-style editor used for both a new goal and an existing one. */
 export function GoalEditor({
@@ -85,12 +95,13 @@ export function GoalEditor({
   onOpenChange: (open: boolean) => void
   onSave: (draft: GoalDraft) => void
 }): ReactElement {
-  const [draft, setDraft] = useState<GoalDraft>({
+  const [draft, setDraft] = useState<Omit<GoalDraft, 'weeklyTargetMinutes'>>({
     title: '',
     notes: '',
     color: suggestedColor,
     icon: ''
   })
+  const [hours, setHours] = useState('')
   useEffect(() => {
     if (!open) return
     setDraft(
@@ -104,10 +115,18 @@ export function GoalEditor({
           }
         : { title: '', notes: '', color: suggestedColor, icon: '' }
     )
+    setHours(hoursText(goal?.weeklyTargetMinutes ?? null))
   }, [open, goal, suggestedColor])
-  const canSave = draft.title.trim().length > 0 && !saving
+  const hoursValid = !hours.trim() || /^\d{0,3}([.,]\d{0,2})?$/.test(hours.trim())
+  const canSave = draft.title.trim().length > 0 && hoursValid && !saving
   const save = () => {
-    if (canSave) onSave({ ...draft, title: draft.title.trim(), notes: draft.notes.trim() })
+    if (canSave)
+      onSave({
+        ...draft,
+        title: draft.title.trim(),
+        notes: draft.notes.trim(),
+        weeklyTargetMinutes: targetFromHours(hours)
+      })
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -182,6 +201,27 @@ export function GoalEditor({
             }
           />
         </label>
+        <label className="planner-field planner-field-inline">
+          <span>Time a week</span>
+          <span className="planner-target-input">
+            <Input
+              value={hours}
+              inputMode="decimal"
+              placeholder="None"
+              className="w-20 text-right tabular-nums"
+              aria-label="Hours a week for this goal"
+              aria-invalid={!hoursValid || undefined}
+              onChange={(event) => setHours(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.metaKey) save()
+              }}
+            />
+            <span>hours</span>
+          </span>
+        </label>
+        <p className="planner-field-hint">
+          Optional. Analysis compares the time you give this goal with this target.
+        </p>
         <DialogFooter>
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
