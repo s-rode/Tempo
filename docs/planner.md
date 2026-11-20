@@ -55,7 +55,7 @@ Every task and goal also has a context menu with the same actions.
 
 ## Data
 
-Planner tasks live in the existing daily `GoalPlan` records (one per local day), with an optional `goalId` and `carriedFromDateKey` per task. Goals are `PlannerGoal` records. The choice of source is `electronAppSettings.planningSource`. Analysis does not use goals yet. Time per task is derived from focus run history (`todayPlanTask.taskId` on each work phase) and the day's activity; nothing extra is stored.
+Planner tasks live in the existing daily `GoalPlan` records (one per local day), with an optional `goalId` and `carriedFromDateKey` per task. Goals are `PlannerGoal` records. The choice of source is `electronAppSettings.planningSource`. Analysis shows the time each goal got against its optional weekly target. Time per task is derived from focus run history (`todayPlanTask.taskId` on each work phase) and the day's activity; nothing extra is stored.
 
 ## Development verification
 
