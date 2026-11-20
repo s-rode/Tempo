@@ -59,6 +59,34 @@ Analysis is computed locally from the same events as the timeline and ends with 
 
 ## How it works
 
+```mermaid
+flowchart LR
+  subgraph capture["Capture · native"]
+    AX["Active-window observer<br/>Objective-C++ addon"]
+    FF["Firefox companion<br/>WebExtension + native host"]
+  end
+  subgraph app["Tempo · Electron"]
+    MAIN["Main process<br/>monitoring coordinator"]
+    UI["Dashboard<br/>React"]
+  end
+  subgraph local["Local services"]
+    API["Local API<br/>Bun + tRPC"]
+    DB[("MongoDB")]
+    LLM["Ollama<br/>qwen3:4b"]
+  end
+  NOTCH["Notch helper<br/>Swift + SwiftUI"]
+
+  AX --> MAIN
+  FF --> MAIN
+  MAIN <--> UI
+  UI <--> API
+  API <--> DB
+  API <--> LLM
+  MAIN <-->|"JSON over stdio"| NOTCH
+```
+
+Everything runs on your Mac. The parts talk over loopback, a private Unix socket or stdio.
+
 1. A native observer reports the frontmost app and window title. In Firefox, a companion extension adds some of the visible page text.
 2. Your per-app rules and earlier corrections are checked first.
 3. If they don't decide it, the activity and your task go to a local model through [Ollama](https://ollama.com) (`qwen3:4b-instruct`). A "focused" answer is only accepted if it points to evidence that is actually in the window title or page text.
