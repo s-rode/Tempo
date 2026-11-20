@@ -17,7 +17,8 @@ import {
 } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import AppIcon from '../components/AppIcon'
-import { DayBars, DEEP, DISTRACT, FOCUS, FocusHeatmap, formatHour, Meter, percent, Ring, StaminaHistogram, Swatch, type DayColumn } from '../components/analytics/InsightCharts'
+import { GoalProgress } from '../components/analytics/GoalProgress'
+import { DayBars, DEEP, DISTRACT, FOCUS, FocusHeatmap, formatHour, InsightSection, Meter, percent, Ring, StaminaHistogram, Swatch, type DayColumn } from '../components/analytics/InsightCharts'
 import { Button } from '../components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group'
 import { useAuth } from '../contexts/AuthContext'
@@ -83,23 +84,7 @@ function Stat({ label, value, children }: { label: string; value: string; childr
   )
 }
 
-function Section({ icon, title, subtitle, children, className = '', aside }: { icon: ReactNode; title: string; subtitle?: string; children: ReactNode; className?: string; aside?: ReactNode }) {
-  return (
-    <section className={`tempo-insight-card p-5 ${className}`}>
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2.5">
-          <div className="mt-0.5 text-muted-foreground">{icon}</div>
-          <div>
-            <h2 className="text-[14px] font-semibold tracking-tight">{title}</h2>
-            {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
-          </div>
-        </div>
-        {aside}
-      </div>
-      {children}
-    </section>
-  )
-}
+const Section = InsightSection
 
 function Takeaway({ children }: { children: ReactNode }) {
   return <p className="mt-4 rounded-[10px] bg-[var(--glass-track)] px-3 py-2 text-xs leading-relaxed text-muted-foreground">{children}</p>
@@ -125,7 +110,7 @@ const suggestionIcon = (kind: Suggestion['kind']) => {
 
 const appNameFromKey = (key: string) => key.split(':')[1] || key
 
-export function AnalysisPage() {
+export function AnalysisPage({ onOpenPlan }: { onOpenPlan?: () => void } = {}) {
   const { token } = useAuth()
   const [mode, setMode] = useState<RangeMode>('week')
   const [anchor, setAnchor] = useState(new Date())
@@ -257,6 +242,17 @@ export function AnalysisPage() {
               ))}
             </div>
           </section>
+        )}
+
+        {data?.goals && (
+          <GoalProgress
+            analysis={data.goals}
+            periodWord={periodWord}
+            comparisonLabel={inProgress ? `last ${periodWord} by now` : `last ${periodWord}`}
+            inProgress={inProgress && isCurrent}
+            daysLeft={Math.max(1, Math.ceil((end.getTime() - now) / 86_400_000))}
+            onOpenPlan={onOpenPlan}
+          />
         )}
 
         {hasData && data && (

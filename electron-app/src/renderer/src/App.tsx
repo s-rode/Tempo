@@ -1006,7 +1006,7 @@ export function MainAppContent() {
             }
           />
         )}
-        {activePage === 'analysis' && <AnalysisPage />}
+        {activePage === 'analysis' && <AnalysisPage onOpenPlan={() => setActivePage('plan')} />}
         {activePage === 'settings' && (
           <SettingsPage
             onResetOnboarding={handleResetOnboarding}
