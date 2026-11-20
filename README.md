@@ -4,7 +4,7 @@
 
 # Tempo
 
-A macOS focus tracker that checks your activity against the task you chose, using a local language model.
+A focus tracker for macOS.
 
 [![Source checks](https://github.com/s-rode/Tempo/actions/workflows/ci.yml/badge.svg)](https://github.com/s-rode/Tempo/actions/workflows/ci.yml)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-1f2430?logo=apple&logoColor=white)](docs/BUILDING.md)
@@ -16,7 +16,7 @@ A macOS focus tracker that checks your activity against the task you chose, usin
 
 </div>
 
-Tempo is a focus tracker for macOS. You pick the task you want to work on, and a small language model running locally on your Mac checks whether what is on screen matches it. Nothing leaves the machine.
+You pick the task you want to work on, and a small language model running on your Mac checks whether what is on screen matches it. Nothing leaves the machine.
 
 It shows the day as a timeline, keeps a focused and a distracted timer next to the MacBook notch, and can nudge you when you drift. It also has a simple planner for goals and tasks, or it can read your tasks from Apple Reminders.
 
