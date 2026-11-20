@@ -14,7 +14,7 @@ A macOS focus tracker that checks your activity against the task you chose, usin
 
 <img src="docs/images/tempo-notch-hero.svg" alt="Tempo's focused and distracted timers on either side of the MacBook notch" width="720" />
 
-[Features](#features) · [A closer look](#a-closer-look) · [How it works](#how-it-works) · [Technical notes](#technical-notes) · [Setup](#setup) · [Docs](#documentation)
+[Features](#features) · [How it works](#how-it-works) · [Setup](#setup) · [Docs](#documentation)
 
 </div>
 
@@ -61,88 +61,20 @@ Analysis is computed locally from the same events as the timeline and ends with 
 
 ## How it works
 
-```mermaid
-flowchart LR
-  subgraph capture["Capture · native"]
-    AX["Active-window observer<br/>Objective-C++ addon"]
-    FF["Firefox companion<br/>WebExtension + native host"]
-  end
-  subgraph app["Tempo · Electron"]
-    MAIN["Main process<br/>monitoring coordinator"]
-    UI["Dashboard<br/>React"]
-  end
-  subgraph local["Local services"]
-    API["Local API<br/>Bun + tRPC"]
-    DB[("MongoDB")]
-    LLM["Ollama<br/>qwen3:4b"]
-  end
-  NOTCH["Notch helper<br/>Swift + SwiftUI"]
+1. A native observer reports the frontmost app and window title. In Firefox, a companion extension adds some of the visible page text.
+2. Your per-app rules and earlier corrections are checked first.
+3. If they don't decide it, the activity and your task go to a local model through [Ollama](https://ollama.com) (`qwen3:4b-instruct`). A "focused" answer is only accepted if it points to evidence that is actually in the window title or page text.
+4. Timeouts and unclear answers are recorded as uncertain. Uncertain time never counts as focused and never triggers an alert.
 
-  AX --> MAIN
-  FF --> MAIN
-  MAIN <--> UI
-  UI <--> API
-  API <--> DB
-  API <--> LLM
-  MAIN <-->|"JSON over stdio"| NOTCH
-```
+Page text is only held in memory for the request. App names, window titles and summaries are stored in a local MongoDB database. More in [architecture](docs/ARCHITECTURE.md), [classification](docs/CLASSIFICATION.md) and [privacy](docs/NETWORK_NOTES.md).
 
-Everything in this diagram runs on your Mac. The parts talk over loopback, a private Unix socket, or stdio.
-
-1. **Capture.** A native observer reports the frontmost app and window title once it has been stable for 750 ms. In Firefox, a companion extension adds a limited sample of the visible page text.
-2. **Check what is already known.** Your per-app rules, earlier corrections and previous decisions for the same activity are checked before any model runs.
-3. **Ask the local model.** If none of those apply, one request goes to Ollama with the active task and the evidence. To call something focused, the model has to name the task and point to evidence that was in the request. The server checks this and applies the strictness you chose (Flexible, Balanced or Strict).
-4. **When in doubt, don't guess.** A timeout or a malformed answer is recorded as uncertain. Uncertain time never counts as productive and never triggers a distraction alert.
-5. **Show it.** The decision drives the notch timers, the timeline, and optional sounds and notifications.
-
-More detail: [architecture](docs/ARCHITECTURE.md) · [classification](docs/CLASSIFICATION.md) · [local AI](docs/LOCAL_AI.md)
-
-## Technical notes
-
-### Keeping a small model honest
-
-A 4B-parameter model is fast enough for a laptop, but it makes up reasons if you let it. Tempo asks for structured output and has the model refer to evidence by short aliases, which the server validates. A malformed reply gets one retry, and the whole pipeline has a ten-second deadline. The model also has to name the subject it sees before giving a verdict. A focused answer is only accepted when that subject really appears in the window title or page text.
-
-### Learning from corrections
-
-A correction applies to the task context it was made in. Broader preferences need several confirmations across sessions, expire without fresh feedback, and are suspended by a single contradicting observation. Tempo never learns from passive use. The rules are in the [classification notes](docs/CLASSIFICATION.md).
-
-### Privacy
-
-Page text and OCR frames are held in memory for one request and then dropped. Prompts and model replies are not stored, and browser caches are keyed by HMAC fingerprints, not by content. App names, window titles and derived summaries are kept in the local database. The notch helper never receives tokens or page text and makes no network requests. The [privacy notes](docs/NETWORK_NOTES.md) list what is stored and what is not.
-
-### Performance
-
-| Change                                                            |      Before |  After |
-| ----------------------------------------------------------------- | ----------: | -----: |
-| Weekly analytics over 33,600 events                               |      427 ms |  39 ms |
-| Notch helper idle CPU (adaptive polling instead of a fixed 10 Hz) | 0.55–0.85 % | ~0.1 % |
-| Repeated identical model request (in-memory decision memo)        |       3.4 s |   0 ms |
-| Timeline payload for a 931-event day                              |    1,120 KB | 666 KB |
-
-Methods and caveats are in the [performance notes](docs/PERFORMANCE.md).
-
-### Testing
-
-About 290 deterministic tests cover the server and renderer logic. Separate Swift suites cover the notch's layout, timing and lifecycle. The classifier is checked against a live local model with 466 written scenarios: 135 regression cases and 331 harder ones (paraphrases, look-alike keywords, prompt injection, empty windows, several tasks at once). Part of the harder set is held out and never used for tuning. CI runs the deterministic suites on Linux, then builds, tests and verifies the signed app on Apple Silicon. The [validation notes](docs/CLASSIFICATION_VALIDATION.md) explain what each level proves.
-
-## Built with
-
-| Layer          | Technology                                                                         |
-| -------------- | ---------------------------------------------------------------------------------- |
-| Desktop app    | Electron, React 19, TypeScript, Tailwind CSS, tRPC + React Query                   |
-| Local API      | Bun, tRPC, Mongoose, Zod                                                           |
-| Storage        | MongoDB (local)                                                                    |
-| AI             | Ollama with `qwen3:4b-instruct`, structured JSON output                            |
-| macOS native   | Swift, SwiftUI and AppKit (notch helper); Objective-C++ N-API addon                |
-| Browser        | Firefox WebExtension with a Swift native-messaging host; Apple Vision OCR fallback |
-| Tooling and CI | Bun test, electron-vite, electron-builder, GitHub Actions                          |
+The app is Electron with React and TypeScript. The local API runs on Bun with tRPC. The notch helper is Swift and SwiftUI, and window tracking is an Objective-C++ addon.
 
 ```text
 electron-app/   desktop app, native addon, notch helper, Firefox companion
-server/         local API, classification pipeline, evaluation fixtures
+server/         local API and classification
 shared/         types shared between app and server
-docs/           architecture, classification, privacy, performance, build
+docs/           longer documentation
 ```
 
 ## Setup
