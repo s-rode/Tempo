@@ -8,6 +8,7 @@ import {
   normalizeTasks,
   rememberedGoals,
   removeTask,
+  repeatsOn,
   taskNameKey,
   weekDayKeys,
   weekStartOf,
@@ -136,5 +137,20 @@ describe('remembered goals', () => {
       new Set(['health'])
     );
     expect(remembered).toEqual({ gym: 'health' });
+  });
+});
+
+describe('repeating tasks', () => {
+  test('daily, weekdays and weekly rules', () => {
+    // 2026-11-16 is a Monday.
+    const daily = { repeat: 'daily' as const, startDateKey: '2026-11-18' };
+    expect(repeatsOn(daily, '2026-11-17')).toBe(false);
+    expect(repeatsOn(daily, '2026-11-22')).toBe(true);
+    const weekdays = { repeat: 'weekdays' as const, startDateKey: '2026-11-16' };
+    expect(repeatsOn(weekdays, '2026-11-20')).toBe(true);
+    expect(repeatsOn(weekdays, '2026-11-21')).toBe(false);
+    const weekly = { repeat: 'weekly' as const, startDateKey: '2026-11-18' };
+    expect(repeatsOn(weekly, '2026-11-25')).toBe(true);
+    expect(repeatsOn(weekly, '2026-11-26')).toBe(false);
   });
 });

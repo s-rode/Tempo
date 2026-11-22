@@ -1,6 +1,8 @@
+import { randomUUID } from 'crypto';
 import { GoalPlanModel, GoalTask } from '../models/goalPlan';
+import { PlannerRoutine, PlannerRoutineModel } from '../models/plannerRoutine';
 import { User as UserModel } from '../models/user';
-import { carryOver, keyFromDate, normalizeTasks } from './plannerTasks';
+import { addDueRoutines, carryOver, keyFromDate, normalizeTasks, repeatsOn } from './plannerTasks';
 
 export type PlanningSource = 'reminders' | 'planner';
 
@@ -58,9 +60,10 @@ export const forgetRollover = (userId: string): void => {
 };
 
 /**
- * Moves unfinished planner tasks from earlier days into today's queue. Runs at
- * most once per local day unless a change (see `forgetRollover`) asks again.
- * Finished tasks stay on the day they were completed.
+ * Starts the day's queue: moves unfinished planner tasks from earlier days into
+ * today and adds the repeating tasks due today. Runs at most once per local
+ * day unless a change (see `forgetRollover`) asks again. Finished tasks stay on
+ * the day they were completed.
  */
 export async function rollOverUnfinished(userId: string, now = Date.now()): Promise<boolean> {
   const today = todayKey(now);
@@ -69,13 +72,19 @@ export async function rollOverUnfinished(userId: string, now = Date.now()): Prom
     if (settledFor.get(userId) === today) return false;
     const state = await getPlannerState(userId);
     if (!state.enabled) return false;
-    const earlier = (await GoalPlanModel.find({
-      userId,
-      scope: 'daily',
-      periodKey: { $gte: state.sinceDateKey || today, $lt: today },
-      tasks: { $elemMatch: { completedAtMs: null } },
-    }).lean()) as Array<{ periodKey: string; tasks: GoalTask[] }>;
-    if (!earlier.length) {
+    const [earlier, routines] = await Promise.all([
+      GoalPlanModel.find({
+        userId,
+        scope: 'daily',
+        periodKey: { $gte: state.sinceDateKey || today, $lt: today },
+        tasks: { $elemMatch: { completedAtMs: null } },
+      }).lean() as Promise<Array<{ periodKey: string; tasks: GoalTask[] }>>,
+      PlannerRoutineModel.find({ userId, lastAddedDateKey: { $lt: today } }).lean() as Promise<
+        PlannerRoutine[]
+      >,
+    ]);
+    const due = routines.filter((routine) => repeatsOn(routine, today));
+    if (!earlier.length && !due.length) {
       settledFor.set(userId, today);
       return false;
     }
@@ -84,10 +93,11 @@ export async function rollOverUnfinished(userId: string, now = Date.now()): Prom
       scope: 'daily',
       periodKey: today,
     }).lean()) as { tasks?: GoalTask[] } | null;
-    const tasks = carryOver(
+    const carried = carryOver(
       (current?.tasks || []) as GoalTask[],
       earlier.map((plan) => ({ dateKey: plan.periodKey, tasks: plan.tasks || [] }))
     );
+    const { tasks } = addDueRoutines(carried, due, today, randomUUID);
     // Write today first: if the process stops in between, a task is briefly
     // on two days (and deduplicated by id next time) rather than lost.
     await GoalPlanModel.updateOne(
@@ -95,6 +105,11 @@ export async function rollOverUnfinished(userId: string, now = Date.now()): Prom
       { $set: { tasks }, $setOnInsert: { timeZone: zone(), text: '' } },
       { upsert: true }
     );
+    if (due.length)
+      await PlannerRoutineModel.updateMany(
+        { userId, id: { $in: due.map((routine) => routine.id) } },
+        { $set: { lastAddedDateKey: today } }
+      );
     for (const plan of earlier)
       await GoalPlanModel.updateOne(
         { userId, scope: 'daily', periodKey: plan.periodKey },

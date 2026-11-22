@@ -85,9 +85,20 @@ export const carryOver = (
 ): GoalTask[] => {
   const queue = openTasks(today);
   const known = new Set(today.map((task) => task.id));
-  for (const day of [...earlier].sort((a, b) => a.dateKey.localeCompare(b.dateKey)))
+  // A repeating task is on a day once: today's own copy, else the newest
+  // unfinished one. Older unfinished copies are left behind (and dropped).
+  const onToday = new Set(today.map((task) => task.routineId).filter(Boolean));
+  const earliestFirst = [...earlier].sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+  const newest = new Map<string, string>();
+  for (const day of earliestFirst)
+    for (const task of openTasks(day.tasks))
+      if (task.routineId) newest.set(task.routineId, task.id);
+  const stale = (task: GoalTask) =>
+    Boolean(task.routineId) &&
+    (onToday.has(task.routineId) || newest.get(task.routineId as string) !== task.id);
+  for (const day of earliestFirst)
     for (const task of openTasks(day.tasks)) {
-      if (known.has(task.id)) continue;
+      if (known.has(task.id) || stale(task)) continue;
       known.add(task.id);
       queue.push({ ...task, carriedFromDateKey: task.carriedFromDateKey || day.dateKey });
     }
@@ -117,4 +128,58 @@ export const rememberedGoals = (
       if (key) remembered[key] = task.goalId;
     }
   return remembered;
+};
+
+type RoutineRule = { repeat: 'daily' | 'weekdays' | 'weekly'; startDateKey: string };
+
+/** Whether a repeating task belongs on `dateKey`. */
+export const repeatsOn = (routine: RoutineRule, dateKey: string): boolean => {
+  if (dateKey < routine.startDateKey) return false;
+  const weekday = dateFromKey(dateKey).getDay();
+  if (routine.repeat === 'daily') return true;
+  if (routine.repeat === 'weekdays') return weekday >= 1 && weekday <= 5;
+  return weekday === dateFromKey(routine.startDateKey).getDay();
+};
+
+/**
+ * Adds today's task for each repeating task due today. A routine already on
+ * today (for example yesterday's unfinished one, carried over) isn't added
+ * twice, and one added once today isn't added again after it was deleted.
+ */
+export const addDueRoutines = <
+  R extends RoutineRule & {
+    id: string;
+    text: string;
+    goalId: string | null;
+    estimatedMinutes: number | null;
+    lastAddedDateKey: string;
+  },
+>(
+  today: GoalTask[],
+  routines: R[],
+  todayKey: string,
+  makeId: () => string
+): { tasks: GoalTask[]; added: R[] } => {
+  const present = new Set(today.map((task) => task.routineId).filter(Boolean));
+  const added: R[] = [];
+  const queue = openTasks(today);
+  for (const routine of routines) {
+    if (routine.lastAddedDateKey >= todayKey || !repeatsOn(routine, todayKey)) continue;
+    added.push(routine);
+    if (present.has(routine.id)) continue;
+    queue.push({
+      id: makeId(),
+      text: routine.text,
+      estimatedMinutes: routine.estimatedMinutes,
+      position: queue.length,
+      completedAtMs: null,
+      goalId: routine.goalId,
+      carriedFromDateKey: null,
+      routineId: routine.id,
+    });
+  }
+  return {
+    tasks: [...queue.map((task, position) => ({ ...task, position })), ...doneTasks(today)],
+    added,
+  };
 };
