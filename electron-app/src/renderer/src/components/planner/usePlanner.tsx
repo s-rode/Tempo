@@ -34,10 +34,15 @@ export function usePlanner(weekStartKey?: string) {
   // field being replaced (the empty queue turns into a list on the first task).
   const [goalPrompt, setGoalPrompt] = useState<GoalPrompt | null>(null)
   const dismissGoalPrompt = useCallback(() => setGoalPrompt(null), [])
+  const { data: rememberedGoals } = trpc.planner.getRememberedGoals.useQuery(auth, {
+    enabled: !!token,
+    staleTime: 60_000
+  })
 
   const refresh = useCallback(() => {
     void utils.planner.getWeek.invalidate()
     void utils.planner.getGoals.invalidate()
+    void utils.planner.getRememberedGoals.invalidate()
     void utils.goals.getDailyPlan.invalidate()
     void utils.goals.getActiveContext.invalidate()
   }, [utils])
@@ -202,6 +207,7 @@ export function usePlanner(weekStartKey?: string) {
     moveTask,
     setCompleted,
     deleteTask,
+    rememberedGoals,
     goalPrompt,
     promptForGoal: setGoalPrompt,
     dismissGoalPrompt,

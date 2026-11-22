@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   dropIndex,
   formatClock,
+  goalForNewTask,
   moveTaskInWeek,
   parseQuickTask,
   relativeDayLabel,
@@ -107,5 +108,33 @@ describe('planner week model', () => {
     expect(relativeDayLabel('2026-11-21', '2026-11-18', 'en-US')).toBe('Saturday')
     expect(formatClock(65_000)).toBe('1:05')
     expect(formatClock(3_725_000)).toBe('1:02:05')
+  })
+})
+
+describe('goal for a new task', () => {
+  const goals = [
+    { id: 'masters', completedAtMs: null },
+    { id: 'old', completedAtMs: 1 }
+  ]
+  const remembered = { flashcards: 'masters', gym: 'old' }
+
+  test('a name used before starts with its last goal', () => {
+    expect(goalForNewTask({ text: 'Flashcards', goalId: null }, null, remembered, goals)).toEqual({
+      goalId: 'masters',
+      remembered: true
+    })
+  })
+
+  test('a typed #goal and a goal filter come first', () => {
+    expect(
+      goalForNewTask({ text: 'flashcards', goalId: 'x' }, null, remembered, goals).goalId
+    ).toBe('x')
+    expect(
+      goalForNewTask({ text: 'flashcards', goalId: null }, 'y', remembered, goals).goalId
+    ).toBe('y')
+  })
+
+  test('a finished goal is not suggested', () => {
+    expect(goalForNewTask({ text: 'gym', goalId: null }, null, remembered, goals).goalId).toBeNull()
   })
 })

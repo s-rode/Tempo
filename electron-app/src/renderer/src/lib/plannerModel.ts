@@ -110,6 +110,28 @@ const compact = (value: string): string => value.toLowerCase().replace(/[^\p{L}\
  * trailing duration such as "45m" or "1h 30m" becomes the time estimate.
  * Anything not recognized stays part of the title.
  */
+/** How task names are compared; the server uses the same rule. */
+export const taskNameKey = (text: string): string =>
+  text.trim().replace(/\s+/g, ' ').replace(/\.+$/, '').toLocaleLowerCase()
+
+/**
+ * The goal a new task starts with: a "#goal" typed with it, else the goal the
+ * view is filtered to, else the goal this name was last linked to.
+ */
+export function goalForNewTask(
+  parsed: { text: string; goalId: string | null },
+  defaultGoalId: string | null,
+  remembered: Record<string, string> | undefined,
+  goals: Pick<PlannerGoal, 'id' | 'completedAtMs'>[]
+): { goalId: string | null; remembered: boolean } {
+  if (parsed.goalId) return { goalId: parsed.goalId, remembered: false }
+  if (defaultGoalId) return { goalId: defaultGoalId, remembered: false }
+  const last = remembered?.[taskNameKey(parsed.text)]
+  if (last && goals.some((goal) => goal.id === last && goal.completedAtMs === null))
+    return { goalId: last, remembered: true }
+  return { goalId: null, remembered: false }
+}
+
 export function parseQuickTask(
   input: string,
   goals: Pick<PlannerGoal, 'id' | 'title' | 'completedAtMs'>[]

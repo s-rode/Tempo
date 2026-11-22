@@ -8,7 +8,12 @@ import {
   useRef,
   useState
 } from 'react'
-import { parseQuickTask, type PlannerGoal, type PlannerTask } from '../../lib/plannerModel'
+import {
+  goalForNewTask,
+  parseQuickTask,
+  type PlannerGoal,
+  type PlannerTask
+} from '../../lib/plannerModel'
 import { displayMinutes } from '../../lib/taskEstimate'
 import { cn } from '../../lib/utils'
 import { GoalChip, GoalMark } from './GoalBits'
@@ -18,7 +23,8 @@ import type { Planner } from './usePlanner'
  * Inline entry at the end of a day. "#goal" and a duration such as "45m" are
  * recognized while typing and previewed before the task is added. A task added
  * without a goal offers the open goals right below, so one click (or the arrow
- * keys and Return) links it without a trip through the context menu.
+ * keys and Return) links it without a trip through the context menu. A name
+ * used before starts with the goal it was last linked to.
  */
 export const AddTask = forwardRef<
   HTMLInputElement,
@@ -41,7 +47,8 @@ export const AddTask = forwardRef<
   const inputRef = useRef<HTMLInputElement>(null)
   useImperativeHandle(ref, () => inputRef.current as HTMLInputElement)
   const parsed = parseQuickTask(draft, goals)
-  const goalId = parsed.goalId || defaultGoalId
+  const suggestion = goalForNewTask(parsed, defaultGoalId, planner.rememberedGoals, goals)
+  const goalId = suggestion.goalId
   const goal = goals.find((entry) => entry.id === goalId) || null
   const openGoals = goals.filter((entry) => entry.completedAtMs === null)
   const prompt =
@@ -122,7 +129,19 @@ export const AddTask = forwardRef<
           />
           {draft.trim() && (goal || parsed.estimatedMinutes) && (
             <div className="planner-add-preview" aria-live="polite">
-              {goal && <GoalChip goal={goal} />}
+              {goal && (
+                <span
+                  className="planner-add-goal"
+                  title={
+                    suggestion.remembered
+                      ? `Last time “${parsed.text}” was for ${goal.title}. Type #goal to pick another.`
+                      : undefined
+                  }
+                >
+                  <GoalChip goal={goal} />
+                  {suggestion.remembered && <span className="planner-add-hint">as last time</span>}
+                </span>
+              )}
               {parsed.estimatedMinutes ? (
                 <span className="planner-task-estimate">
                   {displayMinutes(parsed.estimatedMinutes)}
