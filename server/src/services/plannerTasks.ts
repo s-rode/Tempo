@@ -85,11 +85,101 @@ export const carryOver = (
 ): GoalTask[] => {
   const queue = openTasks(today);
   const known = new Set(today.map((task) => task.id));
-  for (const day of [...earlier].sort((a, b) => a.dateKey.localeCompare(b.dateKey)))
+  // A repeating task is on a day once: today's own copy, else the newest
+  // unfinished one. Older unfinished copies are left behind (and dropped).
+  const onToday = new Set(today.map((task) => task.routineId).filter(Boolean));
+  const earliestFirst = [...earlier].sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+  const newest = new Map<string, string>();
+  for (const day of earliestFirst)
+    for (const task of openTasks(day.tasks))
+      if (task.routineId) newest.set(task.routineId, task.id);
+  const stale = (task: GoalTask) =>
+    Boolean(task.routineId) &&
+    (onToday.has(task.routineId) || newest.get(task.routineId as string) !== task.id);
+  for (const day of earliestFirst)
     for (const task of openTasks(day.tasks)) {
-      if (known.has(task.id)) continue;
+      if (known.has(task.id) || stale(task)) continue;
       known.add(task.id);
       queue.push({ ...task, carriedFromDateKey: task.carriedFromDateKey || day.dateKey });
     }
   return [...queue.map((task, position) => ({ ...task, position })), ...doneTasks(today)];
+};
+
+/** How task names are compared: case, extra spaces and a trailing period don't count. */
+export const taskNameKey = (text: string): string =>
+  text.trim().replace(/\s+/g, ' ').replace(/\.+$/, '').toLocaleLowerCase();
+
+/**
+ * The goal each task name was last linked to, so a task typed again (say
+ * "Flashcards") can start with the same goal. Later days win; within a day the
+ * later task wins. Goals outside `usableGoalIds` (finished or deleted) are
+ * skipped, falling back to the name's previous goal.
+ */
+export const rememberedGoals = (
+  days: Array<{ dateKey: string; tasks: GoalTask[] }>,
+  usableGoalIds: Set<string>
+): Record<string, string> => {
+  const remembered: Record<string, string> = {};
+  const ordered = [...days].sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+  for (const day of ordered)
+    for (const task of [...openTasks(day.tasks), ...doneTasks(day.tasks)]) {
+      if (!task.goalId || !usableGoalIds.has(task.goalId)) continue;
+      const key = taskNameKey(task.text);
+      if (key) remembered[key] = task.goalId;
+    }
+  return remembered;
+};
+
+type RoutineRule = { repeat: 'daily' | 'weekdays' | 'weekly'; startDateKey: string };
+
+/** Whether a repeating task belongs on `dateKey`. */
+export const repeatsOn = (routine: RoutineRule, dateKey: string): boolean => {
+  if (dateKey < routine.startDateKey) return false;
+  const weekday = dateFromKey(dateKey).getDay();
+  if (routine.repeat === 'daily') return true;
+  if (routine.repeat === 'weekdays') return weekday >= 1 && weekday <= 5;
+  return weekday === dateFromKey(routine.startDateKey).getDay();
+};
+
+/**
+ * Adds today's task for each repeating task due today. A routine already on
+ * today (for example yesterday's unfinished one, carried over) isn't added
+ * twice, and one added once today isn't added again after it was deleted.
+ */
+export const addDueRoutines = <
+  R extends RoutineRule & {
+    id: string;
+    text: string;
+    goalId: string | null;
+    estimatedMinutes: number | null;
+    lastAddedDateKey: string;
+  },
+>(
+  today: GoalTask[],
+  routines: R[],
+  todayKey: string,
+  makeId: () => string
+): { tasks: GoalTask[]; added: R[] } => {
+  const present = new Set(today.map((task) => task.routineId).filter(Boolean));
+  const added: R[] = [];
+  const queue = openTasks(today);
+  for (const routine of routines) {
+    if (routine.lastAddedDateKey >= todayKey || !repeatsOn(routine, todayKey)) continue;
+    added.push(routine);
+    if (present.has(routine.id)) continue;
+    queue.push({
+      id: makeId(),
+      text: routine.text,
+      estimatedMinutes: routine.estimatedMinutes,
+      position: queue.length,
+      completedAtMs: null,
+      goalId: routine.goalId,
+      carriedFromDateKey: null,
+      routineId: routine.id,
+    });
+  }
+  return {
+    tasks: [...queue.map((task, position) => ({ ...task, position })), ...doneTasks(today)],
+    added,
+  };
 };

@@ -1,4 +1,5 @@
 import { MouseEvent, ReactElement, ReactNode, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../ui/dropdown-menu'
 
 export type MenuAnchor = { x: number; y: number }
@@ -41,19 +42,24 @@ export function AnchoredMenu({
 }): ReactElement {
   return (
     <DropdownMenu open={Boolean(anchor)} onOpenChange={(open) => !open && onClose()}>
-      <DropdownMenuTrigger asChild>
-        <span
-          aria-hidden="true"
-          style={{
-            position: 'fixed',
-            left: anchor?.x ?? 0,
-            top: anchor?.y ?? 0,
-            width: 0,
-            height: 0,
-            pointerEvents: 'none'
-          }}
-        />
-      </DropdownMenuTrigger>
+      {/* In the body, so a transformed ancestor (the queue row's action
+          buttons) can't shift the fixed point away from the pointer. */}
+      {createPortal(
+        <DropdownMenuTrigger asChild>
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'fixed',
+              left: anchor?.x ?? 0,
+              top: anchor?.y ?? 0,
+              width: 0,
+              height: 0,
+              pointerEvents: 'none'
+            }}
+          />
+        </DropdownMenuTrigger>,
+        document.body
+      )}
       <DropdownMenuContent
         align="start"
         sideOffset={2}

@@ -3,6 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { GoalPlanModel, GoalTask } from '../models/goalPlan';
 import { PlannerGoalModel } from '../models/plannerGoal';
+import { PlannerRoutineModel, REPEAT_RULES, type RepeatRule } from '../models/plannerRoutine';
 import { User as UserModel } from '../models/user';
 import { localTimeZone } from '../services/goalPlans';
 import {
@@ -14,12 +15,14 @@ import {
 } from '../services/plannerState';
 import {
   PLANNER_GOAL_COLORS,
+  addDays,
   doneTasks,
   insertOpenTask,
   isDateKey,
   keyFromDate,
   normalizeTasks,
   openTasks,
+  rememberedGoals,
   removeTask,
   weekDayKeys,
   weekStartOf,
@@ -110,6 +113,19 @@ const listGoals = async (userId: string) => {
   }));
 };
 
+type RepeatInfo = { repeat: RepeatRule; startDateKey: string };
+const repeatRules = async (userId: string): Promise<Map<string, RepeatInfo>> => {
+  const routines = await PlannerRoutineModel.find({ userId })
+    .select('id repeat startDateKey')
+    .lean();
+  return new Map(
+    routines.map((routine) => [
+      routine.id as string,
+      { repeat: routine.repeat as RepeatRule, startDateKey: routine.startDateKey as string },
+    ])
+  );
+};
+
 const weekFor = async (userId: string, weekStartKey: string) => {
   await rollOverUnfinished(userId);
   const keys = weekDayKeys(weekStartKey);
@@ -119,13 +135,24 @@ const weekFor = async (userId: string, weekStartKey: string) => {
     periodKey: { $in: keys },
   }).lean()) as Array<{ periodKey: string; tasks?: GoalTask[] }>;
   const byDay = new Map(plans.map((plan) => [plan.periodKey, (plan.tasks || []) as GoalTask[]]));
+  const rules = await repeatRules(userId);
+  const withRepeat = (tasks: GoalTask[]) =>
+    tasks.map((task) => {
+      const rule = task.routineId ? rules.get(task.routineId) : undefined;
+      // The first day sets the weekday of a weekly repeat.
+      return {
+        ...task,
+        repeat: rule?.repeat ?? null,
+        repeatFromDateKey: rule?.startDateKey ?? null,
+      };
+    });
   return {
     weekStartKey,
     todayKey: today(),
     days: keys.map((key) => ({
       dateKey: key,
-      open: openTasks(byDay.get(key) || []),
-      done: doneTasks(byDay.get(key) || []),
+      open: withRepeat(openTasks(byDay.get(key) || [])),
+      done: withRepeat(doneTasks(byDay.get(key) || [])),
     })),
   };
 };
@@ -263,6 +290,24 @@ export const plannerRouter = router({
       return listGoals(userId);
     }),
 
+  /** Task name -> the open goal it was last linked to, to prefill new tasks. */
+  getRememberedGoals: publicProcedure.input(tokenInput).query(async ({ input }) => {
+    const userId = verifyToken(input.token).userId;
+    const [goals, plans] = await Promise.all([
+      PlannerGoalModel.find({ userId, completedAtMs: null }).select('id').lean(),
+      GoalPlanModel.find({ userId, scope: 'daily', 'tasks.goalId': { $type: 'string' } })
+        .select('periodKey tasks.text tasks.goalId tasks.position tasks.completedAtMs')
+        .lean(),
+    ]);
+    return rememberedGoals(
+      (plans as Array<{ periodKey: string; tasks?: GoalTask[] }>).map((plan) => ({
+        dateKey: plan.periodKey,
+        tasks: (plan.tasks || []) as GoalTask[],
+      })),
+      new Set(goals.map((goal) => goal.id as string))
+    );
+  }),
+
   getWeek: publicProcedure
     .input(tokenInput.extend({ weekStartKey: dateKey.optional() }))
     .query(async ({ input }) => {
@@ -325,6 +370,18 @@ export const plannerRouter = router({
         if (linkedGoal !== undefined) task.goalId = linkedGoal;
         if (input.estimatedMinutes !== undefined) task.estimatedMinutes = input.estimatedMinutes;
         await saveTasks(userId, input.dateKey, tasks);
+        // Later copies of a repeating task follow the change.
+        if (task.routineId)
+          await PlannerRoutineModel.updateOne(
+            { userId, id: task.routineId },
+            {
+              $set: {
+                text: task.text,
+                goalId: task.goalId ?? null,
+                estimatedMinutes: task.estimatedMinutes ?? null,
+              },
+            }
+          );
         return task;
       });
     }),
@@ -392,6 +449,84 @@ export const plannerRouter = router({
       return outcome;
     }),
 
+  /**
+   * Makes a task repeat from its day on (or from today, for an earlier day),
+   * changes how it repeats, or (with `repeat: null`) stops it. Copies already
+   * planned stay where they are.
+   */
+  setTaskRepeat: publicProcedure
+    .input(
+      tokenInput.extend({
+        dateKey,
+        taskId: z.string().uuid(),
+        repeat: z.enum(REPEAT_RULES).nullable(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const userId = verifyToken(input.token).userId;
+      const todayKey = today();
+      const startDateKey = input.dateKey < todayKey ? todayKey : input.dateKey;
+      const outcome = await mutate(userId, async () => {
+        const tasks = await tasksOn(userId, input.dateKey);
+        const task = tasks.find((entry) => entry.id === input.taskId);
+        if (!task) throw missingTask();
+        const routineId = task.routineId || null;
+        const routine = routineId
+          ? await PlannerRoutineModel.findOne({ userId, id: routineId }).lean()
+          : null;
+        if (input.repeat === null) {
+          if (routineId) {
+            await PlannerRoutineModel.deleteOne({ userId, id: routineId });
+            await GoalPlanModel.updateMany(
+              { userId, scope: 'daily', 'tasks.routineId': routineId },
+              { $set: { 'tasks.$[linked].routineId': null } },
+              { arrayFilters: [{ 'linked.routineId': routineId }] }
+            );
+          }
+          return { ...task, routineId: null, repeat: null };
+        }
+        // The task's own day already has its copy; an earlier day's task gets
+        // a fresh copy today.
+        const lastAddedDateKey =
+          startDateKey === input.dateKey ? input.dateKey : addDays(todayKey, -1);
+        if (routine) {
+          await PlannerRoutineModel.updateOne(
+            { userId, id: routine.id },
+            {
+              $set: {
+                repeat: input.repeat,
+                startDateKey,
+                lastAddedDateKey:
+                  routine.lastAddedDateKey > lastAddedDateKey
+                    ? routine.lastAddedDateKey
+                    : lastAddedDateKey,
+              },
+            }
+          );
+          return { ...task, repeat: input.repeat };
+        }
+        const id = randomUUID();
+        await PlannerRoutineModel.create({
+          userId,
+          id,
+          text: task.text,
+          goalId: task.goalId ?? null,
+          estimatedMinutes: task.estimatedMinutes ?? null,
+          repeat: input.repeat,
+          startDateKey,
+          lastAddedDateKey,
+        });
+        task.routineId = id;
+        await saveTasks(userId, input.dateKey, tasks);
+        return { ...task, repeat: input.repeat };
+      });
+      if (input.repeat && startDateKey !== input.dateKey) {
+        forgetRollover(userId);
+        await rollOverUnfinished(userId);
+      }
+      return outcome;
+    }),
+
   deleteTask: publicProcedure
     .input(tokenInput.extend({ dateKey, taskId: z.string().uuid() }))
     .mutation(async ({ input }) => {
@@ -418,6 +553,7 @@ export const plannerRouter = router({
           completedAtMs: z.number().nullable(),
           goalId: goalId.optional(),
           carriedFromDateKey: dateKey.nullable().optional(),
+          routineId: z.string().uuid().nullable().optional(),
         }),
       })
     )

@@ -10,6 +10,21 @@ export interface PlannerTask {
   completedAtMs: number | null
   goalId?: string | null
   carriedFromDateKey?: string | null
+  /** Set on tasks made by or turned into a repeating task. */
+  routineId?: string | null
+  repeat?: RepeatRule | null
+  /** The first day of the repeat, which sets the weekday of a weekly one. */
+  repeatFromDateKey?: string | null
+}
+
+export type RepeatRule = 'daily' | 'weekdays' | 'weekly'
+
+/** Menu and label wording for each repeat rule; weekly names the task's weekday. */
+export const repeatLabel = (rule: RepeatRule, dateKey: string, short = false): string => {
+  if (rule === 'daily') return short ? 'Daily' : 'Every Day'
+  if (rule === 'weekdays') return short ? 'Weekdays' : 'Every Weekday'
+  const weekday = dateFromKey(dateKey).toLocaleDateString('en-US', { weekday: 'long' })
+  return short ? `${weekday}s` : `Every ${weekday}`
 }
 
 export interface PlannerGoal {
@@ -110,6 +125,28 @@ const compact = (value: string): string => value.toLowerCase().replace(/[^\p{L}\
  * trailing duration such as "45m" or "1h 30m" becomes the time estimate.
  * Anything not recognized stays part of the title.
  */
+/** How task names are compared; the server uses the same rule. */
+export const taskNameKey = (text: string): string =>
+  text.trim().replace(/\s+/g, ' ').replace(/\.+$/, '').toLocaleLowerCase()
+
+/**
+ * The goal a new task starts with: a "#goal" typed with it, else the goal the
+ * view is filtered to, else the goal this name was last linked to.
+ */
+export function goalForNewTask(
+  parsed: { text: string; goalId: string | null },
+  defaultGoalId: string | null,
+  remembered: Record<string, string> | undefined,
+  goals: Pick<PlannerGoal, 'id' | 'completedAtMs'>[]
+): { goalId: string | null; remembered: boolean } {
+  if (parsed.goalId) return { goalId: parsed.goalId, remembered: false }
+  if (defaultGoalId) return { goalId: defaultGoalId, remembered: false }
+  const last = remembered?.[taskNameKey(parsed.text)]
+  if (last && goals.some((goal) => goal.id === last && goal.completedAtMs === null))
+    return { goalId: last, remembered: true }
+  return { goalId: null, remembered: false }
+}
+
 export function parseQuickTask(
   input: string,
   goals: Pick<PlannerGoal, 'id' | 'title' | 'completedAtMs'>[]

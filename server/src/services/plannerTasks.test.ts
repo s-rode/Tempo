@@ -6,7 +6,10 @@ import {
   insertOpenTask,
   isDateKey,
   normalizeTasks,
+  rememberedGoals,
   removeTask,
+  repeatsOn,
+  taskNameKey,
   weekDayKeys,
   weekStartOf,
 } from './plannerTasks';
@@ -100,5 +103,54 @@ describe('planner task helpers', () => {
     const earlier = [{ dateKey: '2026-11-17', tasks: [task('tue', 0)] }];
     const once = carryOver([], earlier);
     expect(ids(carryOver(once, earlier))).toEqual(['tue']);
+  });
+});
+
+describe('remembered goals', () => {
+  const named = (id: string, text: string, goalId: string | null, position = 0): GoalTask => ({
+    id,
+    text,
+    position,
+    completedAtMs: null,
+    goalId,
+  });
+
+  test('a name keeps the goal it was last linked to, ignoring case and spacing', () => {
+    const remembered = rememberedGoals(
+      [
+        { dateKey: '2026-11-20', tasks: [named('b', 'Flashcards', 'masters')] },
+        { dateKey: '2026-11-18', tasks: [named('a', 'flashcards', 'language')] },
+        { dateKey: '2026-11-21', tasks: [named('c', '  flashcards  ', null)] },
+      ],
+      new Set(['masters', 'language'])
+    );
+    expect(remembered).toEqual({ flashcards: 'masters' });
+    expect(taskNameKey('  Write  Thesis. ')).toBe('write thesis');
+  });
+
+  test('finished or deleted goals fall back to the earlier goal', () => {
+    const remembered = rememberedGoals(
+      [
+        { dateKey: '2026-11-18', tasks: [named('a', 'Gym', 'health')] },
+        { dateKey: '2026-11-19', tasks: [named('b', 'Gym', 'finished')] },
+      ],
+      new Set(['health'])
+    );
+    expect(remembered).toEqual({ gym: 'health' });
+  });
+});
+
+describe('repeating tasks', () => {
+  test('daily, weekdays and weekly rules', () => {
+    // 2026-11-16 is a Monday.
+    const daily = { repeat: 'daily' as const, startDateKey: '2026-11-18' };
+    expect(repeatsOn(daily, '2026-11-17')).toBe(false);
+    expect(repeatsOn(daily, '2026-11-22')).toBe(true);
+    const weekdays = { repeat: 'weekdays' as const, startDateKey: '2026-11-16' };
+    expect(repeatsOn(weekdays, '2026-11-20')).toBe(true);
+    expect(repeatsOn(weekdays, '2026-11-21')).toBe(false);
+    const weekly = { repeat: 'weekly' as const, startDateKey: '2026-11-18' };
+    expect(repeatsOn(weekly, '2026-11-25')).toBe(true);
+    expect(repeatsOn(weekly, '2026-11-26')).toBe(false);
   });
 });

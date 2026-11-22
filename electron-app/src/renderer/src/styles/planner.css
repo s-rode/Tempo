@@ -479,6 +479,7 @@
 }
 .planner-task-estimate,
 .planner-task-carried,
+.planner-task-repeat,
 .planner-task-live {
   display: inline-flex;
   align-items: center;
@@ -615,6 +616,18 @@
   flex-wrap: wrap;
   gap: 3px 8px;
   margin-top: 3px;
+}
+
+.planner-add-goal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.planner-add-hint {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
 }
 
 /* Goal question under a task that was just added without one. */

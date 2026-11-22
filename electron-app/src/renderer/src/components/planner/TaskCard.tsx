@@ -6,6 +6,7 @@ import {
   MoreHorizontal,
   Pencil,
   Play,
+  Repeat,
   Target,
   Trash2,
   Undo2
@@ -15,10 +16,12 @@ import {
   addDays,
   goalColorVar,
   relativeDayLabel,
+  repeatLabel,
   shortWeekday,
   weekStartOf,
   type PlannerGoal,
-  type PlannerTask
+  type PlannerTask,
+  type RepeatRule
 } from '../../lib/plannerModel'
 import { displayMinutes } from '../../lib/taskEstimate'
 import { cn } from '../../lib/utils'
@@ -37,6 +40,7 @@ import { GoalChip, GoalMark } from './GoalBits'
 import type { Planner } from './usePlanner'
 
 const ESTIMATES = [15, 25, 30, 45, 60, 90, 120, 180]
+const REPEATS: RepeatRule[] = ['daily', 'weekdays', 'weekly']
 
 export interface TaskCardProps {
   task: PlannerTask
@@ -171,7 +175,7 @@ export function TaskCard({
       onContextMenu={(event) => {
         if (!editing) menu.openAtPointer(event)
       }}
-      aria-label={`${task.text}${goal ? `, goal ${goal.title}` : ''}${done ? ', completed' : ''}`}
+      aria-label={`${task.text}${goal ? `, goal ${goal.title}` : ''}${task.repeat ? `, repeats ${repeatLabel(task.repeat, task.repeatFromDateKey || dateKey).replace(/^Every/, 'every')}` : ''}${done ? ', completed' : ''}`}
     >
       {lead}
       <button
@@ -212,7 +216,7 @@ export function TaskCard({
             {task.text}
           </p>
         )}
-        {(goal || task.estimatedMinutes || task.carriedFromDateKey || inFocus) && (
+        {(goal || task.estimatedMinutes || task.carriedFromDateKey || task.repeat || inFocus) && (
           <div className="planner-task-meta">
             {inFocus && (
               <span className="planner-task-live">
@@ -224,6 +228,15 @@ export function TaskCard({
             {task.estimatedMinutes ? (
               <span className="planner-task-estimate">{displayMinutes(task.estimatedMinutes)}</span>
             ) : null}
+            {task.repeat && (
+              <span
+                className="planner-task-repeat"
+                title={`Repeats ${repeatLabel(task.repeat, task.repeatFromDateKey || dateKey).replace(/^Every/, 'every')}`}
+              >
+                <Repeat size={10} aria-hidden="true" />
+                {repeatLabel(task.repeat, task.repeatFromDateKey || dateKey, true)}
+              </span>
+            )}
             {task.carriedFromDateKey && !done && (
               <span
                 className="planner-task-carried"
@@ -331,6 +344,35 @@ export function TaskCard({
                 ].map((minutes) => (
                   <DropdownMenuRadioItem key={minutes} value={String(minutes)}>
                     {displayMinutes(minutes)}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Repeat size={14} />
+              Repeat
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="min-w-[180px]">
+              <DropdownMenuRadioGroup
+                value={task.repeat || ''}
+                onValueChange={(value) =>
+                  planner.setRepeat(task, dateKey, (value || null) as RepeatRule | null)
+                }
+              >
+                <DropdownMenuRadioItem value="">Never</DropdownMenuRadioItem>
+                <DropdownMenuSeparator />
+                {REPEATS.map((rule) => (
+                  <DropdownMenuRadioItem key={rule} value={rule}>
+                    {repeatLabel(
+                      rule,
+                      rule === task.repeat && task.repeatFromDateKey
+                        ? task.repeatFromDateKey
+                        : isPast
+                          ? todayKey
+                          : dateKey
+                    )}
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>

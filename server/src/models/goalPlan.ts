@@ -11,6 +11,8 @@ const goalTaskSchema = new mongoose.Schema(
     // the day it was first planned for when it rolled over unfinished.
     goalId: { type: String, default: null },
     carriedFromDateKey: { type: String, default: null },
+    // The repeating task (PlannerRoutine) this task was made from, if any.
+    routineId: { type: String, default: null },
   },
   { _id: false }
 );
@@ -51,6 +53,7 @@ export interface GoalTask {
   completedAtMs: number | null;
   goalId?: string | null;
   carriedFromDateKey?: string | null;
+  routineId?: string | null;
 }
 
 export const GoalPlanModel = mongoose.model('GoalPlan', goalPlanSchema);

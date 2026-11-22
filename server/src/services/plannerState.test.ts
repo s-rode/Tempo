@@ -4,7 +4,9 @@ const users = { findById: jest.fn() };
 const goalPlans = { find: jest.fn(), findOne: jest.fn(), updateOne: jest.fn() };
 
 mock.module('../models/user', () => ({ User: users }));
+const routines = { find: jest.fn(), updateMany: jest.fn() };
 mock.module('../models/goalPlan', () => ({ GoalPlanModel: goalPlans }));
+mock.module('../models/plannerRoutine', () => ({ PlannerRoutineModel: routines }));
 
 const { forgetPlannerState, forgetRollover, getPlannerState, rollOverUnfinished } = await import(
   './plannerState'
@@ -29,6 +31,8 @@ describe('planner carry-over', () => {
     forgetRollover('user-1');
     forgetPlannerState('user-1');
     goalPlans.updateOne.mockResolvedValue({});
+    routines.find.mockReturnValue(lean([]));
+    routines.updateMany.mockResolvedValue({});
   });
 
   test('Reminders stays the default source', async () => {
@@ -103,5 +107,59 @@ describe('planner carry-over', () => {
     ]);
     expect(results).toEqual([true, false]);
     expect(goalPlans.updateOne).toHaveBeenCalledTimes(2);
+  });
+
+  const routine = (id: string, repeat: string, startDateKey = '2026-11-16') => ({
+    id,
+    text: id,
+    goalId: 'masters',
+    estimatedMinutes: 20,
+    repeat,
+    startDateKey,
+    lastAddedDateKey: '2026-11-17',
+  });
+
+  test('adds the repeating tasks due today once', async () => {
+    userWith({ planningSource: 'planner', plannerSinceDateKey: '2026-11-10' });
+    goalPlans.find.mockReturnValue(lean([]));
+    goalPlans.findOne.mockReturnValue(lean({ tasks: [task('today', 0)] }));
+    // 2026-11-18 is a Wednesday; the weekly one started on a Monday.
+    routines.find.mockReturnValue(
+      lean([
+        routine('flashcards', 'daily'),
+        routine('review', 'weekly'),
+        routine('gym', 'weekdays'),
+      ])
+    );
+
+    expect(await rollOverUnfinished('user-1', NOW)).toBe(true);
+
+    const tasks = goalPlans.updateOne.mock.calls[0][1].$set.tasks;
+    expect(tasks.map((entry: any) => [entry.text, entry.routineId, entry.goalId])).toEqual([
+      ['today', undefined, undefined],
+      ['flashcards', 'flashcards', 'masters'],
+      ['gym', 'gym', 'masters'],
+    ]);
+    expect(routines.updateMany.mock.calls[0][0].id.$in).toEqual(['flashcards', 'gym']);
+    expect(routines.updateMany.mock.calls[0][1].$set.lastAddedDateKey).toBe('2026-11-18');
+  });
+
+  test('an unfinished repeating task carries over instead of doubling', async () => {
+    userWith({ planningSource: 'planner', plannerSinceDateKey: '2026-11-10' });
+    goalPlans.find.mockReturnValue(
+      lean([
+        { periodKey: '2026-11-16', tasks: [{ ...task('mon', 0), routineId: 'flashcards' }] },
+        { periodKey: '2026-11-17', tasks: [{ ...task('tue', 0), routineId: 'flashcards' }] },
+      ])
+    );
+    goalPlans.findOne.mockReturnValue(lean(null));
+    routines.find.mockReturnValue(lean([routine('flashcards', 'daily')]));
+
+    await rollOverUnfinished('user-1', NOW);
+
+    const tasks = goalPlans.updateOne.mock.calls[0][1].$set.tasks;
+    expect(tasks.map((entry: any) => [entry.id, entry.carriedFromDateKey])).toEqual([
+      ['tue', '2026-11-17'],
+    ]);
   });
 });

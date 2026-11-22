@@ -4,6 +4,8 @@ import { toast } from '../../hooks/use-toast'
 import { scheduleGoalProfileRefresh } from '../../lib/goalProfileRefresh'
 import {
   moveTaskInWeek,
+  repeatLabel,
+  type RepeatRule,
   type PlannerGoal,
   type PlannerTask,
   type PlannerWeek
@@ -34,10 +36,15 @@ export function usePlanner(weekStartKey?: string) {
   // field being replaced (the empty queue turns into a list on the first task).
   const [goalPrompt, setGoalPrompt] = useState<GoalPrompt | null>(null)
   const dismissGoalPrompt = useCallback(() => setGoalPrompt(null), [])
+  const { data: rememberedGoals } = trpc.planner.getRememberedGoals.useQuery(auth, {
+    enabled: !!token,
+    staleTime: 60_000
+  })
 
   const refresh = useCallback(() => {
     void utils.planner.getWeek.invalidate()
     void utils.planner.getGoals.invalidate()
+    void utils.planner.getRememberedGoals.invalidate()
     void utils.goals.getDailyPlan.invalidate()
     void utils.goals.getActiveContext.invalidate()
   }, [utils])
@@ -74,6 +81,10 @@ export function usePlanner(weekStartKey?: string) {
   const restore = trpc.planner.restoreTask.useMutation({
     onSuccess: settled,
     onError: failed('Could not restore the task')
+  })
+  const repeat = trpc.planner.setTaskRepeat.useMutation({
+    onSuccess: settled,
+    onError: failed('Could not change how the task repeats')
   })
   const move = trpc.planner.moveTask.useMutation({
     onSuccess: settled,
@@ -194,6 +205,23 @@ export function usePlanner(weekStartKey?: string) {
     update.mutate({ ...auth, dateKey, taskId: task.id, ...changes })
   }
 
+  const setRepeat = (task: PlannerTask, dateKey: string, rule: RepeatRule | null) => {
+    const before = task.repeat ?? null
+    if (before === rule) return
+    repeat.mutate(
+      { ...auth, dateKey, taskId: task.id, repeat: rule },
+      {
+        onSuccess: () =>
+          offerUndo(
+            rule
+              ? `Repeats ${repeatLabel(rule, dateKey).replace(/^Every/, 'every')}`
+              : 'Stopped repeating',
+            () => repeat.mutate({ ...auth, dateKey, taskId: task.id, repeat: before })
+          )
+      }
+    )
+  }
+
   return {
     auth,
     refresh,
@@ -201,7 +229,9 @@ export function usePlanner(weekStartKey?: string) {
     updateTask,
     moveTask,
     setCompleted,
+    setRepeat,
     deleteTask,
+    rememberedGoals,
     goalPrompt,
     promptForGoal: setGoalPrompt,
     dismissGoalPrompt,
