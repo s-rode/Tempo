@@ -479,6 +479,7 @@
 }
 .planner-task-estimate,
 .planner-task-carried,
+.planner-task-repeat,
 .planner-task-live {
   display: inline-flex;
   align-items: center;

@@ -10,6 +10,21 @@ export interface PlannerTask {
   completedAtMs: number | null
   goalId?: string | null
   carriedFromDateKey?: string | null
+  /** Set on tasks made by or turned into a repeating task. */
+  routineId?: string | null
+  repeat?: RepeatRule | null
+  /** The first day of the repeat, which sets the weekday of a weekly one. */
+  repeatFromDateKey?: string | null
+}
+
+export type RepeatRule = 'daily' | 'weekdays' | 'weekly'
+
+/** Menu and label wording for each repeat rule; weekly names the task's weekday. */
+export const repeatLabel = (rule: RepeatRule, dateKey: string, short = false): string => {
+  if (rule === 'daily') return short ? 'Daily' : 'Every Day'
+  if (rule === 'weekdays') return short ? 'Weekdays' : 'Every Weekday'
+  const weekday = dateFromKey(dateKey).toLocaleDateString('en-US', { weekday: 'long' })
+  return short ? `${weekday}s` : `Every ${weekday}`
 }
 
 export interface PlannerGoal {
