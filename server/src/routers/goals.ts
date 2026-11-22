@@ -34,6 +34,7 @@ const persistedTask = z.object({
   // Planner links survive an undo of a delete made from Today's Plan.
   goalId: z.string().uuid().nullable().optional(),
   carriedFromDateKey: z.string().max(10).nullable().optional(),
+  routineId: z.string().uuid().nullable().optional(),
 });
 
 export const changed = async (userId: string, beforeFingerprint: string) => {
