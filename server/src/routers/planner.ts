@@ -20,6 +20,7 @@ import {
   keyFromDate,
   normalizeTasks,
   openTasks,
+  rememberedGoals,
   removeTask,
   weekDayKeys,
   weekStartOf,
@@ -262,6 +263,24 @@ export const plannerRouter = router({
       });
       return listGoals(userId);
     }),
+
+  /** Task name -> the open goal it was last linked to, to prefill new tasks. */
+  getRememberedGoals: publicProcedure.input(tokenInput).query(async ({ input }) => {
+    const userId = verifyToken(input.token).userId;
+    const [goals, plans] = await Promise.all([
+      PlannerGoalModel.find({ userId, completedAtMs: null }).select('id').lean(),
+      GoalPlanModel.find({ userId, scope: 'daily', 'tasks.goalId': { $type: 'string' } })
+        .select('periodKey tasks.text tasks.goalId tasks.position tasks.completedAtMs')
+        .lean(),
+    ]);
+    return rememberedGoals(
+      (plans as Array<{ periodKey: string; tasks?: GoalTask[] }>).map((plan) => ({
+        dateKey: plan.periodKey,
+        tasks: (plan.tasks || []) as GoalTask[],
+      })),
+      new Set(goals.map((goal) => goal.id as string))
+    );
+  }),
 
   getWeek: publicProcedure
     .input(tokenInput.extend({ weekStartKey: dateKey.optional() }))

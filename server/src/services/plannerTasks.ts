@@ -93,3 +93,28 @@ export const carryOver = (
     }
   return [...queue.map((task, position) => ({ ...task, position })), ...doneTasks(today)];
 };
+
+/** How task names are compared: case, extra spaces and a trailing period don't count. */
+export const taskNameKey = (text: string): string =>
+  text.trim().replace(/\s+/g, ' ').replace(/\.+$/, '').toLocaleLowerCase();
+
+/**
+ * The goal each task name was last linked to, so a task typed again (say
+ * "Flashcards") can start with the same goal. Later days win; within a day the
+ * later task wins. Goals outside `usableGoalIds` (finished or deleted) are
+ * skipped, falling back to the name's previous goal.
+ */
+export const rememberedGoals = (
+  days: Array<{ dateKey: string; tasks: GoalTask[] }>,
+  usableGoalIds: Set<string>
+): Record<string, string> => {
+  const remembered: Record<string, string> = {};
+  const ordered = [...days].sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+  for (const day of ordered)
+    for (const task of [...openTasks(day.tasks), ...doneTasks(day.tasks)]) {
+      if (!task.goalId || !usableGoalIds.has(task.goalId)) continue;
+      const key = taskNameKey(task.text);
+      if (key) remembered[key] = task.goalId;
+    }
+  return remembered;
+};
