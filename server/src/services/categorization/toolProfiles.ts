@@ -1,6 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
 import type { ToolCapabilityProfile } from '../../../../shared/classification';
 import { localClassificationProvider } from './provider';
+import { TOOL_PROFILE_REVISION } from './toolProfilePolicy';
 
 const schema = new Schema({
   toolKey: { type: String, required: true, unique: true },
@@ -16,7 +17,9 @@ const pending = new Map<
 const attempted = new Set<string>();
 export async function readToolProfile(toolKey: string): Promise<ToolCapabilityProfile | null> {
   const record = await ToolProfileModel.findOne({ toolKey }).lean();
-  return record
+  // A profile from an older revision may carry a role the current prompt and
+  // normalization would not give; treat it as missing so it is profiled again.
+  return record && record.revision === TOOL_PROFILE_REVISION
     ? {
         role: record.role as ToolCapabilityProfile['role'],
         supportingModes: record.supportingModes,
