@@ -686,6 +686,10 @@ export class OllamaClassificationProvider implements ClassificationProvider {
               ? 'conflicting'
               : 'opaque'
           : (raw.a ?? raw.assessment),
+        visibleKind:
+          personalized && ['named_subject', 'leisure', 'no_subject'].includes(raw.k as string)
+            ? raw.k
+            : undefined,
         relation: personalized
           ? verdict === 'productive'
             ? raw.m
@@ -733,6 +737,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         decision: {
           state: checked.data.state,
           assessment: checked.data.assessment,
+          visibleKind: checked.data.visibleKind,
           relation: checked.data.state === 'focused' ? checked.data.relation : 'none',
           matchedGoalRef: checked.data.state !== 'distracted' ? target?.ref || null : null,
           targetAlias: checked.data.targetAlias,

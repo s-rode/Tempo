@@ -50,6 +50,9 @@ export const GoalRelationDecisionSchema = z.object({
 export const SemanticActivityDecisionSchema = z.object({
   state: z.enum(['focused', 'distracted', 'uncertain']),
   assessment: z.enum(['relevant', 'conflicting', 'opaque']).optional(),
+  // The personalized prompt's `k`: what kind of thing is visible. It tells a
+  // topic mismatch (named_subject) apart from off-task leisure.
+  visibleKind: z.enum(['named_subject', 'leisure', 'no_subject']).optional(),
   relation: z.enum(['direct', 'supporting', 'none']),
   targetAlias: z.string().nullable(),
   supportingMode: z.enum(SUPPORTING_MODES).nullable(),
