@@ -73,6 +73,15 @@ const isSameVisibleActivity = (
       latestEvent.browser === activeWindow.browser
   )
 
+// policy_override covers several local rules. Name the one that applied, so a
+// tool-role decision is not presented as something the user taught Tempo.
+const policyOverrideStatus = (basis: string | null | undefined): string => {
+  if (basis === 'tool_role') return 'Focused · this tool fits the task’s method'
+  if (basis === 'task_preference') return 'Focused · matches your correction for this task'
+  if (basis === 'list_preference') return 'Focused · matches your corrections in this list'
+  return 'Focused · learned from a similar correction'
+}
+
 const statusForPersistedEvent = (latestEvent: ActiveWindowEvent): string | null => {
   if (latestEvent.classificationStatus === 'ollama_unavailable') return 'Local AI is unavailable'
   if (latestEvent.classificationStatus === 'invalid_response')
@@ -81,7 +90,7 @@ const statusForPersistedEvent = (latestEvent: ActiveWindowEvent): string | null 
     return 'Firefox text capture is unavailable'
   if (latestEvent.classificationStatus === 'insufficient_context') return 'Needs more context'
   if (latestEvent.classificationStatus === 'policy_override')
-    return 'Focused · learned from a similar correction'
+    return policyOverrideStatus(latestEvent.classificationBasis)
   return null
 }
 
