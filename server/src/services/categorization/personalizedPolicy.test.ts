@@ -271,3 +271,88 @@ describe('one correction for a task and tool', () => {
     expect(result.state).toBe('distracted');
   });
 });
+
+describe('an app that cannot serve the task', () => {
+  const unfit: SemanticProposal = {
+    assessment: 'conflicting',
+    visibleKind: 'no_subject',
+    taskFit: 'no',
+    state: 'distracted',
+    relation: 'none',
+    confidence: 'high',
+    matchedGoalRef: null,
+    supportingMode: null,
+    evidenceAliases: ['E1'],
+  };
+  const lecture: HistoricalGoalTarget = {
+    ...target,
+    taskKey: 'lecture',
+    text: 'Watch the formal methods lecture',
+    classificationText: 'Watch the formal methods lecture',
+    supportingModes: ['read_reference'],
+  };
+  const general = { role: 'general_purpose' as const, supportingModes: [], revision: 'v2' };
+  test('is a distraction without a descriptive title, in every strictness', () => {
+    for (const strictness of ['flexible', 'balanced', 'strict'] as const) {
+      const r = resolve({
+        proposal: unfit,
+        targets: [lecture],
+        preferences: [],
+        toolProfile: general,
+        strictness,
+      });
+      expect(r.state).toBe('distracted');
+      expect(r.basis).toBe('tool_mismatch');
+    }
+  });
+  test('also covers leisure that only the app name shows', () => {
+    const r = resolve({
+      proposal: { ...unfit, visibleKind: 'leisure' },
+      targets: [lecture],
+      preferences: [],
+    });
+    expect(r.basis).toBe('tool_mismatch');
+  });
+  test('stays uncertain when the model thinks the app may serve the task', () => {
+    const r = resolve({
+      proposal: { ...unfit, taskFit: 'maybe' },
+      targets: [lecture],
+      preferences: [],
+      toolProfile: general,
+    });
+    expect(r.state).toBe('uncertain');
+  });
+  test('never applies to a specialized tool for a method the task uses', () => {
+    const r = resolve({
+      proposal: { ...unfit, evidenceAliases: [] },
+      targets: [lecture],
+      preferences: [],
+      toolProfile: { role: 'specialized', supportingModes: ['read_reference'], revision: 'v2' },
+    });
+    expect(r.state).toBe('focused');
+    expect(r.basis).toBe('tool_role');
+  });
+  test('yields to an explicit focused correction for this tool and task', () => {
+    const corrections = actions(1).map((a) => ({
+      ...a,
+      context: { ...lecture },
+      supportingMode: null,
+    }));
+    const r = resolve({
+      proposal: unfit,
+      targets: [lecture],
+      preferences: consolidatePreferences(corrections, 'balanced', now),
+    });
+    expect(r.state).toBe('focused');
+    expect(r.basis).toBe('task_preference');
+  });
+  test('a visible title keeps the ordinary visible conflict', () => {
+    const r = resolve({
+      proposal: { ...unfit, visibleKind: 'leisure', evidenceAliases: ['E2'] },
+      targets: [lecture],
+      preferences: [],
+      independentEvidence: true,
+    });
+    expect(r.basis).toBe('visible_conflict');
+  });
+});

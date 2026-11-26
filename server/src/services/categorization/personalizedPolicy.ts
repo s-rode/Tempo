@@ -9,7 +9,7 @@ import type { CorrectionAction } from '../../models/correctionAction';
 
 // Bump whenever the foreground prompt or policy changes, so automatic history
 // decided under the previous revision is not reused.
-export const PERSONALIZED_POLICY_VERSION = 'contextual-v5';
+export const PERSONALIZED_POLICY_VERSION = 'contextual-v6';
 export const PROMOTION_REQUIREMENTS = {
   flexible: { actions: 2, sessions: 2, tasks: 2 },
   balanced: { actions: 3, sessions: 2, tasks: 2 },
@@ -192,6 +192,53 @@ export function resolvePersonalizedPolicy(input: {
     (methodOnlyConflict ||
       proposal.evidenceAliases.length === 0 ||
       (!input.independentEvidence && input.toolProfile?.role !== 'specialized'));
+  const applicableTo = (target: HistoricalGoalTarget) =>
+    input.preferences.filter(
+      (p) =>
+        (p.scope === 'task'
+          ? p.key === target.taskKey
+          : Boolean(target.listKey) && p.key === target.listKey) &&
+        (p.supportingMode === null || target.supportingModes.includes(p.supportingMode))
+    );
+  const focusedPreference = (applicable: ScopedPreference[]) => {
+    const task = applicable.find((p) => p.scope === 'task');
+    return task?.conflicted
+      ? undefined
+      : applicable.find((p) => p.state === 'focused' && !p.conflicted);
+  };
+  // The model saw no subject, or only leisure, and judged that the application
+  // itself cannot serve the task (taskFit "no"): mail during a lecture, music
+  // during coding. That judgment rests on the application, which is always part
+  // of the evidence, so it does not need a title or page to back it. It never
+  // applies to a specialized tool built for a method the task uses, and an
+  // explicit focused correction for this tool and task still wins.
+  if (
+    unsupportedConflict &&
+    !methodOnlyConflict &&
+    proposal.taskFit === 'no' &&
+    proposal.visibleKind !== 'named_subject'
+  ) {
+    const supportsTask = targets.some(
+      (t) =>
+        input.toolProfile?.role === 'specialized' &&
+        input.toolProfile.supportingModes.some(
+          (mode) => mode !== 'resource_navigation' && t.supportingModes.includes(mode)
+        )
+    );
+    if (!supportsTask) {
+      for (const t of targets) {
+        const preference = focusedPreference(applicableTo(t));
+        if (preference)
+          return result(
+            'focused',
+            preference.scope === 'task' ? 'task_preference' : 'list_preference',
+            t,
+            preference
+          );
+      }
+      return result('distracted', 'tool_mismatch', conflictTarget);
+    }
+  }
   const assessment =
     (proposal.assessment === 'relevant' && !input.independentEvidence) || unsupportedConflict
       ? 'opaque'
@@ -201,20 +248,11 @@ export function resolvePersonalizedPolicy(input: {
     targets.find((t) => t.ref === proposal.matchedGoalRef) ||
     (targets.length === 1 ? targets[0] : null);
   if (!target) return result('uncertain', 'insufficient_evidence');
-  const compatible = (p: ScopedPreference) =>
-    p.supportingMode === null || target.supportingModes.includes(p.supportingMode);
-  const applicable = input.preferences.filter(
-    (p) =>
-      (p.scope === 'task'
-        ? p.key === target.taskKey
-        : Boolean(target.listKey) && p.key === target.listKey) && compatible(p)
-  );
+  const applicable = applicableTo(target);
   const task = applicable.find((p) => p.scope === 'task');
   if (task?.state === 'distracted' && !task.conflicted)
     return result('distracted', 'task_preference', target, task);
-  const preference = task?.conflicted
-    ? undefined
-    : applicable.find((p) => p.state === 'focused' && !p.conflicted);
+  const preference = focusedPreference(applicable);
   if (
     assessment === 'relevant' &&
     input.independentEvidence &&
