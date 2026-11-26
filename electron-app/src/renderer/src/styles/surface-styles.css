@@ -380,21 +380,11 @@
   --accent-foreground: 45 22% 96.5%;
   --border: 94 5.8% 23.7%;
   --input: 98 5.7% 27.5%;
-  --primary: 101 21.6% 56.5%;
-  --primary-foreground: 96 7% 14.3%;
-  --accent-system: 101 21.6% 56.5%;
-  --ring: 101 21.6% 56.5%;
-  --tempo-system-accent: #87a878 !important;
-  --day-row-selected: rgb(135 168 120 / 0.16);
 
   --tempo-flat-sidebar: #1c1f1a;
   --tempo-flat-sidebar-edge: rgb(248 247 244 / 0.06);
   --tempo-flat-sheet-edge: rgb(248 247 244 / 0.12);
   --tempo-flat-card: #2c302a;
-  --tempo-flat-focused: #9dbb8e;
-  --tempo-flat-distracted: #e38072;
-  --tempo-flat-now-focused: rgb(38 56 46 / 0.55);
-  --tempo-flat-now-distracted: rgb(227 128 114 / 0.08);
 
   --glass-edge: rgb(248 247 244 / 0.07);
   --glass-divider: rgb(248 247 244 / 0.08);
@@ -403,12 +393,31 @@
   --glass-pill-bottom: rgb(248 247 244 / 0.09);
   --glass-track: rgb(248 247 244 / 0.07);
 
+  --day-hairline: rgb(248 247 244 / 0.08);
+  --day-row-hover: rgb(248 247 244 / 0.05);
+  --planner-surface: rgb(248 247 244 / 0.05);
+  --planner-line: rgb(248 247 244 / 0.09);
+  --planner-line-strong: rgb(248 247 244 / 0.2);
+  --planner-fill: rgb(248 247 244 / 0.035);
+}
+
+/* The dark Sage colours, shared by Sage and Sage Solid. */
+:root.dark:is(.tempo-dark-sage, .tempo-dark-sage-solid) {
+  --primary: 101 21.6% 56.5%;
+  --primary-foreground: 96 7% 14.3%;
+  --accent-system: 101 21.6% 56.5%;
+  --ring: 101 21.6% 56.5%;
+  --tempo-system-accent: #87a878 !important;
+  --day-row-selected: rgb(135 168 120 / 0.16);
+  --tempo-flat-focused: #9dbb8e;
+  --tempo-flat-distracted: #e38072;
+  --tempo-flat-now-focused: rgb(38 56 46 / 0.55);
+  --tempo-flat-now-distracted: rgb(227 128 114 / 0.08);
   --insight-deep: #6a7d4c;
   --insight-focus: #87a878;
   --insight-behind: #e5aa50;
   --insight-distract: #e38072;
   --insight-uncertain: rgb(248 247 244 / 0.16);
-
   --day-focused: #87a878;
   --day-distracted: #e38072;
   --day-uncertain: #e5aa50;
@@ -423,13 +432,6 @@
   --day-distracted-text: #e9948a;
   --day-uncertain-text: #e5aa50;
   --day-on-accent: #242722;
-  --day-hairline: rgb(248 247 244 / 0.08);
-  --day-row-hover: rgb(248 247 244 / 0.05);
-  --planner-surface: rgb(248 247 244 / 0.05);
-  --planner-line: rgb(248 247 244 / 0.09);
-  --planner-line-strong: rgb(248 247 244 / 0.2);
-  --planner-fill: rgb(248 247 244 / 0.035);
-
   --tempo-cat-red: #e38072;
   --tempo-cat-orange: #e09468;
   --tempo-cat-yellow: #e5aa50;
@@ -438,4 +440,22 @@
   --tempo-cat-blue: #7f9bb5;
   --tempo-cat-purple: #ad8fab;
   --tempo-cat-neutral: #989b92;
+}
+
+/* Dark: Sage Solid.  Solid's neutral greys with the Sage colours, and the
+   two greys swapped as in the Claude app: the window takes the deep
+   #1f1e1d, the sidebar the softer #262624, and cards sit a step above the
+   window. */
+:root.dark.tempo-dark-sage-solid {
+  --background: 30 3.3% 11.8%;
+  --card: 60 2.6% 15.3%;
+  --popover: 60 2.6% 15.3%;
+  --secondary: 60 2% 17%;
+  --muted: 60 2% 16%;
+  --accent: 60 3% 19%;
+  --border: 60 4% 20%;
+  --input: 60 4% 26%;
+  --tempo-flat-sidebar: #262624;
+  --tempo-flat-card: #282826;
+  --tempo-flat-now-focused: rgb(135 168 120 / 0.07);
 }

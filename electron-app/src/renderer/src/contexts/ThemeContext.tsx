@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
 export type Theme = 'light' | 'dark' | 'system'
-/** How cards and panels look in dark mode.  Light mode is the same for both. */
-export type DarkStyle = 'solid' | 'gruvbox' | 'sage'
+/** How cards and panels look in dark mode. */
+export type DarkStyle = 'solid' | 'gruvbox' | 'sage' | 'sage-solid'
 
-export const DARK_STYLES: ReadonlyArray<DarkStyle> = ['solid', 'gruvbox', 'sage']
+export const DARK_STYLES: ReadonlyArray<DarkStyle> = ['solid', 'gruvbox', 'sage', 'sage-solid']
 export const isDarkStyle = (value: unknown): value is DarkStyle =>
   DARK_STYLES.includes(value as DarkStyle)
 /** Sage was briefly called Quest; read that name as Sage. */

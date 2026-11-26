@@ -13,7 +13,8 @@ const THEMES: ReadonlyArray<{ value: Theme; label: string }> = [
 const DARK_STYLE_OPTIONS: ReadonlyArray<{ value: DarkStyle; label: string }> = [
   { value: 'solid', label: 'Solid' },
   { value: 'gruvbox', label: 'Gruvbox' },
-  { value: 'sage', label: 'Sage' }
+  { value: 'sage', label: 'Sage' },
+  { value: 'sage-solid', label: 'Sage Solid' }
 ]
 
 const LIGHT_STYLE_OPTIONS: ReadonlyArray<{ value: LightStyle; label: string }> = [
@@ -95,7 +96,7 @@ export function ThemeSwitcher() {
       />
       <SettingsRow
         title="Dark style"
-        description="Solid uses quiet grey cards. Gruvbox adds warmer text and small uppercase headings. Sage uses a green-black ink with sage green and coral."
+        description="Solid uses quiet grey cards. Gruvbox adds warmer text and small uppercase headings. Sage uses a green-black ink with sage green and coral. Sage Solid uses the Sage colours on a deep black window with a grey sidebar."
         inactive={theme === 'light'}
         control={
           <SettingsSegmented

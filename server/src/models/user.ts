@@ -64,7 +64,7 @@ const userSchema = new mongoose.Schema({
       type: String,
       default: 'solid',
       // 'quest' is Sage's earlier name; kept so saved documents stay valid.
-      enum: ['solid', 'gruvbox', 'sage', 'quest'],
+      enum: ['solid', 'gruvbox', 'sage', 'sage-solid', 'quest'],
     },
     // How cards and panels look in light mode; glass is the original look.
     lightStyle: {
