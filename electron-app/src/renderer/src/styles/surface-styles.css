@@ -443,19 +443,19 @@
 }
 
 /* Dark: Sage Solid.  Solid's neutral greys with the Sage colours, and the
-   two greys swapped as in the Claude app: the window takes the deep
-   #1f1e1d, the sidebar the softer #262624, and cards sit a step above the
-   window. */
+   two greys swapped as in the Claude app: the window takes Claude's deep
+   neutral #191919, the sidebar the softer #262624, and cards sit a step
+   above the window. */
 :root.dark.tempo-dark-sage-solid {
-  --background: 30 3.3% 11.8%;
-  --card: 60 2.6% 15.3%;
-  --popover: 60 2.6% 15.3%;
-  --secondary: 60 2% 17%;
-  --muted: 60 2% 16%;
-  --accent: 60 3% 19%;
-  --border: 60 4% 20%;
-  --input: 60 4% 26%;
+  --background: 0 0% 9.8%;
+  --card: 60 1.4% 13.5%;
+  --popover: 60 1.4% 13.5%;
+  --secondary: 60 1.5% 15.5%;
+  --muted: 60 1.5% 14.5%;
+  --accent: 60 2% 18%;
+  --border: 60 3% 19%;
+  --input: 60 3% 25%;
   --tempo-flat-sidebar: #262624;
-  --tempo-flat-card: #282826;
+  --tempo-flat-card: #232322;
   --tempo-flat-now-focused: rgb(135 168 120 / 0.07);
 }
