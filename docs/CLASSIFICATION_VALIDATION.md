@@ -12,7 +12,7 @@ Source tests, real-model runs, staged app behavior and installed app behavior ar
 
 ## Hard scenarios (v3)
 
-`server/evaluation/scenarios-v3.json` adds 331 authored cases in 14 categories: paraphrases and subtopics, sibling subjects in the same tool, keywords shared in another sense, noisy titles, windows with no visible subject, work files whose names do not reveal their subject, prompt injection in titles and page text, Firefox page text, several active tasks, developer workflows, communication, media, terse tasks that rely on their Reminders list, and tasks and pages in different languages. A case may list more than one acceptable label where the visible evidence is genuinely ambiguous.
+`server/evaluation/scenarios-v3.json` adds 349 authored cases in 15 categories: paraphrases and subtopics, sibling subjects in the same tool, keywords shared in another sense, noisy titles, windows with no visible subject, work files whose names do not reveal their subject, prompt injection in titles and page text, Firefox page text, several active tasks, developer workflows, communication, media, terse tasks that rely on their Reminders list, tasks and pages in different languages, and apps that cannot serve the task even though no subject is visible (with look-alike cases where the app plausibly helps). A case may list more than one acceptable label where the visible evidence is genuinely ambiguous.
 
 The cases are split into `dev` (214) and `holdout` (117) with disjoint goals. Prompt and policy changes may be tuned against `dev` only. Run `holdout` once, on a finished change, and do not inspect its individual failures while still editing; otherwise it stops measuring anything.
 
