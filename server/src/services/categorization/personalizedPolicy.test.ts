@@ -190,11 +190,16 @@ describe('bounded explicit personal learning', () => {
     // A named subject, strict mode, or an unrelated tool still defeats the tool role.
     expect(resolve({ toolProfile, proposal: conflict }).state).toBe('distracted');
     expect(
-      resolve({ toolProfile, proposal: conflict, targets: [flashcards], strictness: 'strict' }).state
+      resolve({ toolProfile, proposal: conflict, targets: [flashcards], strictness: 'strict' })
+        .state
     ).toBe('distracted');
     expect(
-      resolve({ toolProfile: null, proposal: conflict, targets: [flashcards], independentEvidence: true })
-        .state
+      resolve({
+        toolProfile: null,
+        proposal: conflict,
+        targets: [flashcards],
+        independentEvidence: true,
+      }).state
     ).toBe('distracted');
   });
   test('leisure in a tool profiled as specialized stays distracted on a method-only goal', () => {
@@ -226,8 +231,13 @@ describe('bounded explicit personal learning', () => {
     // An older decision without a visible kind is not treated as a topic mismatch either.
     const { visibleKind: _omit, ...unknownKind } = music;
     expect(
-      resolve({ preferences: [], toolProfile, proposal: unknownKind, targets: [flashcards], independentEvidence: true })
-        .state
+      resolve({
+        preferences: [],
+        toolProfile,
+        proposal: unknownKind,
+        targets: [flashcards],
+        independentEvidence: true,
+      }).state
     ).toBe('distracted');
   });
   test('technical failures remain neutral despite a strong preference', () => {
@@ -329,13 +339,13 @@ describe('an app that cannot serve the task', () => {
     });
     expect(maybe.state).toBe('uncertain');
   });
-  test('leisure seen only through the app name needs a model that is not unsure', () => {
+  test('leisure seen only through the app name counts even at low confidence', () => {
     const r = resolve({
       proposal: { ...unfit, visibleKind: 'leisure', confidence: 'low' },
       targets: [lecture],
       preferences: [],
     });
-    expect(r.state).toBe('uncertain');
+    expect(r.basis).toBe('tool_mismatch');
   });
   test('stays uncertain when the model thinks the app may serve the task', () => {
     const r = resolve({

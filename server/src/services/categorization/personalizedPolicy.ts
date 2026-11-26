@@ -211,7 +211,8 @@ export function resolvePersonalizedPolicy(input: {
   // rests on the application, which is always part of the evidence, so it does
   // not need a title or page to back it. It covers a window with no subject,
   // which is never a visible conflict whatever title it has, and leisure seen
-  // only through the app name when the model is not unsure about it. It never
+  // only through the app name. The model's confidence is no gate: on the dev
+  // split it said low for every clear case (music, chat, a camera). It never
   // applies to a specialized tool built for a method the task uses, and an
   // explicit focused correction for this tool and task still wins.
   const noSubjectConflict =
@@ -219,10 +220,7 @@ export function resolvePersonalizedPolicy(input: {
   if (
     proposal.taskFit === 'no' &&
     (noSubjectConflict ||
-      (unsupportedConflict &&
-        !methodOnlyConflict &&
-        proposal.visibleKind === 'leisure' &&
-        proposal.confidence !== 'low'))
+      (unsupportedConflict && !methodOnlyConflict && proposal.visibleKind === 'leisure'))
   ) {
     const supportsTask = targets.some(
       (t) =>
