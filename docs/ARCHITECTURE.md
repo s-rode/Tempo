@@ -82,3 +82,10 @@ Tempo's Dock icon on macOS. The expanded notch's **Open window** button restores
 the main window and its Dock icon. Opening Tempo again, following a deep link,
 or opening the window from a notification also restores its Dock presence.
 Minimizing keeps the Dock icon; Quit still shuts down Tempo and its helpers.
+
+With no window and no Dock icon, macOS would put Tempo into App Nap and defer
+the native observer's timers until the window opened again. While monitoring
+runs, the native module therefore holds a user-initiated `NSProcessInfo`
+activity (`NSActivityUserInitiatedAllowingIdleSystemSleep`): captures and
+distraction nudges stay live in the background, and the Mac can still sleep
+when idle.
