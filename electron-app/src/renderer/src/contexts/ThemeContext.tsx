@@ -2,15 +2,15 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 
 export type Theme = 'light' | 'dark' | 'system'
 /** How cards and panels look in dark mode.  Light mode is the same for both. */
-export type DarkStyle = 'solid' | 'gruvbox'
+export type DarkStyle = 'solid' | 'gruvbox' | 'quest'
 
-export const DARK_STYLES: ReadonlyArray<DarkStyle> = ['solid', 'gruvbox']
+export const DARK_STYLES: ReadonlyArray<DarkStyle> = ['solid', 'gruvbox', 'quest']
 export const isDarkStyle = (value: unknown): value is DarkStyle =>
   DARK_STYLES.includes(value as DarkStyle)
 /** How cards and panels look in light mode.  Glass is the original look. */
-export type LightStyle = 'glass' | 'solid' | 'gruvbox'
+export type LightStyle = 'glass' | 'solid' | 'gruvbox' | 'quest'
 
-export const LIGHT_STYLES: ReadonlyArray<LightStyle> = ['glass', 'solid', 'gruvbox']
+export const LIGHT_STYLES: ReadonlyArray<LightStyle> = ['glass', 'solid', 'gruvbox', 'quest']
 export const isLightStyle = (value: unknown): value is LightStyle =>
   LIGHT_STYLES.includes(value as LightStyle)
 

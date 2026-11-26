@@ -12,12 +12,14 @@ const THEMES: ReadonlyArray<{ value: Theme; label: string }> = [
 
 const DARK_STYLE_OPTIONS: ReadonlyArray<{ value: DarkStyle; label: string }> = [
   { value: 'solid', label: 'Solid' },
-  { value: 'gruvbox', label: 'Gruvbox' }
+  { value: 'gruvbox', label: 'Gruvbox' },
+  { value: 'quest', label: 'Quest' }
 ]
 
 const LIGHT_STYLE_OPTIONS: ReadonlyArray<{ value: LightStyle; label: string }> = [
   { value: 'solid', label: 'Solid' },
   { value: 'gruvbox', label: 'Gruvbox' },
+  { value: 'quest', label: 'Quest' },
   { value: 'glass', label: 'Glass' }
 ]
 
@@ -76,7 +78,7 @@ export function ThemeSwitcher() {
       />
       <SettingsRow
         title="Light style"
-        description="Solid uses white cards on ivory. Gruvbox uses warm paper colours. Glass is the original look."
+        description="Solid uses white cards on ivory. Gruvbox uses warm paper colours. Quest uses paper, sage and coral, like the app icon. Glass is the original look."
         inactive={theme === 'dark'}
         control={
           <SettingsSegmented
@@ -90,7 +92,7 @@ export function ThemeSwitcher() {
       />
       <SettingsRow
         title="Dark style"
-        description="Solid uses quiet grey cards. Gruvbox adds warmer text and small uppercase headings."
+        description="Solid uses quiet grey cards. Gruvbox adds warmer text and small uppercase headings. Quest uses a green-black ink with sage and coral."
         inactive={theme === 'light'}
         control={
           <SettingsSegmented
