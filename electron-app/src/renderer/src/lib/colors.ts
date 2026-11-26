@@ -46,7 +46,7 @@ export const getDarkerColor = (hex: string, amount = 0.5): string => {
 }
 
 // Gruvbox's neutral accents, which read on light and dark surfaces alike.
-// Each is a CSS variable so a theme (Quest) can swap the whole family.
+// Each is a CSS variable so a theme (Sage) can swap the whole family.
 const GRUVBOX = [
   { hue: 2, color: 'var(--tempo-cat-red, #cc241d)' },
   { hue: 24, color: 'var(--tempo-cat-orange, #d65d0e)' },

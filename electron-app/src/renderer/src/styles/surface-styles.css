@@ -8,7 +8,7 @@
    still read as above the window.  Gruvbox accents carry state.
 
    Three styles share this base, chosen in Settings > General > Dark style:
-   Solid (these rules), Gruvbox and Quest (the overrides further down).  The style
+   Solid (these rules), Gruvbox and Sage (the overrides further down).  The style
    class sits on <html> next to `.dark`.  Loaded after index.css and day.css;
    `:root.dark` outranks the plain `.dark` token blocks there. */
 
@@ -69,20 +69,20 @@
 }
 
 /* A solid sidebar instead of the translucent material. */
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-sidebar {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-sidebar {
   background: var(--tempo-flat-sidebar);
   box-shadow: inset -1px 0 0 var(--tempo-flat-sidebar-edge);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest).tempo-vibrancy body:has(.tempo-shell) {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage).tempo-vibrancy body:has(.tempo-shell) {
   background: var(--tempo-flat-sidebar);
 }
 /* Selected sidebar page: a quiet raised grey, no rim. */
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-sidebar-item[data-active='true'] {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-sidebar-item[data-active='true'] {
   box-shadow: none;
 }
 
 /* Cards: one solid surface and a hairline, nothing else. */
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) :is(
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) :is(
     .tempo-glass-card,
     .tempo-inspector-section,
     .tempo-inspector .tempo-today-plan,
@@ -94,17 +94,17 @@
   border-radius: var(--tempo-flat-card-radius);
   box-shadow: 0 0 0 0.5px var(--glass-edge);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-insight-suggestion {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-insight-suggestion {
   box-shadow: 0 0 0 0.5px var(--glass-edge);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-glass-segmented > button[data-state='on'],
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-glass-button {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-glass-segmented > button[data-state='on'],
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-glass-button {
   box-shadow:
     0 0 0 0.5px var(--glass-edge),
     0 1px 2px -1px var(--glass-shadow);
 }
 /* Floating sheets stay opaque; blur adds nothing over a solid fill. */
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-glass-surface {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-glass-surface {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   box-shadow:
@@ -113,22 +113,22 @@
 }
 
 /* The Now card carries state in gruvbox colours instead of blue. */
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-inspector-section[data-state='focused'] {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-inspector-section[data-state='focused'] {
   --now-tint: var(--tempo-flat-now-focused);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-inspector-section[data-state='distracted'] {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-inspector-section[data-state='distracted'] {
   --now-tint: var(--tempo-flat-now-distracted);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-status-focused {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-status-focused {
   color: var(--tempo-flat-focused);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-status-distracted {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-status-distracted {
   color: var(--tempo-flat-distracted);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-plan-active {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-plan-active {
   color: var(--tempo-flat-focused);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-plan-task.is-in-focus {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-plan-task.is-in-focus {
   box-shadow: inset 2px 0 0 var(--tempo-flat-focused);
 }
 
@@ -169,7 +169,7 @@
    faded light accents carry state, as in the light Timeline. */
 :root.tempo-light-solid:not(.dark),
 :root.tempo-light-gruvbox:not(.dark),
-:root.tempo-light-quest:not(.dark) {
+:root.tempo-light-sage:not(.dark) {
   --background: 48 33% 97%;
   --foreground: 60 3% 8%;
   --card: 0 0% 100%;
@@ -262,16 +262,16 @@
   background: #fbf8ee;
 }
 
-/* ---------- Quest ----------
+/* ---------- Sage ----------
    The palette of the app icon: paper #f8f7f4, ink #242722, sage #87a878,
    moss #6a7d4c, coral #e38072, amber #e5aa50 and forest #26382e.  Unlike
-   Solid and Gruvbox, Quest also recolours the Timeline, the Analysis charts
+   Solid and Gruvbox, Sage also recolours the Timeline, the Analysis charts
    and the category dots, so focus reads sage, distraction coral and unsure
    time amber everywhere.  Headings keep sentence case; the look is quiet. */
 
 /* Light: paper background, a slightly deeper paper sidebar, near-white cards
    and ink text.  Text in accent colours uses darker shades for contrast. */
-:root.tempo-light-quest:not(.dark) {
+:root.tempo-light-sage:not(.dark) {
   --background: 45 22% 96.5%;
   --foreground: 96 7% 14.3%;
   --card: 40 43% 98.6%;
@@ -286,7 +286,7 @@
   --accent-foreground: 96 7% 14.3%;
   --border: 48 12% 84%;
   --input: 48 10% 78%;
-  /* Quest brings its own tint instead of the macOS accent, like Notes or
+  /* Sage brings its own tint instead of the macOS accent, like Notes or
      Mail do with theirs: moss for buttons, selection and focus rings.  The
      macOS accent is set inline on <html>, hence the !important. */
   --primary: 83 24.4% 39.4%;
@@ -345,13 +345,13 @@
   --tempo-cat-purple: #9c7e9a;
   --tempo-cat-neutral: #989b92;
 }
-:root.tempo-light-quest:not(.dark) .tempo-glass-segmented > button[data-state='on'] {
+:root.tempo-light-sage:not(.dark) .tempo-glass-segmented > button[data-state='on'] {
   background: #fdfcfa;
 }
 
 /* Dark: the ink as the window, a deeper ink sidebar and slightly raised
    cards, paper text.  Forest tints the Now card while focused. */
-:root.dark.tempo-dark-quest {
+:root.dark.tempo-dark-sage {
   --background: 96 7% 14.3%;
   --foreground: 45 22% 96.5%;
   --card: 100 6.5% 18%;
