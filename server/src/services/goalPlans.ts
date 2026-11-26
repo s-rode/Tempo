@@ -447,9 +447,13 @@ async function attachSupportProfiles(
         expectedOutcome:
           typeof profile.expectedOutcome === 'string' ? profile.expectedOutcome.slice(0, 120) : '',
         supportingModes: (profile.supportingModes || []).filter(isSupportingMode).slice(0, 5),
-        appNeeds: (Array.isArray(profile.appNeeds) ? profile.appNeeds : []).filter(
-          (need): need is AppNeed => (APP_NEEDS as readonly string[]).includes(need)
-        ),
+        ...(Array.isArray(profile.appNeeds)
+          ? {
+              appNeeds: profile.appNeeds.filter((need): need is AppNeed =>
+                (APP_NEEDS as readonly string[]).includes(need)
+              ),
+            }
+          : {}),
         revision: profile.revision,
       } satisfies GoalSupportProfileData,
     ])

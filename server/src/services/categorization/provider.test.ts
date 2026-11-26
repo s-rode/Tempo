@@ -316,7 +316,7 @@ describe('OllamaClassificationProvider', () => {
     process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434';
     globalThis.fetch = (async (_url: unknown, init: RequestInit | undefined) => {
       const request = JSON.parse(String(init?.body));
-      expect(request.options.num_predict).toBe(96);
+      expect(request.options.num_predict).toBe(112);
       expect(request.format.required).toEqual(['activityLabel', 'activitySummary', 'reasoning']);
       expect(request.messages[1].content).toContain('no notification copy');
       return new Response(
@@ -402,15 +402,16 @@ describe('OllamaClassificationProvider', () => {
       const request = JSON.parse(String(init?.body));
       expect(request.messages[1].content).toContain('Solve machine learning exercise sheet');
       expect(request.messages[1].content).not.toContain('Firefox');
-      expect(request.options.num_predict).toBe(96);
-      expect(request.format.required).toContain('appNeeds');
+      expect(request.options.num_predict).toBe(112);
+      expect(request.format.required).toContain('withOthers');
       return new Response(
         JSON.stringify({
           message: {
             content: JSON.stringify({
               subjectCues: ['machine learning', 'exercise problems'],
               supportingModes: ['calculation_or_visualization', 'study_notes_or_retrieval'],
-              appNeeds: ['media', 'media'],
+              withOthers: 'no',
+              watchOrListen: 'yes',
             }),
           },
         }),
@@ -439,7 +440,7 @@ describe('OllamaClassificationProvider', () => {
       )) as unknown as typeof fetch;
     await expect(
       new OllamaClassificationProvider().profileGoal('Revise graph theory')
-    ).resolves.toMatchObject({ subjectCues: ['graphs'], appNeeds: [] });
+    ).resolves.not.toHaveProperty('appNeeds');
   });
 
   test('interprets visible page evidence without including a goal', async () => {

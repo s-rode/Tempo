@@ -200,13 +200,10 @@ const goalSupportProfileResponseSchema = {
       },
       maxItems: 5,
     },
-    appNeeds: {
-      type: 'array',
-      items: { type: 'string', enum: ['communication', 'media'] },
-      maxItems: 2,
-    },
+    withOthers: { type: 'string', enum: ['yes', 'no'] },
+    watchOrListen: { type: 'string', enum: ['yes', 'no'] },
   },
-  required: ['subjectCues', 'expectedOutcome', 'supportingModes', 'appNeeds'],
+  required: ['subjectCues', 'expectedOutcome', 'supportingModes', 'withOthers', 'watchOrListen'],
 };
 
 const pageDescriptorResponseSchema = {
@@ -1042,7 +1039,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     const result = await chat(
       prompt,
       enrichmentResponseSchema,
-      Math.min(96, ollamaConfig().numPredict),
+      Math.min(112, ollamaConfig().numPredict),
       12000,
       signal
     );
@@ -1103,7 +1100,15 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       subjectCues,
       expectedOutcome: parsed.data.expectedOutcome.trim().slice(0, 120),
       supportingModes,
-      appNeeds: [...new Set(parsed.data.appNeeds ?? [])],
+      // Unknown (an older model left both out) stays unknown, never "needs neither".
+      ...(parsed.data.withOthers || parsed.data.watchOrListen
+        ? {
+            appNeeds: [
+              ...(parsed.data.withOthers === 'yes' ? (['communication'] as const) : []),
+              ...(parsed.data.watchOrListen === 'yes' ? (['media'] as const) : []),
+            ],
+          }
+        : {}),
       revision: '',
     };
   }
