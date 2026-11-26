@@ -570,7 +570,7 @@ describe('personalized semantic wire contract', () => {
   test('uses one verdict after subject extraction and preserves a concrete low-confidence distraction', async () => {
     globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body));
-      expect(request.format.required).toEqual(['o', 'k', 'q', 'v', 't', 'm', 'p', 'e']);
+      expect(request.format.required).toEqual(['o', 'k', 'u', 'q', 'v', 't', 'm', 'p', 'e']);
       expect(request.format.properties.m.enum).not.toContain('resource_navigation');
       expect(request.options.num_predict).toBeLessThanOrEqual(128);
       return new Response(
@@ -642,6 +642,45 @@ describe('personalized semantic wire contract', () => {
       expect(decision?.state).toBe('uncertain');
       expect(decision?.assessment).toBe('opaque');
     }
+  });
+  test('no subject stays opaque unless the model says the app cannot serve the task', async () => {
+    for (const u of ['yes', 'maybe']) {
+      clearClassificationDecisionCaches();
+      const decision = await personalized(
+        { o: 'All Inboxes', k: 'no_subject', u, v: 'distracting' },
+        { ownerName: 'Mail', title: 'All Inboxes' }
+      );
+      expect(decision?.state).toBe('uncertain');
+      expect(decision?.taskFit).toBe(u as 'yes' | 'maybe');
+    }
+    clearClassificationDecisionCaches();
+    const unrelated = await personalized(
+      { o: 'All Inboxes', k: 'no_subject', u: 'no', v: 'distracting', e: ['E1'] },
+      { ownerName: 'Mail', title: 'All Inboxes' }
+    );
+    expect(unrelated?.state).toBe('distracted');
+    expect(unrelated?.assessment).toBe('conflicting');
+    expect(unrelated?.visibleKind).toBe('no_subject');
+    expect(unrelated?.taskFit).toBe('no');
+    // An unfit app is no reason to call the window productive.
+    clearClassificationDecisionCaches();
+    const productive = await personalized(
+      { o: 'All Inboxes', k: 'no_subject', u: 'no', v: 'productive' },
+      { ownerName: 'Mail', title: 'All Inboxes' }
+    );
+    expect(productive?.state).toBe('uncertain');
+  });
+  test('an unfit app does not bypass the file-name check', async () => {
+    const decision = await personalized(
+      { o: 'CarMarket', k: 'named_subject', u: 'no', v: 'distracting' },
+      {
+        ownerName: 'Code',
+        type: 'window' as any,
+        browser: null as any,
+        title: 'CarMarket.ipynb — notebooks',
+      }
+    );
+    expect(decision?.state).toBe('uncertain');
   });
   test('a productive verdict needs a subject that occurs in the visible evidence', async () => {
     const copiedFromTask = await personalized(

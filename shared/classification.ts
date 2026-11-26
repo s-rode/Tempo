@@ -25,6 +25,7 @@ export type ClassificationBasis =
   | 'task_preference'
   | 'list_preference'
   | 'tool_role'
+  | 'tool_mismatch'
   | 'resource_navigation'
   | 'insufficient_evidence'
   | 'policy_rejected'
@@ -34,6 +35,11 @@ export interface SemanticProposal {
   assessment: 'relevant' | 'conflicting' | 'opaque';
   /** What the model saw: a named subject, leisure, or nothing task-specific. */
   visibleKind?: 'named_subject' | 'leisure' | 'no_subject';
+  /**
+   * Whether the application, as shown, can serve the task at all, judged from
+   * what the application is for rather than from a visible subject.
+   */
+  taskFit?: 'yes' | 'maybe' | 'no';
   state: 'focused' | 'distracted' | 'uncertain';
   relation: 'direct' | 'supporting' | 'none';
   confidence: 'high' | 'medium' | 'low';

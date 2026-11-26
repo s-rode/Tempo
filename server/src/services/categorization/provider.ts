@@ -277,6 +277,8 @@ const personalizedActivityResponseSchema = {
     // transient; k only tells the server that nothing specific was visible.
     o: { type: ['string', 'null'], maxLength: 48 },
     k: { type: 'string', enum: ['named_subject', 'leisure', 'no_subject'] },
+    // u judges the application against the task, independent of any subject.
+    u: { type: 'string', enum: ['yes', 'maybe', 'no'] },
     q: { type: ['string', 'null'], maxLength: 40 },
     v: { type: 'string', enum: ['productive', 'distracting', 'uncertain'] },
     t: { type: ['string', 'null'], maxLength: 4 },
@@ -284,7 +286,7 @@ const personalizedActivityResponseSchema = {
     p: { type: 'string', enum: ['high', 'medium', 'low'] },
     e: { type: 'array', items: { type: 'string', maxLength: 4 }, maxItems: 4 },
   },
-  required: ['o', 'k', 'q', 'v', 't', 'm', 'p', 'e'],
+  required: ['o', 'k', 'u', 'q', 'v', 't', 'm', 'p', 'e'],
 };
 
 const enrichmentResponseSchema = {
@@ -655,9 +657,19 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       // text); or it called a native window distracting when all it could see
       // was a file or project name, which says too little about the subject to
       // justify an alert on what is usually real work.
+      //
+      // The first check has one exception. When the model says the application
+      // itself cannot serve the task (u = no) and calls it distracting, the
+      // judgment rests on what the app is for, not on a subject it would have
+      // to invent, so the verdict stands. The file-name check is unaffected: it
+      // guards the topic the model reads into a name, not the app.
+      const taskFit = ['yes', 'maybe', 'no'].includes(raw.u as string)
+        ? (raw.u as 'yes' | 'maybe' | 'no')
+        : undefined;
+      const unrelatedApp = raw.v === 'distracting' && taskFit === 'no';
       const verdict = !personalized
         ? null
-        : raw.k === 'no_subject' ||
+        : (raw.k === 'no_subject' && !unrelatedApp) ||
             (raw.v === 'distracting' &&
               raw.k !== 'leisure' &&
               activity.type !== 'browser' &&
@@ -691,6 +703,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
           personalized && ['named_subject', 'leisure', 'no_subject'].includes(raw.k as string)
             ? raw.k
             : undefined,
+        taskFit: personalized ? taskFit : undefined,
         relation: personalized
           ? verdict === 'productive'
             ? raw.m
@@ -739,6 +752,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
           state: checked.data.state,
           assessment: checked.data.assessment,
           visibleKind: checked.data.visibleKind,
+          taskFit: checked.data.taskFit,
           relation: checked.data.state === 'focused' ? checked.data.relation : 'none',
           matchedGoalRef: checked.data.state !== 'distracted' ? target?.ref || null : null,
           targetAlias: checked.data.targetAlias,
