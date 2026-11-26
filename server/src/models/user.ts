@@ -63,13 +63,13 @@ const userSchema = new mongoose.Schema({
     darkStyle: {
       type: String,
       default: 'solid',
-      enum: ['solid', 'gruvbox'],
+      enum: ['solid', 'gruvbox', 'quest'],
     },
     // How cards and panels look in light mode; glass is the original look.
     lightStyle: {
       type: String,
       default: 'solid',
-      enum: ['glass', 'solid', 'gruvbox'],
+      enum: ['glass', 'solid', 'gruvbox', 'quest'],
     },
     playDistractionSound: {
       type: Boolean,
