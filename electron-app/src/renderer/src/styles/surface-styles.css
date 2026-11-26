@@ -7,8 +7,8 @@
    shadow.  Floating surfaces (menus, popovers, dialogs) keep a shadow so they
    still read as above the window.  Gruvbox accents carry state.
 
-   Two styles share this base, chosen in Settings > General > Dark style:
-   Solid (these rules) and Gruvbox (the overrides at the end).  The style
+   Three styles share this base, chosen in Settings > General > Dark style:
+   Solid (these rules), Gruvbox and Quest (the overrides further down).  The style
    class sits on <html> next to `.dark`.  Loaded after index.css and day.css;
    `:root.dark` outranks the plain `.dark` token blocks there. */
 
@@ -69,20 +69,20 @@
 }
 
 /* A solid sidebar instead of the translucent material. */
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-sidebar {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-sidebar {
   background: var(--tempo-flat-sidebar);
   box-shadow: inset -1px 0 0 var(--tempo-flat-sidebar-edge);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox).tempo-vibrancy body:has(.tempo-shell) {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest).tempo-vibrancy body:has(.tempo-shell) {
   background: var(--tempo-flat-sidebar);
 }
 /* Selected sidebar page: a quiet raised grey, no rim. */
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-sidebar-item[data-active='true'] {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-sidebar-item[data-active='true'] {
   box-shadow: none;
 }
 
 /* Cards: one solid surface and a hairline, nothing else. */
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) :is(
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) :is(
     .tempo-glass-card,
     .tempo-inspector-section,
     .tempo-inspector .tempo-today-plan,
@@ -94,17 +94,17 @@
   border-radius: var(--tempo-flat-card-radius);
   box-shadow: 0 0 0 0.5px var(--glass-edge);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-insight-suggestion {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-insight-suggestion {
   box-shadow: 0 0 0 0.5px var(--glass-edge);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-glass-segmented > button[data-state='on'],
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-glass-button {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-glass-segmented > button[data-state='on'],
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-glass-button {
   box-shadow:
     0 0 0 0.5px var(--glass-edge),
     0 1px 2px -1px var(--glass-shadow);
 }
 /* Floating sheets stay opaque; blur adds nothing over a solid fill. */
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-glass-surface {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-glass-surface {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   box-shadow:
@@ -113,22 +113,22 @@
 }
 
 /* The Now card carries state in gruvbox colours instead of blue. */
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-inspector-section[data-state='focused'] {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-inspector-section[data-state='focused'] {
   --now-tint: var(--tempo-flat-now-focused);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-inspector-section[data-state='distracted'] {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-inspector-section[data-state='distracted'] {
   --now-tint: var(--tempo-flat-now-distracted);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-status-focused {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-status-focused {
   color: var(--tempo-flat-focused);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-status-distracted {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-status-distracted {
   color: var(--tempo-flat-distracted);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-plan-active {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-plan-active {
   color: var(--tempo-flat-focused);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox) .tempo-plan-task.is-in-focus {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-quest) .tempo-plan-task.is-in-focus {
   box-shadow: inset 2px 0 0 var(--tempo-flat-focused);
 }
 
@@ -168,7 +168,8 @@
    a warm sidebar (#f0eee6) and white cards with a hairline edge.  Gruvbox's
    faded light accents carry state, as in the light Timeline. */
 :root.tempo-light-solid:not(.dark),
-:root.tempo-light-gruvbox:not(.dark) {
+:root.tempo-light-gruvbox:not(.dark),
+:root.tempo-light-quest:not(.dark) {
   --background: 48 33% 97%;
   --foreground: 60 3% 8%;
   --card: 0 0% 100%;
@@ -259,4 +260,153 @@
 }
 :root.tempo-light-gruvbox:not(.dark) .tempo-glass-segmented > button[data-state='on'] {
   background: #fbf8ee;
+}
+
+/* ---------- Quest ----------
+   The palette of the app icon: paper #f8f7f4, ink #242722, sage #87a878,
+   moss #6a7d4c, coral #e38072, amber #e5aa50 and forest #26382e.  Unlike
+   Solid and Gruvbox, Quest also recolours the Timeline, the Analysis charts
+   and the category dots, so focus reads sage, distraction coral and unsure
+   time amber everywhere.  Headings keep sentence case; the look is quiet. */
+
+/* Light: paper background, a slightly deeper paper sidebar, near-white cards
+   and ink text.  Text in accent colours uses darker shades for contrast. */
+:root.tempo-light-quest:not(.dark) {
+  --background: 45 22% 96.5%;
+  --foreground: 96 7% 14.3%;
+  --card: 40 43% 98.6%;
+  --card-foreground: 96 7% 14.3%;
+  --popover: 40 43% 98.6%;
+  --popover-foreground: 96 7% 14.3%;
+  --secondary: 51 16% 91%;
+  --secondary-foreground: 96 7% 14.3%;
+  --muted: 51 16% 92%;
+  --muted-foreground: 83 4% 41.6%;
+  --accent: 47 14% 87.6%;
+  --accent-foreground: 96 7% 14.3%;
+  --border: 48 12% 84%;
+  --input: 48 10% 78%;
+
+  --tempo-flat-sidebar: #efede7;
+  --tempo-flat-sidebar-edge: rgb(36 39 34 / 0.08);
+  --tempo-flat-sheet-edge: rgb(36 39 34 / 0.12);
+  --tempo-flat-card: #fdfcfa;
+  --tempo-flat-card-radius: 10px;
+  --tempo-flat-focused: #5c6e40;
+  --tempo-flat-distracted: #b5503f;
+  --tempo-flat-now-focused: rgb(135 168 120 / 0.1);
+  --tempo-flat-now-distracted: rgb(227 128 114 / 0.1);
+
+  --glass-edge: rgb(36 39 34 / 0.1);
+  --glass-divider: rgb(36 39 34 / 0.08);
+  --glass-hover: rgb(36 39 34 / 0.05);
+  --glass-pill-top: rgb(36 39 34 / 0.07);
+  --glass-pill-bottom: rgb(36 39 34 / 0.07);
+  --glass-track: rgb(36 39 34 / 0.06);
+
+  --insight-deep: #6a7d4c;
+  --insight-focus: #87a878;
+  --insight-behind: #e5aa50;
+  --insight-distract: #e38072;
+  --insight-uncertain: rgb(36 39 34 / 0.18);
+
+  --day-focused: #87a878;
+  --day-distracted: #e38072;
+  --day-uncertain: #e5aa50;
+  --day-idle: rgb(36 39 34 / 0.2);
+  --day-focused-soft: rgb(135 168 120 / 0.16);
+  --day-distracted-soft: rgb(227 128 114 / 0.14);
+  --day-uncertain-soft: rgb(229 170 80 / 0.16);
+  --day-focused-fill: rgb(135 168 120 / 0.34);
+  --day-distracted-fill: rgb(227 128 114 / 0.32);
+  --day-uncertain-fill: rgb(229 170 80 / 0.32);
+  --day-focused-text: #5c6e40;
+  --day-distracted-text: #b5503f;
+  --day-uncertain-text: #8f6216;
+  --day-on-accent: #242722;
+  --day-hairline: rgb(36 39 34 / 0.08);
+  --day-row-hover: rgb(36 39 34 / 0.035);
+
+  --tempo-cat-red: #e38072;
+  --tempo-cat-orange: #d98a5f;
+  --tempo-cat-yellow: #e5aa50;
+  --tempo-cat-green: #87a878;
+  --tempo-cat-aqua: #6f9a8d;
+  --tempo-cat-blue: #6d8aa3;
+  --tempo-cat-purple: #9c7e9a;
+  --tempo-cat-neutral: #989b92;
+}
+:root.tempo-light-quest:not(.dark) .tempo-glass-segmented > button[data-state='on'] {
+  background: #fdfcfa;
+}
+
+/* Dark: the ink as the window, a deeper ink sidebar and slightly raised
+   cards, paper text.  Forest tints the Now card while focused. */
+:root.dark.tempo-dark-quest {
+  --background: 96 7% 14.3%;
+  --foreground: 45 22% 96.5%;
+  --card: 100 6.5% 18%;
+  --card-foreground: 45 22% 96.5%;
+  --popover: 100 6.5% 18%;
+  --popover-foreground: 45 22% 96.5%;
+  --secondary: 94 6.4% 21.4%;
+  --secondary-foreground: 45 22% 96.5%;
+  --muted: 100 6% 19.2%;
+  --muted-foreground: 80 4.3% 59%;
+  --accent: 94 5.8% 23.7%;
+  --accent-foreground: 45 22% 96.5%;
+  --border: 94 5.8% 23.7%;
+  --input: 98 5.7% 27.5%;
+
+  --tempo-flat-sidebar: #1c1f1a;
+  --tempo-flat-sidebar-edge: rgb(248 247 244 / 0.06);
+  --tempo-flat-sheet-edge: rgb(248 247 244 / 0.12);
+  --tempo-flat-card: #2c302a;
+  --tempo-flat-focused: #9dbb8e;
+  --tempo-flat-distracted: #e38072;
+  --tempo-flat-now-focused: rgb(38 56 46 / 0.55);
+  --tempo-flat-now-distracted: rgb(227 128 114 / 0.08);
+
+  --glass-edge: rgb(248 247 244 / 0.07);
+  --glass-divider: rgb(248 247 244 / 0.08);
+  --glass-hover: rgb(248 247 244 / 0.05);
+  --glass-pill-top: rgb(248 247 244 / 0.09);
+  --glass-pill-bottom: rgb(248 247 244 / 0.09);
+  --glass-track: rgb(248 247 244 / 0.07);
+
+  --insight-deep: #6a7d4c;
+  --insight-focus: #87a878;
+  --insight-behind: #e5aa50;
+  --insight-distract: #e38072;
+  --insight-uncertain: rgb(248 247 244 / 0.16);
+
+  --day-focused: #87a878;
+  --day-distracted: #e38072;
+  --day-uncertain: #e5aa50;
+  --day-idle: rgb(248 247 244 / 0.18);
+  --day-focused-soft: rgb(135 168 120 / 0.16);
+  --day-distracted-soft: rgb(227 128 114 / 0.15);
+  --day-uncertain-soft: rgb(229 170 80 / 0.14);
+  --day-focused-fill: rgb(135 168 120 / 0.3);
+  --day-distracted-fill: rgb(227 128 114 / 0.3);
+  --day-uncertain-fill: rgb(229 170 80 / 0.26);
+  --day-focused-text: #9dbb8e;
+  --day-distracted-text: #e9948a;
+  --day-uncertain-text: #e5aa50;
+  --day-on-accent: #242722;
+  --day-hairline: rgb(248 247 244 / 0.08);
+  --day-row-hover: rgb(248 247 244 / 0.05);
+  --planner-surface: rgb(248 247 244 / 0.05);
+  --planner-line: rgb(248 247 244 / 0.09);
+  --planner-line-strong: rgb(248 247 244 / 0.2);
+  --planner-fill: rgb(248 247 244 / 0.035);
+
+  --tempo-cat-red: #e38072;
+  --tempo-cat-orange: #e09468;
+  --tempo-cat-yellow: #e5aa50;
+  --tempo-cat-green: #87a878;
+  --tempo-cat-aqua: #7fab9d;
+  --tempo-cat-blue: #7f9bb5;
+  --tempo-cat-purple: #ad8fab;
+  --tempo-cat-neutral: #989b92;
 }
