@@ -46,14 +46,15 @@ export const getDarkerColor = (hex: string, amount = 0.5): string => {
 }
 
 // Gruvbox's neutral accents, which read on light and dark surfaces alike.
+// Each is a CSS variable so a theme (Sage) can swap the whole family.
 const GRUVBOX = [
-  { hue: 2, hex: '#cc241d' },
-  { hue: 24, hex: '#d65d0e' },
-  { hue: 40, hex: '#d79921' },
-  { hue: 60, hex: '#98971a' },
-  { hue: 122, hex: '#689d6a' },
-  { hue: 183, hex: '#458588' },
-  { hue: 330, hex: '#b16286' }
+  { hue: 2, color: 'var(--tempo-cat-red, #cc241d)' },
+  { hue: 24, color: 'var(--tempo-cat-orange, #d65d0e)' },
+  { hue: 40, color: 'var(--tempo-cat-yellow, #d79921)' },
+  { hue: 60, color: 'var(--tempo-cat-green, #98971a)' },
+  { hue: 122, color: 'var(--tempo-cat-aqua, #689d6a)' },
+  { hue: 183, color: 'var(--tempo-cat-blue, #458588)' },
+  { hue: 330, color: 'var(--tempo-cat-purple, #b16286)' }
 ]
 
 /**
@@ -65,9 +66,9 @@ export const gruvboxCategoryColor = (hex?: string | null): string => {
   if (!hex) return 'var(--day-uncertain)'
   try {
     const [hue, saturation] = Color(hex).hsl().array()
-    if (saturation < 15) return '#928374'
+    if (saturation < 15) return 'var(--tempo-cat-neutral, #928374)'
     const distance = (value: number) => Math.min(Math.abs(value - hue), 360 - Math.abs(value - hue))
-    return [...GRUVBOX].sort((left, right) => distance(left.hue) - distance(right.hue))[0].hex
+    return [...GRUVBOX].sort((left, right) => distance(left.hue) - distance(right.hue))[0].color
   } catch {
     return 'var(--day-uncertain)'
   }

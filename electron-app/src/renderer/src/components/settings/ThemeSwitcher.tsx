@@ -1,6 +1,6 @@
 import { useAuth } from '../../contexts/AuthContext'
 import type { DarkStyle, LightStyle, Theme } from '../../contexts/ThemeContext'
-import { isDarkStyle, isLightStyle, useTheme } from '../../contexts/ThemeContext'
+import { isDarkStyle, isLightStyle, renamedStyle, useTheme } from '../../contexts/ThemeContext'
 import { trpc } from '../../utils/trpc'
 import { SettingsRow, SettingsSegmented } from './SettingsLayout'
 
@@ -12,13 +12,17 @@ const THEMES: ReadonlyArray<{ value: Theme; label: string }> = [
 
 const DARK_STYLE_OPTIONS: ReadonlyArray<{ value: DarkStyle; label: string }> = [
   { value: 'solid', label: 'Solid' },
-  { value: 'gruvbox', label: 'Gruvbox' }
+  { value: 'gruvbox', label: 'Gruvbox' },
+  { value: 'sage', label: 'Sage' },
+  { value: 'sage-solid', label: 'Sage Solid' }
 ]
 
 const LIGHT_STYLE_OPTIONS: ReadonlyArray<{ value: LightStyle; label: string }> = [
   { value: 'solid', label: 'Solid' },
   { value: 'gruvbox', label: 'Gruvbox' },
-  { value: 'glass', label: 'Glass' }
+  { value: 'sage', label: 'Sage' },
+  { value: 'glass', label: 'Glass' },
+  { value: 'sage-glass', label: 'Sage Glass' }
 ]
 
 const isTheme = (value: unknown): value is Theme => THEMES.some((option) => option.value === value)
@@ -34,8 +38,10 @@ export function ThemeSwitcher() {
       enabled: !!token,
       onSuccess: (data) => {
         if (data && 'theme' in data && isTheme(data.theme)) setTheme(data.theme)
-        if (data && 'darkStyle' in data && isDarkStyle(data.darkStyle)) setDarkStyle(data.darkStyle)
-        if (data && 'lightStyle' in data && isLightStyle(data.lightStyle)) setLightStyle(data.lightStyle)
+        const darkStyle = data && 'darkStyle' in data ? renamedStyle(data.darkStyle) : null
+        const lightStyle = data && 'lightStyle' in data ? renamedStyle(data.lightStyle) : null
+        if (isDarkStyle(darkStyle)) setDarkStyle(darkStyle)
+        if (isLightStyle(lightStyle)) setLightStyle(lightStyle)
       }
     }
   )
@@ -76,7 +82,7 @@ export function ThemeSwitcher() {
       />
       <SettingsRow
         title="Light style"
-        description="Solid uses white cards on ivory. Gruvbox uses warm paper colours. Glass is the original look."
+        description="Solid uses white cards on ivory. Gruvbox uses warm paper colours. Sage uses the app icon's paper, sage green and coral. Glass is the original look; Sage Glass adds the Sage colours to it."
         inactive={theme === 'dark'}
         control={
           <SettingsSegmented
@@ -90,7 +96,7 @@ export function ThemeSwitcher() {
       />
       <SettingsRow
         title="Dark style"
-        description="Solid uses quiet grey cards. Gruvbox adds warmer text and small uppercase headings."
+        description="Solid uses quiet grey cards. Gruvbox adds warmer text and small uppercase headings. Sage uses a green-black ink with sage green and coral. Sage Solid uses the Sage colours on a deep black window with a grey sidebar."
         inactive={theme === 'light'}
         control={
           <SettingsSegmented
