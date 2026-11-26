@@ -206,17 +206,23 @@ export function resolvePersonalizedPolicy(input: {
       ? undefined
       : applicable.find((p) => p.state === 'focused' && !p.conflicted);
   };
-  // The model saw no subject, or only leisure, and judged that the application
-  // itself cannot serve the task (taskFit "no"): mail during a lecture, music
-  // during coding. That judgment rests on the application, which is always part
-  // of the evidence, so it does not need a title or page to back it. It never
+  // The model judged that the application itself cannot serve the task
+  // (taskFit "no"): mail during a lecture, music during coding. That judgment
+  // rests on the application, which is always part of the evidence, so it does
+  // not need a title or page to back it. It covers a window with no subject,
+  // which is never a visible conflict whatever title it has, and leisure seen
+  // only through the app name when the model is not unsure about it. It never
   // applies to a specialized tool built for a method the task uses, and an
   // explicit focused correction for this tool and task still wins.
+  const noSubjectConflict =
+    proposal.assessment === 'conflicting' && proposal.visibleKind === 'no_subject';
   if (
-    unsupportedConflict &&
-    !methodOnlyConflict &&
     proposal.taskFit === 'no' &&
-    proposal.visibleKind !== 'named_subject'
+    (noSubjectConflict ||
+      (unsupportedConflict &&
+        !methodOnlyConflict &&
+        proposal.visibleKind === 'leisure' &&
+        proposal.confidence !== 'low'))
   ) {
     const supportsTask = targets.some(
       (t) =>
@@ -240,7 +246,9 @@ export function resolvePersonalizedPolicy(input: {
     }
   }
   const assessment =
-    (proposal.assessment === 'relevant' && !input.independentEvidence) || unsupportedConflict
+    (proposal.assessment === 'relevant' && !input.independentEvidence) ||
+    unsupportedConflict ||
+    noSubjectConflict
       ? 'opaque'
       : proposal.assessment;
   if (assessment === 'conflicting') return result('distracted', 'visible_conflict');

@@ -313,6 +313,30 @@ describe('an app that cannot serve the task', () => {
     });
     expect(r.basis).toBe('tool_mismatch');
   });
+  test('a no-subject window is never a visible conflict, even with a title', () => {
+    const r = resolve({
+      proposal: { ...unfit, evidenceAliases: ['E2'], confidence: 'low' },
+      targets: [lecture],
+      preferences: [],
+      independentEvidence: true,
+    });
+    expect(r.basis).toBe('tool_mismatch');
+    const maybe = resolve({
+      proposal: { ...unfit, taskFit: 'maybe', evidenceAliases: ['E2'] },
+      targets: [lecture],
+      preferences: [],
+      independentEvidence: true,
+    });
+    expect(maybe.state).toBe('uncertain');
+  });
+  test('leisure seen only through the app name needs a model that is not unsure', () => {
+    const r = resolve({
+      proposal: { ...unfit, visibleKind: 'leisure', confidence: 'low' },
+      targets: [lecture],
+      preferences: [],
+    });
+    expect(r.state).toBe('uncertain');
+  });
   test('stays uncertain when the model thinks the app may serve the task', () => {
     const r = resolve({
       proposal: { ...unfit, taskFit: 'maybe' },

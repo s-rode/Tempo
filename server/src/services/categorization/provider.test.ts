@@ -570,7 +570,7 @@ describe('personalized semantic wire contract', () => {
   test('uses one verdict after subject extraction and preserves a concrete low-confidence distraction', async () => {
     globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body));
-      expect(request.format.required).toEqual(['o', 'k', 'u', 'q', 'v', 't', 'm', 'p', 'e']);
+      expect(request.format.required).toEqual(['o', 'k', 'q', 'v', 't', 'm', 'p', 'e', 'u']);
       expect(request.format.properties.m.enum).not.toContain('resource_navigation');
       expect(request.options.num_predict).toBeLessThanOrEqual(128);
       return new Response(
@@ -654,8 +654,9 @@ describe('personalized semantic wire contract', () => {
       expect(decision?.taskFit).toBe(u as 'yes' | 'maybe');
     }
     clearClassificationDecisionCaches();
+    // The prompt keeps v uncertain for no_subject; u alone decides.
     const unrelated = await personalized(
-      { o: 'All Inboxes', k: 'no_subject', u: 'no', v: 'distracting', e: ['E1'] },
+      { o: 'All Inboxes', k: 'no_subject', u: 'no', v: 'uncertain', e: ['E1'] },
       { ownerName: 'Mail', title: 'All Inboxes' }
     );
     expect(unrelated?.state).toBe('distracted');
