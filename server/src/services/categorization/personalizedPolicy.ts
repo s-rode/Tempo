@@ -9,7 +9,7 @@ import type { CorrectionAction } from '../../models/correctionAction';
 
 // Bump whenever the foreground prompt or policy changes, so automatic history
 // decided under the previous revision is not reused.
-export const PERSONALIZED_POLICY_VERSION = 'contextual-v4';
+export const PERSONALIZED_POLICY_VERSION = 'contextual-v5';
 export const PROMOTION_REQUIREMENTS = {
   flexible: { actions: 2, sessions: 2, tasks: 2 },
   balanced: { actions: 3, sessions: 2, tasks: 2 },
