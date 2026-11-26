@@ -549,8 +549,33 @@ static BOOL gChromeTrackingEnabled = YES;
 
 @end
 
+// With its window closed and its Dock icon hidden, Tempo has nothing visible
+// on screen, so macOS puts it into App Nap. App Nap coalesces and defers the
+// main-queue timers this observer relies on (the 750 ms stability check, the
+// one-second watchdog) and lowers the process priority, so app switches were
+// only processed once the Tempo window was opened again: the timeline filled
+// in afterwards, but no distraction nudge could fire in the moment. While
+// monitoring runs, Tempo declares user-initiated work, which keeps it out of
+// App Nap but still lets the Mac sleep when it is idle.
+static id<NSObject> gMonitoringActivity = nil;
+
+static void beginMonitoringActivity(void) {
+    if (gMonitoringActivity) return;
+    gMonitoringActivity = [[[NSProcessInfo processInfo]
+        beginActivityWithOptions:NSActivityUserInitiatedAllowingIdleSystemSleep
+                          reason:@"Tempo is tracking the frontmost app for your focus session"] retain];
+}
+
+static void endMonitoringActivity(void) {
+    if (!gMonitoringActivity) return;
+    [[NSProcessInfo processInfo] endActivity:gMonitoringActivity];
+    [gMonitoringActivity release];
+    gMonitoringActivity = nil;
+}
+
 void initActiveWindowObserver(Napi::Env env, Napi::Function windowCallback) {
     if (windowObserver) stopActiveWindowObserver(env);
+    beginMonitoringActivity();
     activeWindowChangedCallback = Napi::ThreadSafeFunction::New(env, windowCallback, "ActiveWindowChanged", 16, 1);
     windowObserver = [[ActiveWindowObserver alloc] init];
 }
@@ -565,6 +590,7 @@ void stopActiveWindowObserver(Napi::Env env) {
         activeWindowChangedCallback.Abort();
         activeWindowChangedCallback = nullptr;
     }
+    endMonitoringActivity();
 }
 
 void setActivityCapturePaused(BOOL paused) {
