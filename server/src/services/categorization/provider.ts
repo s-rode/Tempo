@@ -1039,7 +1039,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     const result = await chat(
       prompt,
       enrichmentResponseSchema,
-      Math.min(112, ollamaConfig().numPredict),
+      Math.min(96, ollamaConfig().numPredict),
       12000,
       signal
     );
@@ -1081,7 +1081,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     const result = await chat(
       buildGoalSupportProfilePromptInput(goal),
       goalSupportProfileResponseSchema,
-      Math.min(96, ollamaConfig().numPredict),
+      Math.min(112, ollamaConfig().numPredict),
       10000,
       signal
     );
