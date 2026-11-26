@@ -286,6 +286,15 @@
   --accent-foreground: 96 7% 14.3%;
   --border: 48 12% 84%;
   --input: 48 10% 78%;
+  /* Quest brings its own tint instead of the macOS accent, like Notes or
+     Mail do with theirs: moss for buttons, selection and focus rings.  The
+     macOS accent is set inline on <html>, hence the !important. */
+  --primary: 83 24.4% 39.4%;
+  --primary-foreground: 0 0% 100%;
+  --accent-system: 83 24.4% 39.4%;
+  --ring: 83 24.4% 39.4%;
+  --tempo-system-accent: #6a7d4c !important;
+  --day-row-selected: rgb(106 125 76 / 0.12);
 
   --tempo-flat-sidebar: #efede7;
   --tempo-flat-sidebar-edge: rgb(36 39 34 / 0.08);
@@ -357,6 +366,12 @@
   --accent-foreground: 45 22% 96.5%;
   --border: 94 5.8% 23.7%;
   --input: 98 5.7% 27.5%;
+  --primary: 101 21.6% 56.5%;
+  --primary-foreground: 96 7% 14.3%;
+  --accent-system: 101 21.6% 56.5%;
+  --ring: 101 21.6% 56.5%;
+  --tempo-system-accent: #87a878 !important;
+  --day-row-selected: rgb(135 168 120 / 0.16);
 
   --tempo-flat-sidebar: #1c1f1a;
   --tempo-flat-sidebar-edge: rgb(248 247 244 / 0.06);
