@@ -3657,6 +3657,36 @@
       "app": "Notes",
       "title": "All iCloud",
       "expected": "uncertain"
+    },
+    {
+      "id": "dev-unrelated_app-13",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Listen to the podcast episode on market making",
+      "app": "Spotify",
+      "title": "Spotify",
+      "expected": "uncertain",
+      "acceptable": ["focused"]
+    },
+    {
+      "id": "dev-unrelated_app-14",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Schedule the team retro",
+      "app": "Slack",
+      "title": "Slack",
+      "expected": "uncertain",
+      "acceptable": ["focused"]
+    },
+    {
+      "id": "dev-unrelated_app-15",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Review pull request for the billing service",
+      "app": "Slack",
+      "title": "Slack",
+      "expected": "uncertain",
+      "acceptable": ["focused"]
     }
   ]
 }
