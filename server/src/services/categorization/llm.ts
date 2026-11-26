@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ActiveWindowDetails, Category as CategoryType } from '../../../../shared/types';
 import type { EffectiveGoalContext } from '../goalPlans';
-import { SUPPORTING_MODES } from './goalSupportTypes';
+import { APP_NEEDS, SUPPORTING_MODES } from './goalSupportTypes';
 import { PAGE_KINDS } from './pageDescriptorTypes';
 import type { LearningExampleForPrompt } from './correctionLearning';
 
@@ -27,6 +27,8 @@ export const GoalSupportProfileSchema = z.object({
   subjectCues: z.array(z.string().min(1).max(32)).max(6),
   expectedOutcome: z.string().max(120).default(''),
   supportingModes: z.array(z.enum(SUPPORTING_MODES)).max(5),
+  // Optional so a warm model that predates this field still produces a profile.
+  appNeeds: z.array(z.enum(APP_NEEDS)).max(2).optional(),
 });
 
 export const PageActivityDescriptorSchema = z.object({
@@ -53,10 +55,6 @@ export const SemanticActivityDecisionSchema = z.object({
   // The personalized prompt's `k`: what kind of thing is visible. It tells a
   // topic mismatch (named_subject) apart from off-task leisure.
   visibleKind: z.enum(['named_subject', 'leisure', 'no_subject']).optional(),
-  // The personalized prompt's `u`: whether this application can serve the task
-  // at all. "no" lets an app that clearly does something else count as a
-  // distraction even when no subject is visible.
-  taskFit: z.enum(['yes', 'maybe', 'no']).optional(),
   relation: z.enum(['direct', 'supporting', 'none']),
   targetAlias: z.string().nullable(),
   supportingMode: z.enum(SUPPORTING_MODES).nullable(),
@@ -372,7 +370,7 @@ export function buildGoalSupportProfilePromptInput(goalText: string) {
     },
     {
       role: 'user' as const,
-      content: `Goal: "${goalText.slice(0, 1800)}"\n\nDescribe the expected outcome in one short sentence. Choose at most six short subject cues and only the supporting methods genuinely useful for this goal. Available methods: calculation_or_visualization, study_notes_or_retrieval, read_reference, coding_or_analysis, drafting_or_problem_solving. These methods are not approval for generic use; later activity still needs explicit evidence. Return {"subjectCues":[],"expectedOutcome":"","supportingModes":[]}.`,
+      content: `Goal: "${goalText.slice(0, 1800)}"\n\nDescribe the expected outcome in one short sentence. Choose at most six short subject cues and only the supporting methods genuinely useful for this goal. Available methods: calculation_or_visualization, study_notes_or_retrieval, read_reference, coding_or_analysis, drafting_or_problem_solving. These methods are not approval for generic use; later activity still needs explicit evidence. appNeeds lists the kinds of application the goal itself calls for, judged only from the goal text: "communication" only when the goal itself names an exchange with other people, such as a meeting, a call, a review, replying, sending or sharing something, or a team or group; "media" only when the goal is to watch or listen to something, such as a lecture recording, a video or a podcast. Attending or catching up on a lecture is not communication. Studying, reading, writing alone, exercises, coding and errands call for neither, so appNeeds is empty for them. Return {"subjectCues":[],"expectedOutcome":"","supportingModes":[],"appNeeds":[]}.`,
     },
   ];
 }
@@ -441,12 +439,11 @@ export function buildPersonalizedActivityPromptInput(
         'Step 4: v compares o with q by meaning. Languages may differ: a German or Chinese task and an English page on the same subject match. Productive requires the same subject, a true subtopic of it, or the output the task asks for. A subtopic counts even when no word is shared.',
         'Distracting means a visibly different subject, including other coursework, another project or repository, or another document. Shared methods such as flashcards, lectures, coding or writing never make different subjects match: organic chemistry flashcards during a linear algebra task are distracting, and so is a physics course page during a database-course task. Code, a pull request or a document belonging to a different project than the task is distracting even in the same editor or site. A word shared with the task but used in another sense is a different subject: a task about Apache Spark does not match spark plugs, and an essay on the Amazon rainforest does not match shopping on Amazon. Leisure is distracting unless that exact activity is the task.',
         'Uncertain is for no_subject: never guess from the reputation of an app. Background list context explains the task and never adds productive targets.',
-        'Last, separately from v, u says whether the application itself serves the task, judged from what the application is for. "yes" when the task is done in it. "maybe" when part of the task plausibly happens there: a browser, file browser, notes app or AI assistant for most tasks, a terminal for technical work, or chat, mail and calendars only when the task itself names an exchange with others, such as a meeting, a review, a reply, sending something or a team. "no" when the application is for something the task does not involve: a camera, a music, video or podcast app, a game, or chat, mail and messages during a task that names no exchange, such as a lecture, studying, reading, writing or exercises.',
       ].join(' '),
     },
     {
       role: 'user' as const,
-      content: `Active tasks: ${JSON.stringify(targets)}\nVisible activity: ${JSON.stringify(evidence)}\nReturn {"o":"visible subject","k":"named_subject|leisure|no_subject","q":"task subject","v":"productive|distracting|uncertain","t":"T1|null","m":"${PERSONALIZED_SUPPORTING_MODES.join('|')}|null","p":"high|medium|low","e":["E2"],"u":"yes|maybe|no"}. e cites the evidence that shows o. t names the matching task when productive. m is null when the activity is the task itself; otherwise the supporting method.`,
+      content: `Active tasks: ${JSON.stringify(targets)}\nVisible activity: ${JSON.stringify(evidence)}\nReturn {"o":"visible subject","k":"named_subject|leisure|no_subject","q":"task subject","v":"productive|distracting|uncertain","t":"T1|null","m":"${PERSONALIZED_SUPPORTING_MODES.join('|')}|null","p":"high|medium|low","e":["E2"]}. e cites the evidence that shows o. t names the matching task when productive. m is null when the activity is the task itself; otherwise the supporting method.`,
     },
   ];
 }

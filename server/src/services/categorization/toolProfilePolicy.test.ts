@@ -7,6 +7,7 @@ describe('tool profile from its primary purpose', () => {
       role: 'specialized',
       supportingModes: ['study_notes_or_retrieval'],
       revision: TOOL_PROFILE_REVISION,
+      purpose: 'study_notes_or_retrieval',
     });
     expect(profileFromPurpose('calculation_or_visualization').supportingModes).toEqual([
       'calculation_or_visualization',

@@ -7,6 +7,7 @@ const schema = new Schema({
   toolKey: { type: String, required: true, unique: true },
   role: { type: String, enum: ['specialized', 'general_purpose', 'unknown'], required: true },
   supportingModes: [String],
+  purpose: { type: String, default: null },
   revision: { type: String, required: true },
 });
 export const ToolProfileModel = mongoose.model('ToolCapabilityProfile', schema);
@@ -24,6 +25,7 @@ export async function readToolProfile(toolKey: string): Promise<ToolCapabilityPr
         role: record.role as ToolCapabilityProfile['role'],
         supportingModes: record.supportingModes,
         revision: record.revision,
+        ...(record.purpose ? { purpose: record.purpose } : {}),
       }
     : null;
 }

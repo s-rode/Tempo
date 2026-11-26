@@ -104,7 +104,6 @@ export async function classifyPersonalized(input: {
         state: decision.state,
         assessment: decision.assessment || 'opaque',
         ...(decision.visibleKind ? { visibleKind: decision.visibleKind } : {}),
-        ...(decision.taskFit ? { taskFit: decision.taskFit } : {}),
         relation: decision.relation,
         confidence: decision.confidence,
         matchedGoalRef: decision.matchedGoalRef,

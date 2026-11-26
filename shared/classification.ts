@@ -9,6 +9,11 @@ export interface HistoricalGoalTarget {
   listContext: string | null;
   supportingModes: string[];
   profileRevision: string | null;
+  /**
+   * Kinds of application the goal itself calls for ("communication", "media"),
+   * from the goal profile. null while the goal has no profile yet.
+   */
+  appNeeds?: string[] | null;
 }
 
 export interface ClassificationContextSnapshot {
@@ -35,11 +40,6 @@ export interface SemanticProposal {
   assessment: 'relevant' | 'conflicting' | 'opaque';
   /** What the model saw: a named subject, leisure, or nothing task-specific. */
   visibleKind?: 'named_subject' | 'leisure' | 'no_subject';
-  /**
-   * Whether the application, as shown, can serve the task at all, judged from
-   * what the application is for rather than from a visible subject.
-   */
-  taskFit?: 'yes' | 'maybe' | 'no';
   state: 'focused' | 'distracted' | 'uncertain';
   relation: 'direct' | 'supporting' | 'none';
   confidence: 'high' | 'medium' | 'low';
@@ -52,6 +52,8 @@ export interface ToolCapabilityProfile {
   role: 'specialized' | 'general_purpose' | 'unknown';
   supportingModes: string[];
   revision: string;
+  /** What the tool is primarily for, as the profiling model named it. */
+  purpose?: string;
 }
 
 export interface PersonalizedEventMetadata {

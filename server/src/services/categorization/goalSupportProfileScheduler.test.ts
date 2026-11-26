@@ -50,6 +50,7 @@ describe('goal support profile scheduler', () => {
       subjectCues: ['machine learning', 'exercise problems'],
       expectedOutcome: 'Complete the exercise sheet.',
       supportingModes: ['calculation_or_visualization'],
+      appNeeds: [],
       revision: '',
     });
     ensureGoalSupportProfiles('profile-test-b', context('persisted'));
@@ -77,6 +78,7 @@ describe('goal support profile scheduler', () => {
     );
     const persisted = profiles.updateOne.mock.calls[0][1].$set;
     expect(Object.keys(persisted).sort()).toEqual([
+      'appNeeds',
       'expectedOutcome',
       'revision',
       'subjectCues',

@@ -10,6 +10,8 @@ import { User as UserModel } from '../models/user';
 import {
   GOAL_SUPPORT_PROFILE_POLICY_VERSION,
   GoalSupportProfileData,
+  APP_NEEDS,
+  AppNeed,
   isSupportingMode,
 } from './categorization/goalSupportTypes';
 import type { ClassifierStrictness } from '../../../shared/types';
@@ -445,6 +447,9 @@ async function attachSupportProfiles(
         expectedOutcome:
           typeof profile.expectedOutcome === 'string' ? profile.expectedOutcome.slice(0, 120) : '',
         supportingModes: (profile.supportingModes || []).filter(isSupportingMode).slice(0, 5),
+        appNeeds: (Array.isArray(profile.appNeeds) ? profile.appNeeds : []).filter(
+          (need): need is AppNeed => (APP_NEEDS as readonly string[]).includes(need)
+        ),
         revision: profile.revision,
       } satisfies GoalSupportProfileData,
     ])
@@ -582,5 +587,6 @@ export const snapshotGoalContext = (
     listContext: t.listContext || null,
     supportingModes: t.supportProfile?.supportingModes || [],
     profileRevision: t.supportProfile?.revision || null,
+    appNeeds: t.supportProfile?.appNeeds ?? null,
   })),
 });

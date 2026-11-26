@@ -14,6 +14,7 @@ export interface IGoalSupportProfile extends Document {
   subjectCues: string[];
   expectedOutcome: string;
   supportingModes: string[];
+  appNeeds?: string[] | null;
   revision: string;
   createdAt: Date;
   updatedAt: Date;
@@ -28,6 +29,7 @@ const goalSupportProfileSchema = new Schema<IGoalSupportProfile>(
     subjectCues: { type: [String], default: [] },
     expectedOutcome: { type: String, maxlength: 120, default: '' },
     supportingModes: { type: [String], enum: SUPPORTING_MODES, default: [] },
+    appNeeds: { type: [String], default: undefined },
     revision: { type: String, required: true },
   },
   { timestamps: true }

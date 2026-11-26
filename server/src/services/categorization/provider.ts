@@ -200,8 +200,13 @@ const goalSupportProfileResponseSchema = {
       },
       maxItems: 5,
     },
+    appNeeds: {
+      type: 'array',
+      items: { type: 'string', enum: ['communication', 'media'] },
+      maxItems: 2,
+    },
   },
-  required: ['subjectCues', 'expectedOutcome', 'supportingModes'],
+  required: ['subjectCues', 'expectedOutcome', 'supportingModes', 'appNeeds'],
 };
 
 const pageDescriptorResponseSchema = {
@@ -283,11 +288,8 @@ const personalizedActivityResponseSchema = {
     m: { type: ['string', 'null'], enum: [null, ...PERSONALIZED_SUPPORTING_MODES] },
     p: { type: 'string', enum: ['high', 'medium', 'low'] },
     e: { type: 'array', items: { type: 'string', maxLength: 4 }, maxItems: 4 },
-    // u judges the application against the task, independent of any subject.
-    // It comes last so it cannot shift the subject comparison behind v.
-    u: { type: 'string', enum: ['yes', 'maybe', 'no'] },
   },
-  required: ['o', 'k', 'q', 'v', 't', 'm', 'p', 'e', 'u'],
+  required: ['o', 'k', 'q', 'v', 't', 'm', 'p', 'e'],
 };
 
 const enrichmentResponseSchema = {
@@ -658,37 +660,23 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       // text); or it called a native window distracting when all it could see
       // was a file or project name, which says too little about the subject to
       // justify an alert on what is usually real work.
-      //
-      // The first check has one exception. When the model says the application
-      // itself cannot serve the task (u = no), a no-subject window becomes
-      // distracting: the judgment rests on what the app is for, not on a subject
-      // the model would have to invent. The prompt keeps v uncertain for
-      // no_subject and asks u separately, so this comparison stays out of the
-      // subject reasoning. The file-name check is unaffected: it guards the
-      // topic the model reads into a name, not the app.
-      const taskFit = ['yes', 'maybe', 'no'].includes(raw.u as string)
-        ? (raw.u as 'yes' | 'maybe' | 'no')
-        : undefined;
       const verdict = !personalized
         ? null
-        : raw.k === 'no_subject'
-          ? taskFit === 'no' && raw.v !== 'productive'
-            ? 'distracting'
-            : 'uncertain'
-          : raw.v === 'distracting' &&
+        : raw.k === 'no_subject' ||
+            (raw.v === 'distracting' &&
               raw.k !== 'leisure' &&
               activity.type !== 'browser' &&
               !activity.browser &&
-              isIdentifierStyleTitle(activity.title || '', activity.ownerName)
+              isIdentifierStyleTitle(activity.title || '', activity.ownerName))
+          ? 'uncertain'
+          : raw.v === 'productive' &&
+              !isVisibleSubjectGrounded(typeof raw.o === 'string' ? raw.o : null, [
+                activity.title,
+                activity.browser === 'firefox' ? activity.siteHost : null,
+                activity.browser === 'firefox' ? activity.content : null,
+              ])
             ? 'uncertain'
-            : raw.v === 'productive' &&
-                !isVisibleSubjectGrounded(typeof raw.o === 'string' ? raw.o : null, [
-                  activity.title,
-                  activity.browser === 'firefox' ? activity.siteHost : null,
-                  activity.browser === 'firefox' ? activity.content : null,
-                ])
-              ? 'uncertain'
-              : raw.v;
+            : raw.v;
       const checked = SemanticActivityDecisionSchema.safeParse({
         state: personalized
           ? verdict === 'productive'
@@ -708,7 +696,6 @@ export class OllamaClassificationProvider implements ClassificationProvider {
           personalized && ['named_subject', 'leisure', 'no_subject'].includes(raw.k as string)
             ? raw.k
             : undefined,
-        taskFit: personalized ? taskFit : undefined,
         relation: personalized
           ? verdict === 'productive'
             ? raw.m
@@ -757,7 +744,6 @@ export class OllamaClassificationProvider implements ClassificationProvider {
           state: checked.data.state,
           assessment: checked.data.assessment,
           visibleKind: checked.data.visibleKind,
-          taskFit: checked.data.taskFit,
           relation: checked.data.state === 'focused' ? checked.data.relation : 'none',
           matchedGoalRef: checked.data.state !== 'distracted' ? target?.ref || null : null,
           targetAlias: checked.data.targetAlias,
@@ -1098,7 +1084,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     const result = await chat(
       buildGoalSupportProfilePromptInput(goal),
       goalSupportProfileResponseSchema,
-      Math.min(64, ollamaConfig().numPredict),
+      Math.min(96, ollamaConfig().numPredict),
       10000,
       signal
     );
@@ -1117,6 +1103,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
       subjectCues,
       expectedOutcome: parsed.data.expectedOutcome.trim().slice(0, 120),
       supportingModes,
+      appNeeds: [...new Set(parsed.data.appNeeds ?? [])],
       revision: '',
     };
   }

@@ -402,13 +402,15 @@ describe('OllamaClassificationProvider', () => {
       const request = JSON.parse(String(init?.body));
       expect(request.messages[1].content).toContain('Solve machine learning exercise sheet');
       expect(request.messages[1].content).not.toContain('Firefox');
-      expect(request.options.num_predict).toBe(64);
+      expect(request.options.num_predict).toBe(96);
+      expect(request.format.required).toContain('appNeeds');
       return new Response(
         JSON.stringify({
           message: {
             content: JSON.stringify({
               subjectCues: ['machine learning', 'exercise problems'],
               supportingModes: ['calculation_or_visualization', 'study_notes_or_retrieval'],
+              appNeeds: ['media', 'media'],
             }),
           },
         }),
@@ -421,7 +423,23 @@ describe('OllamaClassificationProvider', () => {
     ).resolves.toMatchObject({
       subjectCues: ['machine learning', 'exercise problems'],
       supportingModes: ['calculation_or_visualization', 'study_notes_or_retrieval'],
+      appNeeds: ['media'],
     });
+  });
+
+  test('a profile without appNeeds from an older warm model is still accepted', async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({ subjectCues: ['graphs'], supportingModes: [] }),
+          },
+        }),
+        { status: 200 }
+      )) as unknown as typeof fetch;
+    await expect(
+      new OllamaClassificationProvider().profileGoal('Revise graph theory')
+    ).resolves.toMatchObject({ subjectCues: ['graphs'], appNeeds: [] });
   });
 
   test('interprets visible page evidence without including a goal', async () => {
@@ -570,7 +588,7 @@ describe('personalized semantic wire contract', () => {
   test('uses one verdict after subject extraction and preserves a concrete low-confidence distraction', async () => {
     globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body));
-      expect(request.format.required).toEqual(['o', 'k', 'q', 'v', 't', 'm', 'p', 'e', 'u']);
+      expect(request.format.required).toEqual(['o', 'k', 'q', 'v', 't', 'm', 'p', 'e']);
       expect(request.format.properties.m.enum).not.toContain('resource_navigation');
       expect(request.options.num_predict).toBeLessThanOrEqual(128);
       return new Response(
@@ -642,46 +660,6 @@ describe('personalized semantic wire contract', () => {
       expect(decision?.state).toBe('uncertain');
       expect(decision?.assessment).toBe('opaque');
     }
-  });
-  test('no subject stays opaque unless the model says the app cannot serve the task', async () => {
-    for (const u of ['yes', 'maybe']) {
-      clearClassificationDecisionCaches();
-      const decision = await personalized(
-        { o: 'All Inboxes', k: 'no_subject', u, v: 'distracting' },
-        { ownerName: 'Mail', title: 'All Inboxes' }
-      );
-      expect(decision?.state).toBe('uncertain');
-      expect(decision?.taskFit).toBe(u as 'yes' | 'maybe');
-    }
-    clearClassificationDecisionCaches();
-    // The prompt keeps v uncertain for no_subject; u alone decides.
-    const unrelated = await personalized(
-      { o: 'All Inboxes', k: 'no_subject', u: 'no', v: 'uncertain', e: ['E1'] },
-      { ownerName: 'Mail', title: 'All Inboxes' }
-    );
-    expect(unrelated?.state).toBe('distracted');
-    expect(unrelated?.assessment).toBe('conflicting');
-    expect(unrelated?.visibleKind).toBe('no_subject');
-    expect(unrelated?.taskFit).toBe('no');
-    // An unfit app is no reason to call the window productive.
-    clearClassificationDecisionCaches();
-    const productive = await personalized(
-      { o: 'All Inboxes', k: 'no_subject', u: 'no', v: 'productive' },
-      { ownerName: 'Mail', title: 'All Inboxes' }
-    );
-    expect(productive?.state).toBe('uncertain');
-  });
-  test('an unfit app does not bypass the file-name check', async () => {
-    const decision = await personalized(
-      { o: 'CarMarket', k: 'named_subject', u: 'no', v: 'distracting' },
-      {
-        ownerName: 'Code',
-        type: 'window' as any,
-        browser: null as any,
-        title: 'CarMarket.ipynb — notebooks',
-      }
-    );
-    expect(decision?.state).toBe('uncertain');
   });
   test('a productive verdict needs a subject that occurs in the visible evidence', async () => {
     const copiedFromTask = await personalized(

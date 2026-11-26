@@ -206,47 +206,45 @@ export function resolvePersonalizedPolicy(input: {
       ? undefined
       : applicable.find((p) => p.state === 'focused' && !p.conflicted);
   };
-  // The model judged that the application itself cannot serve the task
-  // (taskFit "no"): mail during a lecture, music during coding. That judgment
-  // rests on the application, which is always part of the evidence, so it does
-  // not need a title or page to back it. It covers a window with no subject,
-  // which is never a visible conflict whatever title it has, and leisure seen
-  // only through the app name. The model's confidence is no gate: on the dev
-  // split it said low for every clear case (music, chat, a camera). It never
-  // applies to a specialized tool built for a method the task uses, and an
-  // explicit focused correction for this tool and task still wins.
-  const noSubjectConflict =
-    proposal.assessment === 'conflicting' && proposal.visibleKind === 'no_subject';
-  if (
-    proposal.taskFit === 'no' &&
-    (noSubjectConflict ||
-      (unsupportedConflict && !methodOnlyConflict && proposal.visibleKind === 'leisure'))
-  ) {
-    const supportsTask = targets.some(
-      (t) =>
-        input.toolProfile?.role === 'specialized' &&
-        input.toolProfile.supportingModes.some(
-          (mode) => mode !== 'resource_navigation' && t.supportingModes.includes(mode)
-        )
-    );
-    if (!supportsTask) {
-      for (const t of targets) {
-        const preference = focusedPreference(applicableTo(t));
-        if (preference)
-          return result(
-            'focused',
-            preference.scope === 'task' ? 'task_preference' : 'list_preference',
-            t,
-            preference
-          );
-      }
-      return result('distracted', 'tool_mismatch', conflictTarget);
+  // An application whose primary purpose is something the goal does not call
+  // for cannot be what the user is doing for it. Two separately profiled facts
+  // meet here, neither of them a list of apps: what the tool is for (named once
+  // per tool by the model) and which kinds of application the goal itself needs
+  // (named once per goal). Mail during a lecture, music during coding. It needs
+  // no title or page, so it covers windows that show no subject and leisure seen
+  // only through the app name. It stays out of the way when either profile is
+  // missing, when any active task calls for that kind of application, for a
+  // specialized tool built for a method the task uses, and when the model saw a
+  // named subject. An explicit focused correction for this tool and task wins.
+  const mismatchKind = (
+    { communication: 'communication', media_or_entertainment: 'media' } as Record<string, string>
+  )[input.toolProfile?.purpose || ''];
+  const purposeMismatch =
+    Boolean(mismatchKind) &&
+    proposal.visibleKind !== undefined &&
+    proposal.visibleKind !== 'named_subject' &&
+    proposal.assessment !== 'relevant' &&
+    targets.length > 0 &&
+    targets.every((t) => Array.isArray(t.appNeeds) && !t.appNeeds.includes(mismatchKind));
+  if (purposeMismatch) {
+    for (const t of targets) {
+      // Only a correction for this very task counts, never a list-wide one.
+      const preference = focusedPreference(
+        applicableTo(t).filter((candidate) => candidate.scope === 'task')
+      );
+      if (preference)
+        return result(
+          'focused',
+          preference.scope === 'task' ? 'task_preference' : 'list_preference',
+          t,
+          preference
+        );
     }
+    return result('distracted', 'tool_mismatch', conflictTarget);
   }
   const assessment =
     (proposal.assessment === 'relevant' && !input.independentEvidence) ||
-    unsupportedConflict ||
-    noSubjectConflict
+    unsupportedConflict
       ? 'opaque'
       : proposal.assessment;
   if (assessment === 'conflicting') return result('distracted', 'visible_conflict');
