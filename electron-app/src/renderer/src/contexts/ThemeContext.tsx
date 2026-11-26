@@ -10,9 +10,10 @@ export const isDarkStyle = (value: unknown): value is DarkStyle =>
 /** Sage was briefly called Quest; read that name as Sage. */
 export const renamedStyle = (value: unknown): unknown => (value === 'quest' ? 'sage' : value)
 /** How cards and panels look in light mode.  Glass is the original look. */
-export type LightStyle = 'glass' | 'solid' | 'gruvbox' | 'sage'
+/** Sage Glass is Glass's white surfaces with the Sage colours. */
+export type LightStyle = 'glass' | 'solid' | 'gruvbox' | 'sage' | 'sage-glass'
 
-export const LIGHT_STYLES: ReadonlyArray<LightStyle> = ['glass', 'solid', 'gruvbox', 'sage']
+export const LIGHT_STYLES: ReadonlyArray<LightStyle> = ['glass', 'solid', 'gruvbox', 'sage', 'sage-glass']
 export const isLightStyle = (value: unknown): value is LightStyle =>
   LIGHT_STYLES.includes(value as LightStyle)
 

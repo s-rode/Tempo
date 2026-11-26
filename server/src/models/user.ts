@@ -70,7 +70,7 @@ const userSchema = new mongoose.Schema({
     lightStyle: {
       type: String,
       default: 'solid',
-      enum: ['glass', 'solid', 'gruvbox', 'sage', 'quest'],
+      enum: ['glass', 'solid', 'gruvbox', 'sage', 'sage-glass', 'quest'],
     },
     playDistractionSound: {
       type: Boolean,

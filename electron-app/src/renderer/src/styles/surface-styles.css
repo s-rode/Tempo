@@ -113,22 +113,22 @@
 }
 
 /* The Now card carries state in gruvbox colours instead of blue. */
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-inspector-section[data-state='focused'] {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage, .tempo-light-sage-glass) .tempo-inspector-section[data-state='focused'] {
   --now-tint: var(--tempo-flat-now-focused);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-inspector-section[data-state='distracted'] {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage, .tempo-light-sage-glass) .tempo-inspector-section[data-state='distracted'] {
   --now-tint: var(--tempo-flat-now-distracted);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-status-focused {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage, .tempo-light-sage-glass) .tempo-status-focused {
   color: var(--tempo-flat-focused);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-status-distracted {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage, .tempo-light-sage-glass) .tempo-status-distracted {
   color: var(--tempo-flat-distracted);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-plan-active {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage, .tempo-light-sage-glass) .tempo-plan-active {
   color: var(--tempo-flat-focused);
 }
-:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage) .tempo-plan-task.is-in-focus {
+:root:is(.dark, .tempo-light-solid, .tempo-light-gruvbox, .tempo-light-sage, .tempo-light-sage-glass) .tempo-plan-task.is-in-focus {
   box-shadow: inset 2px 0 0 var(--tempo-flat-focused);
 }
 
@@ -270,7 +270,7 @@
    time amber everywhere.  Headings keep sentence case; the look is quiet. */
 
 /* Light: paper background, a slightly deeper paper sidebar, near-white cards
-   and ink text.  Text in accent colours uses darker shades for contrast. */
+   and ink text. */
 :root.tempo-light-sage:not(.dark) {
   --background: 45 22% 96.5%;
   --foreground: 96 7% 14.3%;
@@ -286,6 +286,29 @@
   --accent-foreground: 96 7% 14.3%;
   --border: 48 12% 84%;
   --input: 48 10% 78%;
+
+  --tempo-flat-sidebar: #efede7;
+  --tempo-flat-sidebar-edge: rgb(36 39 34 / 0.08);
+  --tempo-flat-sheet-edge: rgb(36 39 34 / 0.12);
+  --tempo-flat-card: #fdfcfa;
+  --tempo-flat-card-radius: 10px;
+
+  --glass-edge: rgb(36 39 34 / 0.1);
+  --glass-divider: rgb(36 39 34 / 0.08);
+  --glass-hover: rgb(36 39 34 / 0.05);
+  --glass-pill-top: rgb(36 39 34 / 0.07);
+  --glass-pill-bottom: rgb(36 39 34 / 0.07);
+  --glass-track: rgb(36 39 34 / 0.06);
+
+  --day-hairline: rgb(36 39 34 / 0.08);
+  --day-row-hover: rgb(36 39 34 / 0.035);
+}
+
+/* The Sage colours, shared by light Sage and Sage Glass.  Sage Glass keeps
+   the original white glass surfaces and takes only these: the Timeline,
+   Analysis, category and state colours and the moss tint.  Text in accent
+   colours uses darker shades for contrast. */
+:root:is(.tempo-light-sage, .tempo-light-sage-glass):not(.dark) {
   /* Sage brings its own tint instead of the macOS accent, like Notes or
      Mail do with theirs: moss for buttons, selection and focus rings.  The
      macOS accent is set inline on <html>, hence the !important. */
@@ -295,30 +318,15 @@
   --ring: 83 24.4% 39.4%;
   --tempo-system-accent: #6a7d4c !important;
   --day-row-selected: rgb(106 125 76 / 0.12);
-
-  --tempo-flat-sidebar: #efede7;
-  --tempo-flat-sidebar-edge: rgb(36 39 34 / 0.08);
-  --tempo-flat-sheet-edge: rgb(36 39 34 / 0.12);
-  --tempo-flat-card: #fdfcfa;
-  --tempo-flat-card-radius: 10px;
   --tempo-flat-focused: #5c6e40;
   --tempo-flat-distracted: #b5503f;
   --tempo-flat-now-focused: rgb(135 168 120 / 0.1);
   --tempo-flat-now-distracted: rgb(227 128 114 / 0.1);
-
-  --glass-edge: rgb(36 39 34 / 0.1);
-  --glass-divider: rgb(36 39 34 / 0.08);
-  --glass-hover: rgb(36 39 34 / 0.05);
-  --glass-pill-top: rgb(36 39 34 / 0.07);
-  --glass-pill-bottom: rgb(36 39 34 / 0.07);
-  --glass-track: rgb(36 39 34 / 0.06);
-
   --insight-deep: #6a7d4c;
   --insight-focus: #87a878;
   --insight-behind: #e5aa50;
   --insight-distract: #e38072;
   --insight-uncertain: rgb(36 39 34 / 0.18);
-
   --day-focused: #87a878;
   --day-distracted: #e38072;
   --day-uncertain: #e5aa50;
@@ -333,9 +341,6 @@
   --day-distracted-text: #b5503f;
   --day-uncertain-text: #8f6216;
   --day-on-accent: #242722;
-  --day-hairline: rgb(36 39 34 / 0.08);
-  --day-row-hover: rgb(36 39 34 / 0.035);
-
   --tempo-cat-red: #e38072;
   --tempo-cat-orange: #d98a5f;
   --tempo-cat-yellow: #e5aa50;
@@ -347,6 +352,15 @@
 }
 :root.tempo-light-sage:not(.dark) .tempo-glass-segmented > button[data-state='on'] {
   background: #fdfcfa;
+}
+/* Sage Glass: the faint glow behind the glass Analysis cards in sage and
+   amber instead of green and blue, and the accent in moss. */
+:root.tempo-light-sage-glass:not(.dark) {
+  --insight-glow: rgb(135 168 120 / 0.14);
+  --insight-glow-2: rgb(229 170 80 / 0.08);
+  /* Glass's blue-grey accent (selected sidebar page, hover) in moss. */
+  --accent: 90 16% 91%;
+  --accent-foreground: 83 26% 28%;
 }
 
 /* Dark: the ink as the window, a deeper ink sidebar and slightly raised

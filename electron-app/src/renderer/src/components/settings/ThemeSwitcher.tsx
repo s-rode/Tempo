@@ -20,7 +20,8 @@ const LIGHT_STYLE_OPTIONS: ReadonlyArray<{ value: LightStyle; label: string }> =
   { value: 'solid', label: 'Solid' },
   { value: 'gruvbox', label: 'Gruvbox' },
   { value: 'sage', label: 'Sage' },
-  { value: 'glass', label: 'Glass' }
+  { value: 'glass', label: 'Glass' },
+  { value: 'sage-glass', label: 'Sage Glass' }
 ]
 
 const isTheme = (value: unknown): value is Theme => THEMES.some((option) => option.value === value)
@@ -80,7 +81,7 @@ export function ThemeSwitcher() {
       />
       <SettingsRow
         title="Light style"
-        description="Solid uses white cards on ivory. Gruvbox uses warm paper colours. Sage uses the app icon's paper, sage green and coral. Glass is the original look."
+        description="Solid uses white cards on ivory. Gruvbox uses warm paper colours. Sage uses the app icon's paper, sage green and coral. Glass is the original look; Sage Glass adds the Sage colours to it."
         inactive={theme === 'dark'}
         control={
           <SettingsSegmented
