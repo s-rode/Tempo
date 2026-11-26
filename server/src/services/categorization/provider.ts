@@ -183,7 +183,11 @@ const coreResponseSchema = {
 const goalSupportProfileResponseSchema = {
   type: 'object',
   additionalProperties: false,
+  // The two yes/no answers come first: when a long reply is cut off by the
+  // token limit, the cheap fields must not be the ones lost.
   properties: {
+    withOthers: { type: 'string', enum: ['yes', 'no'] },
+    watchOrListen: { type: 'string', enum: ['yes', 'no'] },
     subjectCues: { type: 'array', items: { type: 'string', maxLength: 32 }, maxItems: 6 },
     expectedOutcome: { type: 'string', maxLength: 120 },
     supportingModes: {
@@ -200,10 +204,8 @@ const goalSupportProfileResponseSchema = {
       },
       maxItems: 5,
     },
-    withOthers: { type: 'string', enum: ['yes', 'no'] },
-    watchOrListen: { type: 'string', enum: ['yes', 'no'] },
   },
-  required: ['subjectCues', 'expectedOutcome', 'supportingModes', 'withOthers', 'watchOrListen'],
+  required: ['withOthers', 'watchOrListen', 'subjectCues', 'expectedOutcome', 'supportingModes'],
 };
 
 const pageDescriptorResponseSchema = {
@@ -1081,8 +1083,10 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     const result = await chat(
       buildGoalSupportProfilePromptInput(goal),
       goalSupportProfileResponseSchema,
-      Math.min(112, ollamaConfig().numPredict),
-      10000,
+      // Profiling is background work and the JSON is often indented; 112 tokens
+      // cut replies off before the last fields.
+      Math.max(256, ollamaConfig().numPredict),
+      20000,
       signal
     );
     if (!result.content || signal?.aborted) return null;

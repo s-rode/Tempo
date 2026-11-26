@@ -402,7 +402,7 @@ describe('OllamaClassificationProvider', () => {
       const request = JSON.parse(String(init?.body));
       expect(request.messages[1].content).toContain('Solve machine learning exercise sheet');
       expect(request.messages[1].content).not.toContain('Firefox');
-      expect(request.options.num_predict).toBe(112);
+      expect(request.options.num_predict).toBe(256);
       expect(request.format.required).toContain('withOthers');
       return new Response(
         JSON.stringify({
