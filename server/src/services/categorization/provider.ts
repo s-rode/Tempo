@@ -29,6 +29,7 @@ import { GoalSupportProfileData, SUPPORTING_MODES, isSupportingMode } from './go
 import type { PageActivityDescriptorData } from './pageDescriptorTypes';
 import type { LearningExampleForPrompt } from './correctionLearning';
 import type { ToolCapabilityProfile } from '../../../../shared/classification';
+import { profileFromPurpose, TOOL_PURPOSES } from './toolProfilePolicy';
 import { DecisionCache } from './decisionCache';
 
 export type ClassificationStatus =
@@ -686,6 +687,10 @@ export class OllamaClassificationProvider implements ClassificationProvider {
               ? 'conflicting'
               : 'opaque'
           : (raw.a ?? raw.assessment),
+        visibleKind:
+          personalized && ['named_subject', 'leisure', 'no_subject'].includes(raw.k as string)
+            ? raw.k
+            : undefined,
         relation: personalized
           ? verdict === 'productive'
             ? raw.m
@@ -733,6 +738,7 @@ export class OllamaClassificationProvider implements ClassificationProvider {
         decision: {
           state: checked.data.state,
           assessment: checked.data.assessment,
+          visibleKind: checked.data.visibleKind,
           relation: checked.data.state === 'focused' ? checked.data.relation : 'none',
           matchedGoalRef: checked.data.state !== 'distracted' ? target?.ref || null : null,
           targetAlias: checked.data.targetAlias,
@@ -1058,25 +1064,15 @@ export class OllamaClassificationProvider implements ClassificationProvider {
     const schema = {
       type: 'object',
       additionalProperties: false,
-      properties: {
-        role: { type: 'string', enum: ['specialized', 'general_purpose', 'unknown'] },
-        supportingModes: {
-          type: 'array',
-          items: { type: 'string', enum: SUPPORTING_MODES },
-          maxItems: 6,
-        },
-      },
-      required: ['role', 'supportingModes'],
+      properties: { purpose: { type: 'string', enum: TOOL_PURPOSES } },
+      required: ['purpose'],
     };
-    const response = await chat(buildToolProfilePromptInput(label, host), schema, 96, 8000, signal);
+    const response = await chat(buildToolProfilePromptInput(label, host), schema, 32, 8000, signal);
     if (!response.content) return null;
     const checked = z
-      .object({
-        role: z.enum(['specialized', 'general_purpose', 'unknown']),
-        supportingModes: z.array(z.enum(SUPPORTING_MODES)).max(6),
-      })
+      .object({ purpose: z.enum(TOOL_PURPOSES) })
       .safeParse(parseStructuredResponse(response.content));
-    return checked.success ? { ...checked.data, revision: 'tool-capabilities-v1' } : null;
+    return checked.success ? profileFromPurpose(checked.data.purpose) : null;
   }
 
   async profileGoal(goal: string, signal?: AbortSignal): Promise<GoalSupportProfileData | null> {

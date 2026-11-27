@@ -41,6 +41,21 @@ describe('current activity status', () => {
       )
     ).toBe('Needs more context')
   })
+
+  test('names the local rule behind a policy override', () => {
+    const override = (classificationBasis: ActiveWindowEvent['classificationBasis']) =>
+      getStatusText(
+        { ...failedEvent, classificationStatus: 'policy_override', classificationBasis },
+        null,
+        null,
+        false,
+        false,
+        null
+      )
+    expect(override('tool_role')).toBe('Focused · this tool fits the task’s method')
+    expect(override('task_preference')).toBe('Focused · matches your correction for this task')
+    expect(override(null)).toBe('Focused · learned from a similar correction')
+  })
 })
 
 describe('display window info', () => {

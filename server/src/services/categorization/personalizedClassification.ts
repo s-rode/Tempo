@@ -103,6 +103,7 @@ export async function classifyPersonalized(input: {
     ? {
         state: decision.state,
         assessment: decision.assessment || 'opaque',
+        ...(decision.visibleKind ? { visibleKind: decision.visibleKind } : {}),
         relation: decision.relation,
         confidence: decision.confidence,
         matchedGoalRef: decision.matchedGoalRef,

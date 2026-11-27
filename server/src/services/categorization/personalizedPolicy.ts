@@ -9,7 +9,7 @@ import type { CorrectionAction } from '../../models/correctionAction';
 
 // Bump whenever the foreground prompt or policy changes, so automatic history
 // decided under the previous revision is not reused.
-export const PERSONALIZED_POLICY_VERSION = 'contextual-v4';
+export const PERSONALIZED_POLICY_VERSION = 'contextual-v5';
 export const PROMOTION_REQUIREMENTS = {
   flexible: { actions: 2, sessions: 2, tasks: 2 },
   balanced: { actions: 3, sessions: 2, tasks: 2 },
@@ -174,9 +174,12 @@ export function resolvePersonalizedPolicy(input: {
     (targets.length === 1 ? targets[0] : null);
   // A goal that only names a work method ("flashcards") has no subject a deck or
   // page title could contradict, so a topic mismatch inside a specialized tool
-  // that supports that method is not evidence of distraction.
+  // that supports that method is not evidence of distraction. That reasoning
+  // only covers a named subject: leisure (music, video, chat) is not a different
+  // topic of the same method, so it stays a real conflict.
   const methodOnlyConflict =
     proposal.assessment === 'conflicting' &&
+    proposal.visibleKind === 'named_subject' &&
     input.strictness !== 'strict' &&
     conflictTarget !== null &&
     isMethodOnlyGoal(conflictTarget.text) &&

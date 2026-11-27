@@ -177,7 +177,12 @@ describe('bounded explicit personal learning', () => {
       supportingModes: ['study_notes_or_retrieval'],
       revision: 'v1',
     };
-    const conflict = { ...proposal, assessment: 'conflicting' as const, state: 'distracted' as const };
+    const conflict = {
+      ...proposal,
+      assessment: 'conflicting' as const,
+      visibleKind: 'named_subject' as const,
+      state: 'distracted' as const,
+    };
     const flashcards = { ...target, text: 'flashcards', classificationText: 'flashcards' };
     expect(
       resolve({ preferences: [], toolProfile, proposal: conflict, targets: [flashcards] })
@@ -189,6 +194,39 @@ describe('bounded explicit personal learning', () => {
     ).toBe('distracted');
     expect(
       resolve({ toolProfile: null, proposal: conflict, targets: [flashcards], independentEvidence: true })
+        .state
+    ).toBe('distracted');
+  });
+  test('leisure in a tool profiled as specialized stays distracted on a method-only goal', () => {
+    const toolProfile = {
+      role: 'specialized' as const,
+      supportingModes: ['study_notes_or_retrieval'],
+      revision: 'v2',
+    };
+    const flashcards = { ...target, text: 'flashcards', classificationText: 'flashcards' };
+    // Spotify playing a track while the task is "flashcards".
+    const music = {
+      ...proposal,
+      assessment: 'conflicting' as const,
+      visibleKind: 'leisure' as const,
+      state: 'distracted' as const,
+      matchedGoalRef: null,
+      supportingMode: null,
+      evidenceAliases: ['E2'],
+    };
+    expect(
+      resolve({
+        preferences: [],
+        toolProfile,
+        proposal: music,
+        targets: [flashcards],
+        independentEvidence: true,
+      })
+    ).toMatchObject({ state: 'distracted', basis: 'visible_conflict' });
+    // An older decision without a visible kind is not treated as a topic mismatch either.
+    const { visibleKind: _omit, ...unknownKind } = music;
+    expect(
+      resolve({ preferences: [], toolProfile, proposal: unknownKind, targets: [flashcards], independentEvidence: true })
         .state
     ).toBe('distracted');
   });

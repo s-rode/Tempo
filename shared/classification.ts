@@ -32,6 +32,8 @@ export type ClassificationBasis =
 
 export interface SemanticProposal {
   assessment: 'relevant' | 'conflicting' | 'opaque';
+  /** What the model saw: a named subject, leisure, or nothing task-specific. */
+  visibleKind?: 'named_subject' | 'leisure' | 'no_subject';
   state: 'focused' | 'distracted' | 'uncertain';
   relation: 'direct' | 'supporting' | 'none';
   confidence: 'high' | 'medium' | 'low';
