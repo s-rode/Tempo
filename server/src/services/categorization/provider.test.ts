@@ -402,13 +402,16 @@ describe('OllamaClassificationProvider', () => {
       const request = JSON.parse(String(init?.body));
       expect(request.messages[1].content).toContain('Solve machine learning exercise sheet');
       expect(request.messages[1].content).not.toContain('Firefox');
-      expect(request.options.num_predict).toBe(64);
+      expect(request.options.num_predict).toBe(256);
+      expect(request.format.required).toContain('withOthers');
       return new Response(
         JSON.stringify({
           message: {
             content: JSON.stringify({
               subjectCues: ['machine learning', 'exercise problems'],
               supportingModes: ['calculation_or_visualization', 'study_notes_or_retrieval'],
+              withOthers: 'no',
+              watchOrListen: 'yes',
             }),
           },
         }),
@@ -421,7 +424,23 @@ describe('OllamaClassificationProvider', () => {
     ).resolves.toMatchObject({
       subjectCues: ['machine learning', 'exercise problems'],
       supportingModes: ['calculation_or_visualization', 'study_notes_or_retrieval'],
+      appNeeds: ['media'],
     });
+  });
+
+  test('a profile without appNeeds from an older warm model is still accepted', async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          message: {
+            content: JSON.stringify({ subjectCues: ['graphs'], supportingModes: [] }),
+          },
+        }),
+        { status: 200 }
+      )) as unknown as typeof fetch;
+    await expect(
+      new OllamaClassificationProvider().profileGoal('Revise graph theory')
+    ).resolves.not.toHaveProperty('appNeeds');
   });
 
   test('interprets visible page evidence without including a goal', async () => {

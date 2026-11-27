@@ -190,11 +190,16 @@ describe('bounded explicit personal learning', () => {
     // A named subject, strict mode, or an unrelated tool still defeats the tool role.
     expect(resolve({ toolProfile, proposal: conflict }).state).toBe('distracted');
     expect(
-      resolve({ toolProfile, proposal: conflict, targets: [flashcards], strictness: 'strict' }).state
+      resolve({ toolProfile, proposal: conflict, targets: [flashcards], strictness: 'strict' })
+        .state
     ).toBe('distracted');
     expect(
-      resolve({ toolProfile: null, proposal: conflict, targets: [flashcards], independentEvidence: true })
-        .state
+      resolve({
+        toolProfile: null,
+        proposal: conflict,
+        targets: [flashcards],
+        independentEvidence: true,
+      }).state
     ).toBe('distracted');
   });
   test('leisure in a tool profiled as specialized stays distracted on a method-only goal', () => {
@@ -226,8 +231,13 @@ describe('bounded explicit personal learning', () => {
     // An older decision without a visible kind is not treated as a topic mismatch either.
     const { visibleKind: _omit, ...unknownKind } = music;
     expect(
-      resolve({ preferences: [], toolProfile, proposal: unknownKind, targets: [flashcards], independentEvidence: true })
-        .state
+      resolve({
+        preferences: [],
+        toolProfile,
+        proposal: unknownKind,
+        targets: [flashcards],
+        independentEvidence: true,
+      }).state
     ).toBe('distracted');
   });
   test('technical failures remain neutral despite a strong preference', () => {
@@ -269,5 +279,118 @@ describe('one correction for a task and tool', () => {
       independentEvidence: true,
     });
     expect(result.state).toBe('distracted');
+  });
+});
+
+describe('a tool whose purpose the goal does not call for', () => {
+  const lecture: HistoricalGoalTarget = {
+    ...target,
+    taskKey: 'lecture',
+    text: 'Watch the formal methods lecture',
+    classificationText: 'Watch the formal methods lecture',
+    supportingModes: [],
+    appNeeds: [],
+  };
+  const noSubject: SemanticProposal = {
+    assessment: 'opaque',
+    visibleKind: 'no_subject',
+    state: 'uncertain',
+    relation: 'none',
+    confidence: 'medium',
+    matchedGoalRef: 'T1',
+    supportingMode: null,
+    evidenceAliases: ['E2'],
+  };
+  const mail = {
+    role: 'general_purpose' as const,
+    supportingModes: [],
+    revision: 'v3',
+    purpose: 'communication',
+  };
+  const player = { ...mail, purpose: 'media_or_entertainment' };
+  const base = { proposal: noSubject, targets: [lecture], preferences: [], toolProfile: mail };
+  test('is a distraction when the goal needs neither, in every strictness', () => {
+    for (const strictness of ['flexible', 'balanced', 'strict'] as const) {
+      const r = resolve({ ...base, strictness });
+      expect(r.state).toBe('distracted');
+      expect(r.basis).toBe('tool_mismatch');
+    }
+  });
+  test('covers leisure that only the app name shows', () => {
+    const r = resolve({
+      ...base,
+      proposal: {
+        ...noSubject,
+        assessment: 'conflicting',
+        visibleKind: 'leisure',
+        evidenceAliases: ['E1'],
+      },
+      toolProfile: player,
+    });
+    expect(r.basis).toBe('tool_mismatch');
+  });
+  test('is not applied when the goal itself calls for that kind of application', () => {
+    const review = { ...lecture, appNeeds: ['communication'] };
+    expect(resolve({ ...base, targets: [review] }).state).toBe('uncertain');
+    const podcast = { ...lecture, appNeeds: ['media'] };
+    expect(resolve({ ...base, targets: [podcast], toolProfile: player }).state).toBe('uncertain');
+    // A different kind of application is still a mismatch.
+    expect(resolve({ ...base, targets: [podcast] }).basis).toBe('tool_mismatch');
+  });
+  test('needs both profiles and never guesses while one is missing', () => {
+    expect(resolve({ ...base, toolProfile: null }).state).toBe('uncertain');
+    expect(resolve({ ...base, targets: [{ ...lecture, appNeeds: null }] }).state).toBe('uncertain');
+    expect(resolve({ ...base, toolProfile: { ...mail, purpose: 'general_purpose' } }).state).toBe(
+      'uncertain'
+    );
+    expect(resolve({ ...base, toolProfile: { ...mail, purpose: 'system_utility' } }).state).toBe(
+      'uncertain'
+    );
+  });
+  test('any active task that calls for the application keeps the window uncertain', () => {
+    const r = resolve({
+      ...base,
+      targets: [lecture, { ...lecture, ref: 'T2', appNeeds: ['communication'] }],
+    });
+    expect(r.state).toBe('uncertain');
+  });
+  test('leaves a window that names a subject to the model', () => {
+    const r = resolve({
+      ...base,
+      proposal: {
+        ...noSubject,
+        assessment: 'relevant',
+        visibleKind: 'named_subject',
+        state: 'focused',
+      },
+    });
+    expect(r.basis).not.toBe('tool_mismatch');
+  });
+  test('yields to an explicit focused correction for this very task', () => {
+    const corrections = actions(1).map((a) => ({
+      ...a,
+      context: { ...lecture },
+      supportingMode: null,
+    }));
+    const r = resolve({
+      ...base,
+      preferences: consolidatePreferences(corrections, 'balanced', now),
+    });
+    expect(r.state).toBe('focused');
+    expect(r.basis).toBe('task_preference');
+  });
+  test('a list-wide preference does not let it pass', () => {
+    const listWide = consolidatePreferences(actions(3), 'balanced', now).filter(
+      (p) => p.scope === 'list'
+    );
+    expect(listWide.length).toBe(1);
+    const r = resolve({
+      ...base,
+      targets: [
+        { ...lecture, listKey: 'university', supportingModes: ['study_notes_or_retrieval'] },
+      ],
+      preferences: listWide,
+    });
+    expect(r.basis).toBe('tool_mismatch');
   });
 });

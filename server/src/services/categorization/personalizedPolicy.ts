@@ -9,7 +9,7 @@ import type { CorrectionAction } from '../../models/correctionAction';
 
 // Bump whenever the foreground prompt or policy changes, so automatic history
 // decided under the previous revision is not reused.
-export const PERSONALIZED_POLICY_VERSION = 'contextual-v5';
+export const PERSONALIZED_POLICY_VERSION = 'contextual-v6';
 export const PROMOTION_REQUIREMENTS = {
   flexible: { actions: 2, sessions: 2, tasks: 2 },
   balanced: { actions: 3, sessions: 2, tasks: 2 },
@@ -192,8 +192,59 @@ export function resolvePersonalizedPolicy(input: {
     (methodOnlyConflict ||
       proposal.evidenceAliases.length === 0 ||
       (!input.independentEvidence && input.toolProfile?.role !== 'specialized'));
+  const applicableTo = (target: HistoricalGoalTarget) =>
+    input.preferences.filter(
+      (p) =>
+        (p.scope === 'task'
+          ? p.key === target.taskKey
+          : Boolean(target.listKey) && p.key === target.listKey) &&
+        (p.supportingMode === null || target.supportingModes.includes(p.supportingMode))
+    );
+  const focusedPreference = (applicable: ScopedPreference[]) => {
+    const task = applicable.find((p) => p.scope === 'task');
+    return task?.conflicted
+      ? undefined
+      : applicable.find((p) => p.state === 'focused' && !p.conflicted);
+  };
+  // An application whose primary purpose is something the goal does not call
+  // for cannot be what the user is doing for it. Two separately profiled facts
+  // meet here, neither of them a list of apps: what the tool is for (named once
+  // per tool by the model) and which kinds of application the goal itself needs
+  // (named once per goal). Mail during a lecture, music during coding. It needs
+  // no title or page, so it covers windows that show no subject and leisure seen
+  // only through the app name. It stays out of the way when either profile is
+  // missing, when any active task calls for that kind of application, for a
+  // specialized tool built for a method the task uses, and when the model saw a
+  // named subject. An explicit focused correction for this tool and task wins.
+  const mismatchKind = (
+    { communication: 'communication', media_or_entertainment: 'media' } as Record<string, string>
+  )[input.toolProfile?.purpose || ''];
+  const purposeMismatch =
+    Boolean(mismatchKind) &&
+    proposal.visibleKind !== undefined &&
+    proposal.visibleKind !== 'named_subject' &&
+    proposal.assessment !== 'relevant' &&
+    targets.length > 0 &&
+    targets.every((t) => Array.isArray(t.appNeeds) && !t.appNeeds.includes(mismatchKind));
+  if (purposeMismatch) {
+    for (const t of targets) {
+      // Only a correction for this very task counts, never a list-wide one.
+      const preference = focusedPreference(
+        applicableTo(t).filter((candidate) => candidate.scope === 'task')
+      );
+      if (preference)
+        return result(
+          'focused',
+          preference.scope === 'task' ? 'task_preference' : 'list_preference',
+          t,
+          preference
+        );
+    }
+    return result('distracted', 'tool_mismatch', conflictTarget);
+  }
   const assessment =
-    (proposal.assessment === 'relevant' && !input.independentEvidence) || unsupportedConflict
+    (proposal.assessment === 'relevant' && !input.independentEvidence) ||
+    unsupportedConflict
       ? 'opaque'
       : proposal.assessment;
   if (assessment === 'conflicting') return result('distracted', 'visible_conflict');
@@ -201,20 +252,11 @@ export function resolvePersonalizedPolicy(input: {
     targets.find((t) => t.ref === proposal.matchedGoalRef) ||
     (targets.length === 1 ? targets[0] : null);
   if (!target) return result('uncertain', 'insufficient_evidence');
-  const compatible = (p: ScopedPreference) =>
-    p.supportingMode === null || target.supportingModes.includes(p.supportingMode);
-  const applicable = input.preferences.filter(
-    (p) =>
-      (p.scope === 'task'
-        ? p.key === target.taskKey
-        : Boolean(target.listKey) && p.key === target.listKey) && compatible(p)
-  );
+  const applicable = applicableTo(target);
   const task = applicable.find((p) => p.scope === 'task');
   if (task?.state === 'distracted' && !task.conflicted)
     return result('distracted', 'task_preference', target, task);
-  const preference = task?.conflicted
-    ? undefined
-    : applicable.find((p) => p.state === 'focused' && !p.conflicted);
+  const preference = focusedPreference(applicable);
   if (
     assessment === 'relevant' &&
     input.independentEvidence &&

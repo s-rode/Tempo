@@ -27,6 +27,10 @@ export const GoalSupportProfileSchema = z.object({
   subjectCues: z.array(z.string().min(1).max(32)).max(6),
   expectedOutcome: z.string().max(120).default(''),
   supportingModes: z.array(z.enum(SUPPORTING_MODES)).max(5),
+  // Optional so a warm model that predates these fields still produces a
+  // profile; without them the goal's app needs stay unknown.
+  withOthers: z.enum(['yes', 'no']).optional(),
+  watchOrListen: z.enum(['yes', 'no']).optional(),
 });
 
 export const PageActivityDescriptorSchema = z.object({
@@ -368,7 +372,7 @@ export function buildGoalSupportProfilePromptInput(goalText: string) {
     },
     {
       role: 'user' as const,
-      content: `Goal: "${goalText.slice(0, 1800)}"\n\nDescribe the expected outcome in one short sentence. Choose at most six short subject cues and only the supporting methods genuinely useful for this goal. Available methods: calculation_or_visualization, study_notes_or_retrieval, read_reference, coding_or_analysis, drafting_or_problem_solving. These methods are not approval for generic use; later activity still needs explicit evidence. Return {"subjectCues":[],"expectedOutcome":"","supportingModes":[]}.`,
+      content: `Goal: "${goalText.slice(0, 1800)}"\n\nDescribe the expected outcome in at most ten words. Choose at most six short subject cues and only the supporting methods genuinely useful for this goal. Available methods: calculation_or_visualization, study_notes_or_retrieval, read_reference, coding_or_analysis, drafting_or_problem_solving. These methods are not approval for generic use; later activity still needs explicit evidence. Then answer two yes/no questions about the goal text alone. withOthers: does the goal itself name an exchange with other people, such as a meeting, a call, a review, replying, writing to someone, sending or sharing something, a team or group, or planning and coordinating work with others (a sprint, a project plan, a handover)? Examples: "Reply to the landlord" yes, "Review the pull request" yes, "Plan sprint 14" yes, "Prepare slides for the group meeting" yes; "Watch the lecture" no, "Catch up on the databases lecture" no, "Study for the exam" no, "Pandas exercises" no, "Do taxes" no. watchOrListen: is the goal to watch or listen to something, such as a lecture recording, a video or a podcast? Examples: "Watch lecture 12" yes, "Listen to the podcast" yes; "Study for the exam" no, "Write the report" no. Return {"subjectCues":[],"expectedOutcome":"","supportingModes":[],"withOthers":"no","watchOrListen":"no"}.`,
     },
   ];
 }

@@ -4,7 +4,7 @@ import type { ToolCapabilityProfile } from '../../../../shared/classification';
  * Bump whenever the profiling prompt or the mapping below changes. Stored
  * profiles from another revision are ignored and profiled again.
  */
-export const TOOL_PROFILE_REVISION = 'tool-capabilities-v2';
+export const TOOL_PROFILE_REVISION = 'tool-capabilities-v3';
 
 /** Work methods a specialized tool can be built for. */
 const METHOD_PURPOSES = [
@@ -44,5 +44,6 @@ export function profileFromPurpose(purpose: ToolPurpose): ToolCapabilityProfile 
     role: method ? 'specialized' : purpose === 'unknown' ? 'unknown' : 'general_purpose',
     supportingModes: method ? [method] : [],
     revision: TOOL_PROFILE_REVISION,
+    purpose,
   };
 }

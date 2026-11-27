@@ -9,6 +9,11 @@ export interface HistoricalGoalTarget {
   listContext: string | null;
   supportingModes: string[];
   profileRevision: string | null;
+  /**
+   * Kinds of application the goal itself calls for ("communication", "media"),
+   * from the goal profile. null while the goal has no profile yet.
+   */
+  appNeeds?: string[] | null;
 }
 
 export interface ClassificationContextSnapshot {
@@ -25,6 +30,7 @@ export type ClassificationBasis =
   | 'task_preference'
   | 'list_preference'
   | 'tool_role'
+  | 'tool_mismatch'
   | 'resource_navigation'
   | 'insufficient_evidence'
   | 'policy_rejected'
@@ -46,6 +52,8 @@ export interface ToolCapabilityProfile {
   role: 'specialized' | 'general_purpose' | 'unknown';
   supportingModes: string[];
   revision: string;
+  /** What the tool is primarily for, as the profiling model named it. */
+  purpose?: string;
 }
 
 export interface PersonalizedEventMetadata {

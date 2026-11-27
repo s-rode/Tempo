@@ -9,7 +9,8 @@ import type { ClassifierStrictness } from '../../../shared/types';
 /**
  * Runs an authored synthetic suite through the production foreground path:
  * the personalized local-model prompt followed by the deterministic policy,
- * with no learned preferences and no tool profile. No database access.
+ * with no learned preferences. Goal and tool profiles come from the same local
+ * model, once per goal text and per application. No database access.
  *
  *   bun run classifier:eval:suite <out.json> [--suite=path] [--split=dev|holdout|all]
  *     [--ids=a,b] [--category=name] [--pace-ms=250] [--replay=previous.json]
@@ -60,6 +61,24 @@ const cases = suite.cases.filter(
 );
 
 const provider = new OllamaClassificationProvider();
+// Goal and tool profiles are produced once per goal text and per application,
+// as in the app, where they are generated in the background and cached. Replay
+// reuses what the saved report recorded.
+const goalProfiles = new Map<string, Promise<string[] | null>>();
+const toolProfiles = new Map<string, Promise<any>>();
+const useProfiles = !process.argv.includes('--no-profiles');
+const goalNeeds = (text: string) => {
+  if (!goalProfiles.has(text))
+    goalProfiles.set(
+      text,
+      provider.profileGoal(text).then((profile) => (profile ? profile.appNeeds || [] : null))
+    );
+  return goalProfiles.get(text)!;
+};
+const toolProfile = (app: string, host: string | null) => {
+  if (!toolProfiles.has(app)) toolProfiles.set(app, provider.profileTool(app, host));
+  return toolProfiles.get(app)!;
+};
 const categories = [
   { name: 'Work', isProductive: true },
   { name: 'Distraction', isProductive: false },
@@ -126,7 +145,17 @@ for (const item of cases) {
         : alias === 'E3' || alias === 'E4'
     )
   );
-  const historical = targets.map((target) => ({
+  const needs = replay
+    ? replay.appNeeds
+    : useProfiles
+      ? await Promise.all(goalTexts.map(goalNeeds))
+      : goalTexts.map(() => null);
+  const profile = replay
+    ? replay.toolProfile
+    : useProfiles
+      ? await toolProfile(item.app, item.browser ? item.host || null : null)
+      : null;
+  const historical = targets.map((target, index) => ({
     ref: target.ref,
     taskKey: target.textFingerprint,
     text: target.text,
@@ -136,6 +165,7 @@ for (const item of cases) {
     listContext: item.listContext || null,
     supportingModes: [],
     profileRevision: null,
+    appNeeds: needs?.[index] ?? null,
   }));
   const predicted = Object.fromEntries(
     STRICTNESS.map((strictness) => {
@@ -143,7 +173,7 @@ for (const item of cases) {
         proposal: proposal as any,
         targets: historical,
         preferences: [],
-        toolProfile: null,
+        toolProfile: profile,
         strictness,
         independentEvidence,
         // Steady state: the 60-second navigation allowance has run out.
@@ -163,6 +193,8 @@ for (const item of cases) {
     acceptable: item.acceptable || [],
     predicted,
     decision,
+    appNeeds: needs,
+    toolProfile: profile,
     failure: response.failureCode || null,
     attempts: response.attemptCount,
     latencyMs,

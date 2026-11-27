@@ -3489,6 +3489,204 @@
       "title": "values.yaml — infra",
       "expected": "focused",
       "acceptable": ["uncertain"]
+    },
+    {
+      "id": "dev-unrelated_app-01",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Watch the lecture on convex optimization",
+      "app": "Mail",
+      "title": "All Inboxes",
+      "expected": "distracted"
+    },
+    {
+      "id": "dev-unrelated_app-02",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Watch lecture 7 of the operating systems course",
+      "app": "Messages",
+      "title": "Messages",
+      "expected": "distracted"
+    },
+    {
+      "id": "dev-unrelated_app-03",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Write the methods section of the thesis",
+      "app": "Music",
+      "title": "Music",
+      "expected": "distracted"
+    },
+    {
+      "id": "dev-unrelated_app-04",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Debug flaky checkout test",
+      "app": "Photo Booth",
+      "title": "Photo Booth",
+      "expected": "distracted"
+    },
+    {
+      "id": "dev-unrelated_app-05",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Study for the statistics exam",
+      "app": "WhatsApp",
+      "title": "WhatsApp",
+      "expected": "distracted"
+    },
+    {
+      "id": "dev-unrelated_app-06",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Learn Rust ownership",
+      "app": "Calendar",
+      "title": "Calendar",
+      "expected": "distracted",
+      "acceptable": ["uncertain"]
+    },
+    {
+      "id": "dev-unrelated_app-07",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Vorlesung Datenbanken nachholen",
+      "app": "Mail",
+      "title": "Posteingang",
+      "expected": "distracted"
+    },
+    {
+      "id": "dev-unrelated_app-08",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Prepare German B2 exam",
+      "app": "Spotify",
+      "title": "Spotify",
+      "expected": "distracted"
+    },
+    {
+      "id": "dev-unrelated_app-09",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Schedule the team retro",
+      "app": "Calendar",
+      "title": "Calendar",
+      "expected": "uncertain",
+      "acceptable": ["focused"]
+    },
+    {
+      "id": "dev-unrelated_app-10",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Watch the lecture on convex optimization",
+      "app": "Firefox",
+      "title": "New Tab",
+      "browser": "firefox",
+      "expected": "uncertain"
+    },
+    {
+      "id": "dev-unrelated_app-11",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Finish the probability problem set",
+      "app": "Calculator",
+      "title": "Calculator",
+      "expected": "uncertain",
+      "acceptable": ["focused"]
+    },
+    {
+      "id": "dev-unrelated_app-12",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Reply to the landlord about the heating",
+      "app": "Mail",
+      "title": "All Inboxes",
+      "expected": "uncertain",
+      "acceptable": ["focused"]
+    },
+    {
+      "id": "holdout-unrelated_app-01",
+      "split": "holdout",
+      "category": "unrelated_app",
+      "goal": "Watch the compiler construction lecture recording",
+      "app": "Slack",
+      "title": "Slack",
+      "expected": "distracted"
+    },
+    {
+      "id": "holdout-unrelated_app-02",
+      "split": "holdout",
+      "category": "unrelated_app",
+      "goal": "Revise thermodynamics for the physics exam",
+      "app": "Podcasts",
+      "title": "Podcasts",
+      "expected": "distracted"
+    },
+    {
+      "id": "holdout-unrelated_app-03",
+      "split": "holdout",
+      "category": "unrelated_app",
+      "goal": "Write blog post about our Postgres migration",
+      "app": "Photos",
+      "title": "Library",
+      "expected": "distracted"
+    },
+    {
+      "id": "holdout-unrelated_app-04",
+      "split": "holdout",
+      "category": "unrelated_app",
+      "goal": "Übungsblatt Analysis bearbeiten",
+      "app": "Telegram",
+      "title": "Telegram",
+      "expected": "distracted"
+    },
+    {
+      "id": "holdout-unrelated_app-05",
+      "split": "holdout",
+      "category": "unrelated_app",
+      "goal": "Organize the team offsite",
+      "app": "Mail",
+      "title": "Inbox",
+      "expected": "uncertain",
+      "acceptable": ["focused"]
+    },
+    {
+      "id": "holdout-unrelated_app-06",
+      "split": "holdout",
+      "category": "unrelated_app",
+      "goal": "Finish the Bayesian statistics homework",
+      "app": "Notes",
+      "title": "All iCloud",
+      "expected": "uncertain"
+    },
+    {
+      "id": "dev-unrelated_app-13",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Listen to the podcast episode on market making",
+      "app": "Spotify",
+      "title": "Spotify",
+      "expected": "uncertain",
+      "acceptable": ["focused"]
+    },
+    {
+      "id": "dev-unrelated_app-14",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Schedule the team retro",
+      "app": "Slack",
+      "title": "Slack",
+      "expected": "uncertain",
+      "acceptable": ["focused"]
+    },
+    {
+      "id": "dev-unrelated_app-15",
+      "split": "dev",
+      "category": "unrelated_app",
+      "goal": "Review pull request for the billing service",
+      "app": "Slack",
+      "title": "Slack",
+      "expected": "uncertain",
+      "acceptable": ["focused"]
     }
   ]
 }
