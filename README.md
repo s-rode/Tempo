@@ -20,10 +20,7 @@ You pick the task you want to work on, and a small language model running on you
 
 It shows the day as a timeline, keeps a focused and a distracted timer next to the MacBook notch, and can nudge you when you drift. It also has a simple planner for goals and tasks, or it can read your tasks from Apple Reminders.
 
-<p align="center">
-  <img src="docs/images/tempo-today-light.png" alt="Tempo's Today view with the plan, calendar and the timeline (light mode)" width="49%" />
-  <img src="docs/images/tempo-today-dark.png" alt="Tempo's Today view with the plan, calendar and the timeline (dark mode)" width="49%" />
-</p>
+![Tempo's Today view with the plan, calendar and the timeline](docs/images/tempo-today-light.png)
 
 ## Features
 
@@ -44,28 +41,40 @@ It shows the day as a timeline, keeps a focused and a distracted timer next to t
 
 ### Planner
 
-<p align="center">
-  <img src="docs/images/tempo-plan-light.png" alt="Tempo's week plan with tasks per day and their goals (light mode)" width="49%" />
-  <img src="docs/images/tempo-plan-dark.png" alt="Tempo's week plan with tasks per day and their goals (dark mode)" width="49%" />
-</p>
+![Tempo's week plan with tasks per day and their goals](docs/images/tempo-plan-light.png)
 
 Turn the planner on under **Settings → Planning**. Quick entry understands goals and estimates, so `Draft chapter 3 #thesis 45m` adds a 45-minute task linked to the thesis goal. Unfinished tasks move to today. See the [planner guide](docs/planner.md) for shortcuts.
 
 ### Focus sessions
 
 <p align="center">
-  <img src="docs/images/tempo-focus-light.png" alt="A running focus session with its goal, timer, and controls (light mode)" width="300" />
-  <img src="docs/images/tempo-focus-dark.png" alt="A running focus session with its goal, timer, and controls (dark mode)" width="300" />
+  <img src="docs/images/tempo-focus-light.png" alt="A running focus session with its goal, timer, and controls" width="340" />
 </p>
 
 ### Analysis
 
+![Tempo's Analysis tab for one week, with suggestions and focus by day](docs/images/tempo-analysis-light.png)
+
+Analysis is computed locally from the same events as the timeline and ends with up to three suggestions. The screenshots use sample data.
+
+<details>
+<summary><b>Dark mode</b></summary>
+
+<br />
+
+The same views in the dark style (Sage Solid). Light and dark styles are chosen under **Settings → Appearance**.
+
+![Tempo's Today view in dark mode](docs/images/tempo-today-dark.png)
+
+![Tempo's week plan in dark mode](docs/images/tempo-plan-dark.png)
+
+![Tempo's Analysis tab in dark mode](docs/images/tempo-analysis-dark.png)
+
 <p align="center">
-  <img src="docs/images/tempo-analysis-light.png" alt="Tempo's Analysis tab for one week, with suggestions and focus by day (light mode)" width="49%" />
-  <img src="docs/images/tempo-analysis-dark.png" alt="Tempo's Analysis tab for one week, with suggestions and focus by day (dark mode)" width="49%" />
+  <img src="docs/images/tempo-focus-dark.png" alt="A running focus session in dark mode" width="340" />
 </p>
 
-Analysis is computed locally from the same events as the timeline and ends with up to three suggestions. The screenshots use sample data and show Light (Sage Glass) next to Dark (Sage Solid); both are chosen under **Settings → Appearance**.
+</details>
 
 ## How it works
 
